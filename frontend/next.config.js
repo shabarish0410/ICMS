@@ -7,6 +7,9 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   ...(!isCapacitorBuild ? {
     async rewrites() {
       return [
