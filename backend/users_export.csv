@@ -1,0 +1,3 @@
+id,ic_number,password_hash,full_name,email,mobile,avatar_url,role_id,is_active,is_profile_completed,must_change_password,last_login,created_at,updated_at
+1,IC0000001,$2b$12$Ez3JTOfUUV9y7AWYDjpr7OHfnunX0/se3GjrQ8JyGqkKgZ9IIwkl6,Dr. Murali Mohan,muralimohan1@gmail.com,7993570903,,1,1,1,0,2026-06-23 14:22:51.793506,2026-06-23 13:50:18.434250,2026-06-23 14:23:57.689172
+2,IC2024001,$2b$12$03fY5DPer/s1KhwSclKnM.PzcHJbfvYHNmM2NW4/h7U38jf2sgO4i,Chatla Shabarish Reddy,shabarishreddy12@gmail.com,8341266934,,2,1,1,0,2026-06-23 14:25:24.762865,2026-06-23 14:25:07.047445,2026-06-23 14:27:05.009966

@@ -21,7 +21,7 @@ export default function HomePage() {
     <div className="min-h-screen flex items-center justify-center bg-dark-900">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 animate-pulse" />
-        <p className="text-dark-400 text-sm">Loading ICMS...</p>
+        <p className="text-dark-400 text-sm">Loading Spark Innovation Center...</p>
       </div>
     </div>
   );

@@ -1,0 +1,2 @@
+id,user_id,action,entity_type,entity_id,details,ip_address,timestamp
+1,1,student_created,student,1,{},,2026-06-23 14:25:07.841228

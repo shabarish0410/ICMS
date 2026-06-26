@@ -7,9 +7,11 @@ import { useAuth } from '@/context/AuthContext';
 import { attendanceAPI, uploadsAPI, studentsAPI } from '@/services/api';
 import { 
   UserCheck, Camera, CheckCircle, Clock, Calendar, 
-  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw
+  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw, ScanFace
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
+import { resolvePhotoUrl } from '@/lib/photoUrl';
 
 export default function AttendancePage() {
   const { isAdmin, isStudent } = useAuth();
@@ -296,14 +298,22 @@ export default function AttendancePage() {
           <h1 className="text-2xl font-bold text-dark-900 dark:text-white">Attendance Logs</h1>
           <p className="text-dark-500 mt-1">{isAdmin ? 'Monitor center attendance analytics' : 'Check-in and view your logs'}</p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setIsAdminModalOpen(true)}
-            className="btn-primary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/attendance/snapshots"
+            className="btn-secondary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl border border-dark-200 dark:border-dark-700 hover:border-primary-400 hover:text-primary-600 transition-colors"
           >
-            <UserCheck className="w-4 h-4" /> Mark Student Attendance
-          </button>
-        )}
+            <ScanFace className="w-4 h-4" /> View Snapshots
+          </Link>
+          {isAdmin && (
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="btn-primary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl"
+            >
+              <UserCheck className="w-4 h-4" /> Mark Student Attendance
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -565,7 +575,7 @@ export default function AttendancePage() {
                   type="text"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
-                  placeholder="Security Code (e.g. ICMS2026)"
+                  placeholder="Security Code (e.g. SPARK2026)"
                   className="input-field text-center text-base tracking-wider uppercase"
                 />
                 <button 
@@ -662,15 +672,21 @@ export default function AttendancePage() {
                   <td className="px-5 py-3.5 text-sm text-dark-500 font-mono">{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '—'}</td>
                   <td className="px-5 py-3.5 text-sm text-dark-500 capitalize">{r.method === 'face' ? '📷 Face Biometric' : '⌨️ Manual Entry'}</td>
                   <td className="px-5 py-3.5">
-                    {r.photo_url ? (
-                      <a 
-                        href={r.photo_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary-500 hover:text-primary-600 underline font-medium"
+                    {resolvePhotoUrl(r.photo_url) ? (
+                      <Link
+                        href="/dashboard/attendance/snapshots"
+                        className="block group"
+                        title="View in Snapshots"
                       >
-                        View Snapshot
-                      </a>
+                        <img
+                          src={resolvePhotoUrl(r.photo_url)!}
+                          alt="Attendance snapshot"
+                          className="w-10 h-10 rounded-lg object-cover border-2 border-dark-200 dark:border-dark-700 group-hover:border-primary-500 transition-all group-hover:scale-110 shadow-sm"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </Link>
                     ) : (
                       <span className="text-xs text-dark-400 italic">No capture</span>
                     )}

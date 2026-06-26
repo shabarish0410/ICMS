@@ -5,12 +5,17 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "ICMS API"
+    APP_NAME: str = "Spark Innovation Center API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
 
-    # Database
-    DATABASE_URL: str = "postgresql://icms_user:icms_password@localhost:5432/icms_db"
+    # Database (kept for backward compatibility with .env)
+    DATABASE_URL: Optional[str] = None
+
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
+    SUPABASE_KEY: str = ""
 
     # JWT
     SECRET_KEY: str = "your-super-secret-key-change-in-production-at-least-32-chars"

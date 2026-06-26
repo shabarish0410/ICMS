@@ -1,1 +1,1 @@
-# ICMS Backend Application
+# Spark Innovation Center Backend Application

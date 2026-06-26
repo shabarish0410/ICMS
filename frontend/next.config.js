@@ -7,15 +7,12 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   ...(!isCapacitorBuild ? {
     async rewrites() {
       return [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:8000/api/:path*',
+          destination: 'http://127.0.0.1:8000/api/:path*',
         },
       ];
     },

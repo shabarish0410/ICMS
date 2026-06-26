@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNav from '@/components/layout/TopNav';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, UserCheck, FolderKanban, Calendar, Menu, X, 
@@ -42,10 +43,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-dark-900">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 animate-pulse" />
-          <p className="text-dark-400 text-sm">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-dark-50 dark:bg-dark-900">
+        <div className="flex flex-col items-center gap-6">
+          <motion.div 
+            animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl bg-black ring-1 ring-white/10 flex items-center justify-center"
+          >
+            <Image 
+              src="/logo.jpg" 
+              alt="Loading..." 
+              width={96} 
+              height={96} 
+              className="object-contain w-full h-full scale-110"
+            />
+          </motion.div>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
         </div>
       </div>
     );
@@ -146,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Cpu className="w-4.5 h-4.5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-dark-900 dark:text-white">Innovation Center</h2>
+                    <h2 className="text-base font-bold text-dark-900 dark:text-white">Spark</h2>
                     <p className="text-[10px] text-dark-400 -mt-0.5">Quick Navigator</p>
                   </div>
                 </div>

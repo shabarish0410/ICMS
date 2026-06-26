@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
             <Cpu className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-dark-900 dark:text-white">ICMS</span>
+          <span className="text-xl font-bold text-dark-900 dark:text-white">Spark</span>
         </div>
 
         <div className="bg-white dark:bg-dark-800 rounded-2xl p-8 shadow-xl border border-dark-200 dark:border-dark-700">

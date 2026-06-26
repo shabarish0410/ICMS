@@ -170,6 +170,29 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    mobile: Optional[str] = None
+    avatar_url: Optional[str] = None
+    is_active: Optional[bool] = None
+    role_id: Optional[int] = None
+
+    @field_validator('full_name')
+    @classmethod
+    def check_name(cls, v):
+        if v is not None:
+            return validate_name(v)
+        return v
+
+    @field_validator('mobile')
+    @classmethod
+    def check_mobile(cls, v):
+        if v is not None:
+            return validate_mobile(v)
+        return v
+
+
 # ─── Student Schemas ──────────────────────────────────────────────────────────
 
 class StudentCreate(BaseModel):

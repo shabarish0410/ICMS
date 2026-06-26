@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Cpu, IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface LoginForm {
   ic_number: string;
@@ -15,6 +17,7 @@ interface LoginForm {
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
@@ -26,14 +29,14 @@ export default function LoginPage() {
       toast.success('Welcome back!');
 
       if (result.must_change_password) {
-        window.location.href = '/complete-profile?step=password';
+        router.push('/complete-profile?step=password');
       } else if (!result.is_profile_completed) {
-        window.location.href = '/complete-profile';
+        router.push('/complete-profile');
       } else {
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Login failed');
+      toast.error(err.response?.data?.detail || 'Login failed. Please check your credentials.');
     } finally {
       setIsSubmitting(false);
     }
@@ -51,11 +54,17 @@ export default function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center mb-8">
-              <Cpu className="w-8 h-8" />
+            <div className="w-24 h-24 mb-8 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-black flex items-center justify-center">
+              <Image 
+                src="/logo.jpg" 
+                alt="Spark Innovation Cell Logo" 
+                width={96} 
+                height={96} 
+                className="object-contain w-full h-full scale-110"
+              />
             </div>
             <h1 className="text-4xl font-bold mb-4 leading-tight">
-              Innovation Center<br />Management System
+              Spark Innovation Center
             </h1>
             <p className="text-lg text-white/70 mb-8 max-w-md">
               Empowering the next generation of innovators.
@@ -99,11 +108,12 @@ export default function LoginPage() {
                 <input
                   {...register('ic_number', {
                     required: 'IC Number is required',
-                    pattern: { value: /^IC\d{7}$/, message: 'Format: IC followed by 7 digits (e.g., IC2024001)' }
+                    pattern: { value: /^IC\d{7}$/, message: 'Format: IC followed by 7 digits (e.g., IC0000001)' }
                   })}
-                  placeholder="IC2024001"
+                  placeholder="IC0000001"
                   className="input-field pl-10"
                   id="login-ic"
+                  autoComplete="username"
                 />
               </div>
               {errors.ic_number && <p className="text-xs text-red-500 mt-1">{errors.ic_number.message}</p>}
@@ -120,6 +130,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   className="input-field pl-10 pr-10"
                   id="login-password"
+                  autoComplete="current-password"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400 hover:text-dark-600">
@@ -140,7 +151,12 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3" id="login-submit">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary w-full py-3"
+              id="login-submit"
+            >
               {isSubmitting ? (
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" />
               ) : (
@@ -150,20 +166,11 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-dark-500 dark:text-dark-400">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium transition-colors">
               Register here
             </Link>
           </p>
-
-          {/* Demo Credentials */}
-          <div className="mt-8 p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-            <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-2">Demo Credentials</p>
-            <div className="space-y-1 text-xs text-primary-600 dark:text-primary-400">
-              <p><strong>Admin:</strong> IC0000001 | Admin@123</p>
-              <p><strong>Student:</strong> IC2024001 | icms@IC2024001</p>
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>

@@ -19,31 +19,47 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
-    """Authenticate user with IC Number and password."""
-    user = db.query(User).filter(User.ic_number == req.ic_number).first()
-    if not user or not verify_password(req.password, user.password_hash):
+def login(req: LoginRequest):
+    """Authenticate user with IC Number and password using Supabase."""
+    from app.core.supabase import get_supabase
+    from app.core.security import verify_password, create_access_token, create_refresh_token
+    
+    supabase = get_supabase()
+    
+    # Query user and include role relation
+    response = supabase.table("users").select("*, role:roles(name)").eq("ic_number", req.ic_number).execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=401, detail="Invalid IC Number or password")
+        
+    user_data = response.data[0]
+    
+    if not verify_password(req.password, user_data.get("password_hash")):
         raise HTTPException(status_code=401, detail="Invalid IC Number or password")
 
-    if not user.is_active:
+    if not user_data.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
-    user.last_login = datetime.now(timezone.utc)
-    db.commit()
+    now = datetime.now(timezone.utc).isoformat()
+    supabase.table("users").update({"last_login": now}).eq("id", user_data["id"]).execute()
 
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.name})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
+    # Extract role name safely, fallback to 'student'
+    role_info = user_data.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+
+    access_token = create_access_token({"sub": str(user_data["id"]), "role": role_name})
+    refresh_token = create_refresh_token({"sub": str(user_data["id"])})
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        is_profile_completed=user.is_profile_completed,
-        must_change_password=user.must_change_password,
+        is_profile_completed=user_data.get("is_profile_completed", False),
+        must_change_password=user_data.get("must_change_password", False),
     )
 
 
 @router.get("/me", response_model=UserOut)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(current_user: dict = Depends(get_current_user)):
     """Get current authenticated user's profile."""
     return current_user
 
@@ -51,93 +67,187 @@ def get_me(current_user: User = Depends(get_current_user)):
 @router.put("/complete-profile", response_model=UserOut)
 def complete_profile(
     req: CompleteProfileRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Complete user profile on first login."""
-    current_user.full_name = req.full_name
-    current_user.email = req.email
-    current_user.mobile = req.mobile
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    
+    update_data = {
+        "full_name": req.full_name,
+        "email": req.email,
+        "mobile": req.mobile,
+        "is_profile_completed": True
+    }
     if req.avatar_url:
-        current_user.avatar_url = req.avatar_url
-    current_user.is_profile_completed = True
-    db.commit()
-    db.refresh(current_user)
-
-    log = ActivityLog(user_id=current_user.id, action="profile_completed",
-                      entity_type="user", entity_id=current_user.id)
-    db.add(log)
-    db.commit()
-
-    return current_user
+        update_data["avatar_url"] = req.avatar_url
+        
+    res = supabase.table("users").update(update_data).eq("id", current_user["id"]).execute()
+    
+    if not res.data:
+        raise HTTPException(status_code=400, detail="Failed to update profile")
+        
+    updated_user = res.data[0]
+    
+    # Activity log
+    log_data = {
+        "user_id": current_user["id"],
+        "action": "profile_completed",
+        "entity_type": "user",
+        "entity_id": current_user["id"]
+    }
+    supabase.table("activity_logs").insert(log_data).execute()
+    
+    return updated_user
 
 
 @router.put("/change-password")
 def change_password(
     req: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Change password (required on first login)."""
-    current_user.password_hash = hash_password(req.new_password)
-    current_user.must_change_password = False
-    db.commit()
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    
+    update_data = {
+        "password_hash": hash_password(req.new_password),
+        "must_change_password": False
+    }
+    
+    supabase.table("users").update(update_data).eq("id", current_user["id"]).execute()
     return {"message": "Password changed successfully"}
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh_token(req: RefreshRequest, db: Session = Depends(get_db)):
+def refresh_token(req: RefreshRequest):
     """Refresh access token."""
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    
     payload = decode_token(req.refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if not user:
+    res = supabase.table("users").select("*, role:roles(name)").eq("id", user_id).execute()
+    
+    if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    user = res.data[0]
+    role_info = user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
 
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.name})
-    new_refresh = create_refresh_token({"sub": str(user.id)})
+    access_token = create_access_token({"sub": str(user["id"]), "role": role_name})
+    new_refresh = create_refresh_token({"sub": str(user["id"])})
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=new_refresh,
-        is_profile_completed=user.is_profile_completed,
-        must_change_password=user.must_change_password,
+        is_profile_completed=user.get("is_profile_completed", False),
+        must_change_password=user.get("must_change_password", False),
     )
 
 
 @router.post("/forgot-password")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest):
     """Request password reset OTP."""
-    user = db.query(User).filter(User.ic_number == req.ic_number).first()
-    if not user:
+    from app.core.supabase import get_supabase
+    from app.core.email import send_otp_email
+    from app.core.security import hash_password
+    import random
+    from datetime import datetime, timezone, timedelta
+    
+    supabase = get_supabase()
+    
+    try:
+        res = supabase.table("users").select("id, email, full_name").eq("ic_number", req.ic_number).execute()
+        if not res.data:
+            return {"message": "If the IC Number exists, a reset OTP has been sent"}
+            
+        user = res.data[0]
+        email = user.get("email")
+        full_name = user.get("full_name", "User")
+        
+        # Generate 6-digit OTP
+        otp = str(random.randint(100000, 999999))
+        
+        # Save OTP to database using ic_number in the 'mobile' column for lookup
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        otp_data = {
+            "mobile": req.ic_number,
+            "otp_hash": hash_password(otp),
+            "expires_at": expires_at,
+            "attempts": 0
+        }
+        
+        # Upsert OTP (since mobile is unique)
+        existing_otp = supabase.table("otp_verifications").select("id").eq("mobile", req.ic_number).execute()
+        if existing_otp.data:
+            supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
+        else:
+            supabase.table("otp_verifications").insert(otp_data).execute()
+            
+        if email:
+            success = send_otp_email(email, otp, full_name)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to send OTP email. Check backend terminal for SMTP errors.")
+        
         return {"message": "If the IC Number exists, a reset OTP has been sent"}
-    # TODO: Generate OTP, send via email or SMS based on req.method
-    # For demo, OTP is always 123456
-    return {"message": "If the IC Number exists, a reset OTP has been sent", "demo_otp": "123456"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}")
 
 
 @router.post("/verify-otp")
-def verify_otp(req: VerifyOTPRequest, db: Session = Depends(get_db)):
+def verify_otp(req: VerifyOTPRequest):
     """Verify OTP and reset password."""
-    user = db.query(User).filter(User.ic_number == req.ic_number).first()
-    if not user:
+    from app.core.supabase import get_supabase
+    from app.core.security import verify_password, hash_password
+    from datetime import datetime, timezone
+    
+    supabase = get_supabase()
+    
+    res = supabase.table("users").select("id").eq("ic_number", req.ic_number).execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="User not found")
-    # TODO: Verify OTP against stored value
-    # For demo, accept 123456
-    if req.otp != "123456":
+        
+    user = res.data[0]
+    
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.ic_number).execute()
+    if not otp_res.data:
+        raise HTTPException(status_code=400, detail="No OTP requested for this user")
+        
+    otp_record = otp_res.data[0]
+    
+    # Check expiry
+    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="OTP has expired")
+        
+    # Verify hash
+    if not verify_password(req.otp, otp_record["otp_hash"]):
+        # Increment attempts
+        attempts = otp_record.get("attempts", 0) + 1
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("id", otp_record["id"]).execute()
         raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    # Success - delete OTP
+    supabase.table("otp_verifications").delete().eq("id", otp_record["id"]).execute()
 
-    user.password_hash = hash_password(req.new_password)
-    user.must_change_password = False
-    db.commit()
+    update_data = {
+        "password_hash": hash_password(req.new_password),
+        "must_change_password": False
+    }
+    supabase.table("users").update(update_data).eq("id", user["id"]).execute()
+    
     return {"message": "Password reset successfully"}
 
 
 @router.post("/logout")
-def logout(current_user: User = Depends(get_current_user)):
+def logout(current_user: dict = Depends(get_current_user)):
     """Logout current user."""
     return {"message": "Successfully logged out"}
 
@@ -145,55 +255,57 @@ def logout(current_user: User = Depends(get_current_user)):
 # ─── Public Student Registration & OTP ────────────────────────────────────────
 
 @router.post("/register/request-otp")
-def request_otp(req: RequestOTPRequest, db: Session = Depends(get_db)):
+def request_otp(req: RequestOTPRequest):
     """Generate and send SMS OTP for registration."""
-    # Check if this mobile is already registered
-    existing_user = db.query(User).filter(User.mobile == req.mobile).first()
-    if existing_user:
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    
+    # Check if mobile exists
+    res = supabase.table("users").select("id").eq("mobile", req.mobile).execute()
+    if res.data:
         raise HTTPException(status_code=400, detail="Mobile number is already registered")
 
-    # Check for existing OTP request
-    otp_record = db.query(OtpVerification).filter(OtpVerification.mobile == req.mobile).first()
     now = datetime.now(timezone.utc)
     
-    if otp_record:
-        # Check cooldown (30 seconds)
-        time_elapsed = now - otp_record.created_at.replace(tzinfo=timezone.utc)
+    # Check OTP record
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.mobile).execute()
+    
+    if otp_res.data:
+        otp_record = otp_res.data[0]
+        created_at = datetime.fromisoformat(otp_record["created_at"].replace("Z", "+00:00"))
+        time_elapsed = now - created_at
         if time_elapsed < timedelta(seconds=30):
             cooldown_left = 30 - int(time_elapsed.total_seconds())
             raise HTTPException(
                 status_code=429, 
                 detail=f"Please wait {cooldown_left} seconds before requesting a new OTP."
             )
-    
-    # Generate 6-digit OTP
+            
     otp = f"{random.randint(100000, 999999)}"
     otp_hash = hash_password(otp)
+    expires_at = (now + timedelta(minutes=5)).isoformat()
     
-    if otp_record:
-        otp_record.otp_hash = otp_hash
-        otp_record.attempts = 0
-        otp_record.expires_at = now + timedelta(minutes=5)
-        otp_record.created_at = now
+    if otp_res.data:
+        supabase.table("otp_verifications").update({
+            "otp_hash": otp_hash,
+            "attempts": 0,
+            "expires_at": expires_at,
+            "created_at": now.isoformat()
+        }).eq("mobile", req.mobile).execute()
     else:
-        otp_record = OtpVerification(
-            mobile=req.mobile,
-            otp_hash=otp_hash,
-            attempts=0,
-            expires_at=now + timedelta(minutes=5),
-            created_at=now
-        )
-        db.add(otp_record)
+        supabase.table("otp_verifications").insert({
+            "mobile": req.mobile,
+            "otp_hash": otp_hash,
+            "attempts": 0,
+            "expires_at": expires_at,
+            "created_at": now.isoformat()
+        }).execute()
         
-    db.commit()
-    
-    # Dispatch OTP via SMS service
     sms_sent = send_otp_sms(req.mobile, otp)
     if not sms_sent:
         raise HTTPException(status_code=500, detail="Failed to dispatch SMS OTP. Please try again.")
         
     response = {"message": "OTP sent successfully"}
-    # In development/test mock mode, we can expose the OTP to the API for easier local testing
     from app.core.config import settings
     if settings.SMS_PROVIDER.lower() == "mock":
         response["demo_otp"] = otp
@@ -202,94 +314,86 @@ def request_otp(req: RequestOTPRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/register", response_model=TokenResponse)
-def register_student(req: RegisterRequest, db: Session = Depends(get_db)):
+def register_student(req: RegisterRequest):
     """Verify OTP and register new student user."""
-    # Check if user with IC Number already exists
-    existing_ic = db.query(User).filter(User.ic_number == req.ic_number).first()
-    if existing_ic:
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    
+    ic_res = supabase.table("users").select("id").eq("ic_number", req.ic_number).execute()
+    if ic_res.data:
         raise HTTPException(status_code=400, detail="IC Number is already registered")
         
-    existing_email = db.query(User).filter(User.email == req.email).first()
-    if existing_email:
+    email_res = supabase.table("users").select("id").eq("email", req.email).execute()
+    if email_res.data:
         raise HTTPException(status_code=400, detail="Email is already registered")
 
-    existing_mobile = db.query(User).filter(User.mobile == req.mobile).first()
-    if existing_mobile:
+    mobile_res = supabase.table("users").select("id").eq("mobile", req.mobile).execute()
+    if mobile_res.data:
         raise HTTPException(status_code=400, detail="Mobile number is already registered")
 
-    # Fetch OTP record
-    otp_record = db.query(OtpVerification).filter(OtpVerification.mobile == req.mobile).first()
-    if not otp_record:
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.mobile).execute()
+    if not otp_res.data:
         raise HTTPException(status_code=400, detail="No OTP requested for this mobile number")
-
+        
+    otp_record = otp_res.data[0]
     now = datetime.now(timezone.utc)
-    if otp_record.expires_at.replace(tzinfo=timezone.utc) < now:
-        db.delete(otp_record)
-        db.commit()
+    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace("Z", "+00:00"))
+    
+    if expires_at < now:
+        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
 
-    if otp_record.attempts >= 3:
-        db.delete(otp_record)
-        db.commit()
-        raise HTTPException(status_code=400, detail="Maximum OTP verification attempts exceeded. Please request a new one.")
+    if otp_record["attempts"] >= 3:
+        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
+        raise HTTPException(status_code=400, detail="Maximum OTP verification attempts exceeded.")
 
-    # Verify OTP
-    if not verify_password(req.otp, otp_record.otp_hash):
-        otp_record.attempts += 1
-        db.commit()
-        attempts_left = 3 - otp_record.attempts
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid OTP. {attempts_left} attempts remaining."
-        )
+    if not verify_password(req.otp, otp_record["otp_hash"]):
+        attempts = otp_record["attempts"] + 1
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("mobile", req.mobile).execute()
+        raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - attempts} attempts remaining.")
 
-    # Fetch student role
-    student_role = db.query(Role).filter(Role.name == "student").first()
-    if not student_role:
+    role_res = supabase.table("roles").select("id").eq("name", "student").execute()
+    if not role_res.data:
         raise HTTPException(status_code=500, detail="Student role not found")
+    role_id = role_res.data[0]["id"]
 
-    # Create new User
-    new_user = User(
-        ic_number=req.ic_number,
-        password_hash=hash_password(req.password),
-        full_name=req.full_name,
-        email=req.email,
-        mobile=req.mobile,
-        role_id=student_role.id,
-        is_active=True,
-        is_profile_completed=False,
-        must_change_password=False,  # They set it themselves during registration
-        last_login=now
-    )
-    db.add(new_user)
-    db.flush()
-
-    # Create new Student profile
-    new_student = Student(
-        user_id=new_user.id,
-        department="Computer Science",  # Default department, user can change later
-        year=1,
-        semester=1
-    )
-    db.add(new_student)
+    new_user = {
+        "ic_number": req.ic_number,
+        "password_hash": hash_password(req.password),
+        "full_name": req.full_name,
+        "email": req.email,
+        "mobile": req.mobile,
+        "role_id": role_id,
+        "is_active": True,
+        "is_profile_completed": False,
+        "must_change_password": False,
+        "last_login": now.isoformat()
+    }
     
-    # Audit log
-    log = ActivityLog(
-        user_id=new_user.id,
-        action="register",
-        entity_type="user",
-        entity_id=new_user.id,
-        details={"method": "mobile_otp"}
-    )
-    db.add(log)
-    
-    # Clean up OTP record
-    db.delete(otp_record)
-    db.commit()
+    user_insert = supabase.table("users").insert(new_user).execute()
+    user_id = user_insert.data[0]["id"]
 
-    # Create tokens for auto-login
-    access_token = create_access_token({"sub": str(new_user.id), "role": "student"})
-    refresh_token = create_refresh_token({"sub": str(new_user.id)})
+    new_student = {
+        "user_id": user_id,
+        "department": "Computer Science",
+        "year": 1,
+        "semester": 1
+    }
+    supabase.table("students").insert(new_student).execute()
+    
+    log = {
+        "user_id": user_id,
+        "action": "register",
+        "entity_type": "user",
+        "entity_id": user_id,
+        "details": {"method": "mobile_otp"}
+    }
+    supabase.table("activity_logs").insert(log).execute()
+    
+    supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
+
+    access_token = create_access_token({"sub": str(user_id), "role": "student"})
+    refresh_token = create_refresh_token({"sub": str(user_id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -299,76 +403,8 @@ def register_student(req: RegisterRequest, db: Session = Depends(get_db)):
     )
 
 
-from pydantic import BaseModel
+# Google login is temporarily disabled.
+# @router.post("/google", response_model=TokenResponse)
+# def google_login(req: dict):
+#     pass
 
-class GoogleLoginRequest(BaseModel):
-    id_token: str
-
-
-@router.post("/google", response_model=TokenResponse)
-def google_login(req: GoogleLoginRequest, db: Session = Depends(get_db)):
-    """Authenticate or register user using Google Sign-In."""
-    # Mock Google Auth Token validation
-    # In production, we'd verify OAuth2 token via Google SDK.
-    # In mock, we assume success for demo.
-    email = "google_user@icms.edu"
-    name = "Google User"
-    
-    if req.id_token.startswith("valid_token_"):
-        email = req.id_token.replace("valid_token_", "")
-        name = email.split("@")[0].replace(".", " ").title()
-        
-    user = db.query(User).filter(User.email == email).first()
-    
-    if not user:
-        student_role = db.query(Role).filter(Role.name == "student").first()
-        if not student_role:
-            raise HTTPException(status_code=500, detail="Student role not found")
-            
-        ic_suffix = random.randint(1000000, 9999999)
-        ic_number = f"IC{ic_suffix}"
-        
-        user = User(
-            ic_number=ic_number,
-            password_hash=hash_password(f"google@{ic_number}"),
-            full_name=name,
-            email=email,
-            role_id=student_role.id,
-            is_active=True,
-            is_profile_completed=False,
-            must_change_password=False,
-            last_login=datetime.now(timezone.utc)
-        )
-        db.add(user)
-        db.flush()
-        
-        student = Student(
-            user_id=user.id,
-            department="Computer Science",
-            year=1,
-            semester=1
-        )
-        db.add(student)
-        
-        log = ActivityLog(
-            user_id=user.id,
-            action="register",
-            entity_type="user",
-            entity_id=user.id,
-            details={"method": "google"}
-        )
-        db.add(log)
-        db.commit()
-    else:
-        user.last_login = datetime.now(timezone.utc)
-        db.commit()
-        
-    access_token = create_access_token({"sub": str(user.id), "role": user.role.name})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        is_profile_completed=user.is_profile_completed,
-        must_change_password=user.must_change_password
-    )

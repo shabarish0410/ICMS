@@ -87,7 +87,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       // Trigger google sign-in mock auth
-      const res = await authAPI.googleLogin('valid_token_student@icms.edu');
+      const res = await authAPI.googleLogin('valid_token_student@spark.edu');
       await secureStorage.setItem('access_token', res.data.access_token);
       await secureStorage.setItem('refresh_token', res.data.refresh_token);
       toast.success('Signed in with Google!');
@@ -115,7 +115,7 @@ export default function RegisterPage() {
               <Cpu className="w-8 h-8" />
             </div>
             <h1 className="text-4xl font-bold mb-4 leading-tight">
-              Join the Innovation Center
+              Join Spark Innovation Center
             </h1>
             <p className="text-lg text-white/70 mb-8 max-w-md">
               Create a student account to showcase your research, manage team collaborations, and join premium campus tech hackathons.

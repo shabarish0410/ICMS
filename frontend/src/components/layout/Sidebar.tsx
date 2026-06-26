@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, GraduationCap, Users2, FolderKanban, Calendar,
   Bell, Settings, ClipboardList, FileText, Clock, Megaphone,
-  Video, ChevronLeft, ChevronRight, Cpu, LogOut, Sparkles, UserCheck,
+  Video, ChevronLeft, ChevronRight, Cpu, LogOut, Sparkles, UserCheck, ScanFace, Shield,
 } from 'lucide-react';
 
 const adminMenu = [
@@ -18,11 +18,13 @@ const adminMenu = [
   { label: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
   { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },
   { label: 'Attendance', href: '/dashboard/attendance', icon: UserCheck },
+  { label: 'Snapshots', href: '/dashboard/attendance/snapshots', icon: ScanFace },
   { label: 'Weekly Reports', href: '/dashboard/weekly-reports', icon: FileText },
   { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
   { label: 'Meetings', href: '/dashboard/meetings', icon: Video },
   { label: 'Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
+  { label: 'Admins', href: '/dashboard/admins', icon: Shield },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -31,6 +33,7 @@ const studentMenu = [
   { label: 'My Project', href: '/dashboard/projects', icon: FolderKanban },
   { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },
   { label: 'Attendance', href: '/dashboard/attendance', icon: UserCheck },
+  { label: 'Snapshots', href: '/dashboard/attendance/snapshots', icon: ScanFace },
   { label: 'Weekly Reports', href: '/dashboard/weekly-reports', icon: FileText },
   { label: 'Meetings', href: '/dashboard/meetings', icon: Video },
   { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
@@ -61,7 +64,7 @@ export default function Sidebar() {
         <AnimatePresence>
           {!collapsed && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h1 className="text-lg font-bold text-dark-900 dark:text-white whitespace-nowrap">ICMS</h1>
+              <h1 className="text-lg font-bold text-dark-900 dark:text-white whitespace-nowrap">Spark</h1>
               <p className="text-[10px] text-dark-400 -mt-1 whitespace-nowrap">Innovation Center</p>
             </motion.div>
           )}

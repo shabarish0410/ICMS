@@ -1,8 +1,8 @@
-# 🚀 ICMS – Innovation Center Management System
+# 🚀 Spark Innovation Center
 
-A full-stack, enterprise-grade application for managing college Innovation Centers. Built with **Next.js 14**, **FastAPI**, **PostgreSQL**, and **Docker**.
+A full-stack, enterprise-grade application for managing the Spark Innovation Center. Built with **Next.js 14**, **FastAPI**, **PostgreSQL**, and **Docker**.
 
-![ICMS Dashboard](https://img.shields.io/badge/Status-Production_Ready-green) ![License](https://img.shields.io/badge/License-MIT-blue)
+![Spark Dashboard](https://img.shields.io/badge/Status-Production_Ready-green) ![License](https://img.shields.io/badge/License-MIT-blue)
 
 ---
 
@@ -83,7 +83,7 @@ A full-stack, enterprise-grade application for managing college Innovation Cente
 ## 📁 Project Structure
 
 ```
-ICMS/
+Spark/
 ├── backend/
 │   ├── app/
 │   │   ├── core/           # Config, database, security
@@ -166,9 +166,8 @@ docker-compose logs -f
 
 | Role | Email | Password |
 |------|-------|----------|
-| Super Admin | admin@icms.edu | admin123 |
-| Faculty | faculty@icms.edu | faculty123 |
-| Student | arjun@icms.edu | student123 |
+| Super Admin | admin@spark.edu | Admin@123 |
+| Student | arjun@spark.edu | spark@IC2024001 (default pattern: spark@{ic_number}) |
 
 ---
 

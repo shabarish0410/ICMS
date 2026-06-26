@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models import Equipment, User, ActivityLog
+from app.core.supabase import get_supabase
 from app.schemas import EquipmentCreate, EquipmentUpdate, EquipmentOut, PaginatedResponse
 import math
 
@@ -13,53 +11,60 @@ router = APIRouter(prefix="/api/equipment", tags=["Equipment"])
 def list_equipment(
     page: int = Query(1, ge=1), size: int = Query(10, ge=1, le=100),
     search: str = Query(""), status: str = Query(""), category: str = Query(""),
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
-    query = db.query(Equipment)
+    supabase = get_supabase()
+    query = supabase.table("equipment").select("*", count="exact")
+
     if search:
-        query = query.filter(Equipment.name.ilike(f"%{search}%"))
+        query = query.ilike("name", f"%{search}%")
     if status:
-        query = query.filter(Equipment.status == status)
+        query = query.eq("status", status)
     if category:
-        query = query.filter(Equipment.category == category)
-    total = query.count()
-    items = query.offset((page - 1) * size).limit(size).all()
+        query = query.eq("category", category)
+        
+    res = query.range((page - 1) * size, page * size - 1).execute()
+    
+    items = res.data
+    total = res.count if res.count is not None else 0
+
     return PaginatedResponse(
-        items=[EquipmentOut.model_validate(e) for e in items],
+        items=items,
         total=total, page=page, size=size,
         pages=math.ceil(total / size) if total > 0 else 0,
     )
 
 
 @router.post("", response_model=EquipmentOut, status_code=201)
-def create_equipment(data: EquipmentCreate, db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("super_admin", "admin"))):
-    equip = Equipment(**data.model_dump())
-    db.add(equip)
-    db.commit()
-    db.refresh(equip)
-    return equip
+def create_equipment(data: EquipmentCreate,
+    current_user: dict = Depends(require_roles("super_admin", "admin"))):
+    supabase = get_supabase()
+    res = supabase.table("equipment").insert(data.model_dump()).execute()
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to create equipment")
+    return res.data[0]
 
 
 @router.put("/{equip_id}", response_model=EquipmentOut)
-def update_equipment(equip_id: int, data: EquipmentUpdate, db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("super_admin", "admin"))):
-    equip = db.query(Equipment).filter(Equipment.id == equip_id).first()
-    if not equip:
+def update_equipment(equip_id: int, data: EquipmentUpdate,
+    current_user: dict = Depends(require_roles("super_admin", "admin"))):
+    supabase = get_supabase()
+    existing = supabase.table("equipment").select("id").eq("id", equip_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Equipment not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(equip, k, v)
-    db.commit()
-    db.refresh(equip)
-    return equip
+        
+    update_data = data.model_dump(exclude_unset=True)
+    res = supabase.table("equipment").update(update_data).eq("id", equip_id).execute()
+    return res.data[0]
 
 
 @router.delete("/{equip_id}")
-def delete_equipment(equip_id: int, db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("super_admin", "admin"))):
-    equip = db.query(Equipment).filter(Equipment.id == equip_id).first()
-    if not equip:
+def delete_equipment(equip_id: int,
+    current_user: dict = Depends(require_roles("super_admin", "admin"))):
+    supabase = get_supabase()
+    existing = supabase.table("equipment").select("id").eq("id", equip_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Equipment not found")
-    db.delete(equip)
-    db.commit()
+        
+    supabase.table("equipment").delete().eq("id", equip_id).execute()
     return {"message": "Equipment deleted"}

@@ -7,7 +7,7 @@ export default function UsersPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Users page merged into Students management in ICMS v2
+    // Users page merged into Students management in Spark Innovation Center
     router.replace('/dashboard/students');
   }, [router]);
 

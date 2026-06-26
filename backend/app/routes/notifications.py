@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models import User, Notification
+from app.core.supabase import get_supabase
 from app.schemas import NotificationOut, PaginatedResponse
 import math
 
@@ -14,45 +12,41 @@ def list_notifications(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     unread_only: bool = Query(False),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
-    q = db.query(Notification).filter(Notification.user_id == current_user.id)
+    supabase = get_supabase()
+    query = supabase.table("notifications").select("*", count="exact").eq("user_id", current_user["id"])
+    
     if unread_only:
-        q = q.filter(Notification.is_read == False)
+        query = query.eq("is_read", False)
 
-    total = q.count()
-    items = q.order_by(Notification.created_at.desc()).offset((page - 1) * size).limit(size).all()
+    res = query.order("created_at", desc=True).range((page - 1) * size, page * size - 1).execute()
+    
+    items = res.data
+    total = res.count if res.count is not None else 0
 
     return PaginatedResponse(
-        items=[NotificationOut.model_validate(n) for n in items],
+        items=items,
         total=total, page=page, size=size, pages=math.ceil(total / size) if total else 0,
     )
 
 
 @router.get("/unread-count")
-def unread_count(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    count = db.query(Notification).filter(
-        Notification.user_id == current_user.id, Notification.is_read == False
-    ).count()
-    return {"count": count}
+def unread_count(current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase()
+    res = supabase.table("notifications").select("id", count="exact").eq("user_id", current_user["id"]).eq("is_read", False).execute()
+    return {"count": res.count if res.count is not None else 0}
 
 
 @router.put("/{notif_id}/read")
-def mark_read(notif_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    notif = db.query(Notification).filter(
-        Notification.id == notif_id, Notification.user_id == current_user.id
-    ).first()
-    if notif:
-        notif.is_read = True
-        db.commit()
+def mark_read(notif_id: int, current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase()
+    supabase.table("notifications").update({"is_read": True}).eq("id", notif_id).eq("user_id", current_user["id"]).execute()
     return {"message": "Marked as read"}
 
 
 @router.put("/read-all")
-def mark_all_read(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db.query(Notification).filter(
-        Notification.user_id == current_user.id, Notification.is_read == False
-    ).update({"is_read": True})
-    db.commit()
+def mark_all_read(current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase()
+    supabase.table("notifications").update({"is_read": True}).eq("user_id", current_user["id"]).eq("is_read", False).execute()
     return {"message": "All notifications marked as read"}

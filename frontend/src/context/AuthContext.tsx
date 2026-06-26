@@ -1,7 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { authAPI } from '@/services/api';
+import { tokenStorage } from '@/services/api';
 import { User } from '@/types';
 
 interface AuthContextType {
@@ -25,39 +27,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   const refreshUser = useCallback(async () => {
+    // Synchronously check token first — avoids a wasted network call
+    const token = tokenStorage.getToken();
+    if (!token) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
       const res = await authAPI.me();
       setUser(res.data);
     } catch {
+      // Token invalid/expired — clear everything
       setUser(null);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      tokenStorage.clearTokens();
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // Bootstrap: check auth state once on mount
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
 
   const login = async (ic_number: string, password: string) => {
     const res = await authAPI.login({ ic_number, password });
-    localStorage.setItem('access_token', res.data.access_token);
-    localStorage.setItem('refresh_token', res.data.refresh_token);
+    const { access_token, refresh_token, is_profile_completed, must_change_password } = res.data;
+
+    // 1. Persist tokens BEFORE calling /me so the interceptor can read them synchronously
+    tokenStorage.setTokens(access_token, refresh_token);
+
+    // 2. Fetch full user profile now that the token is in localStorage
     await refreshUser();
-    return {
-      is_profile_completed: res.data.is_profile_completed,
-      must_change_password: res.data.must_change_password,
-    };
+
+    return { is_profile_completed, must_change_password };
+  };
+
+  const logout = () => {
+    // Best-effort logout call (fire & forget)
+    authAPI.logout().catch(() => {});
+    tokenStorage.clearTokens();
+    setUser(null);
+    router.push('/login');
   };
 
   const completeProfile = async (data: { full_name: string; email: string; mobile: string }) => {
@@ -70,22 +85,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshUser();
   };
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    setUser(null);
-    window.location.href = '/login';
-  };
-
   const isAdmin = user?.role?.name === 'admin';
   const isStudent = user?.role?.name === 'student';
 
   return (
     <AuthContext.Provider
       value={{
-        user, isLoading, isAuthenticated: !!user,
-        isAdmin, isStudent,
-        login, logout, refreshUser, completeProfile, changePassword,
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        isAdmin,
+        isStudent,
+        login,
+        logout,
+        refreshUser,
+        completeProfile,
+        changePassword,
       }}
     >
       {children}

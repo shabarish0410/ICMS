@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone
-from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models import User, DynamicForm, FormSubmission, Notification
+from app.core.supabase import get_supabase
 from app.schemas import (
     FormCreate, FormUpdate, FormOut, FormSubmissionCreate, FormSubmissionOut, PaginatedResponse
 )
@@ -11,27 +9,31 @@ import math
 
 router = APIRouter(prefix="/api/forms", tags=["Dynamic Forms"])
 
-
 @router.get("", response_model=PaginatedResponse)
 def list_forms(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """List forms. Admin: all. Student: active only."""
-    q = db.query(DynamicForm)
-    if current_user.role.name == "student":
-        q = q.filter(DynamicForm.is_active == True)
+    supabase = get_supabase()
+    query = supabase.table("dynamic_forms").select("*", count="exact")
+    
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    
+    if role_name == "student":
+        query = query.eq("is_active", True)
 
-    total = q.count()
-    forms = q.order_by(DynamicForm.created_at.desc()).offset((page - 1) * size).limit(size).all()
+    res = query.order("created_at", desc=True).range((page - 1) * size, page * size - 1).execute()
+    forms = res.data
+    total = res.count or 0
 
     items = []
     for f in forms:
-        out = FormOut.model_validate(f)
-        out.response_count = db.query(FormSubmission).filter(FormSubmission.form_id == f.id).count()
-        items.append(out)
+        sub_res = supabase.table("form_submissions").select("id", count="exact").eq("form_id", f["id"]).execute()
+        f["response_count"] = sub_res.count or 0
+        items.append(f)
 
     return PaginatedResponse(
         items=items, total=total, page=page, size=size,
@@ -40,91 +42,114 @@ def list_forms(
 
 
 @router.get("/{form_id}", response_model=FormOut)
-def get_form(form_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    form = db.query(DynamicForm).filter(DynamicForm.id == form_id).first()
-    if not form:
+def get_form(form_id: int, current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase()
+    res = supabase.table("dynamic_forms").select("*").eq("id", form_id).execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="Form not found")
-    out = FormOut.model_validate(form)
-    out.response_count = db.query(FormSubmission).filter(FormSubmission.form_id == form.id).count()
-    return out
+        
+    form = res.data[0]
+    sub_res = supabase.table("form_submissions").select("id", count="exact").eq("form_id", form["id"]).execute()
+    form["response_count"] = sub_res.count or 0
+    return form
 
 
 @router.post("", response_model=FormOut, status_code=201)
-def create_form(req: FormCreate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    form = DynamicForm(
-        title=req.title,
-        description=req.description,
-        fields=[f.model_dump() for f in req.fields],
-        is_active=req.is_active,
-        deadline=req.deadline,
-        created_by=current_user.id,
-    )
-    db.add(form)
-    db.commit()
-    db.refresh(form)
+def create_form(req: FormCreate, current_user: dict = Depends(require_roles("admin"))):
+    supabase = get_supabase()
+    
+    deadline_str = req.deadline.isoformat() if req.deadline else None
+    
+    new_form = {
+        "title": req.title,
+        "description": req.description,
+        "fields": [f.model_dump() for f in req.fields],
+        "is_active": req.is_active,
+        "deadline": deadline_str,
+        "created_by": current_user["id"],
+    }
+    
+    res = supabase.table("dynamic_forms").insert(new_form).execute()
+    form = res.data[0]
 
     # Notify all students about new form
-    from app.models import Role
-    student_role = db.query(Role).filter(Role.name == "student").first()
-    if student_role:
-        students = db.query(User).filter(User.role_id == student_role.id, User.is_active == True).all()
-        for s in students:
-            notif = Notification(
-                user_id=s.id, title=f"New Form: {form.title}",
-                message=f"A new form '{form.title}' is available. Please fill it out.",
-                notification_type="form", link=f"/dashboard/forms/{form.id}",
-            )
-            db.add(notif)
-        db.commit()
+    student_role_res = supabase.table("roles").select("id").eq("name", "student").execute()
+    if student_role_res.data:
+        student_role_id = student_role_res.data[0]["id"]
+        students_res = supabase.table("users").select("id").eq("role_id", student_role_id).eq("is_active", True).execute()
+        
+        notifications = []
+        for s in students_res.data:
+            notifications.append({
+                "user_id": s["id"], 
+                "title": f"New Form: {form['title']}",
+                "message": f"A new form '{form['title']}' is available. Please fill it out.",
+                "notification_type": "form", 
+                "link": f"/dashboard/forms/{form['id']}",
+            })
+        if notifications:
+            supabase.table("notifications").insert(notifications).execute()
 
-    return FormOut.model_validate(form)
+    form["response_count"] = 0
+    return form
 
 
 @router.put("/{form_id}", response_model=FormOut)
-def update_form(form_id: int, req: FormUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    form = db.query(DynamicForm).filter(DynamicForm.id == form_id).first()
-    if not form:
+def update_form(form_id: int, req: FormUpdate, current_user: dict = Depends(require_roles("admin"))):
+    supabase = get_supabase()
+    existing = supabase.table("dynamic_forms").select("id").eq("id", form_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Form not found")
+        
     data = req.model_dump(exclude_unset=True)
     if "fields" in data and data["fields"]:
         data["fields"] = [f.model_dump() if hasattr(f, 'model_dump') else f for f in data["fields"]]
-    for key, value in data.items():
-        setattr(form, key, value)
-    db.commit()
-    db.refresh(form)
-    return FormOut.model_validate(form)
+    if "deadline" in data and data["deadline"]:
+        data["deadline"] = data["deadline"].isoformat()
+        
+    res = supabase.table("dynamic_forms").update(data).eq("id", form_id).execute()
+    
+    form = res.data[0]
+    sub_res = supabase.table("form_submissions").select("id", count="exact").eq("form_id", form["id"]).execute()
+    form["response_count"] = sub_res.count or 0
+    return form
 
 
 @router.delete("/{form_id}")
-def delete_form(form_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    form = db.query(DynamicForm).filter(DynamicForm.id == form_id).first()
-    if not form:
+def delete_form(form_id: int, current_user: dict = Depends(require_roles("admin"))):
+    supabase = get_supabase()
+    existing = supabase.table("dynamic_forms").select("id").eq("id", form_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Form not found")
-    db.delete(form)
-    db.commit()
+        
+    supabase.table("dynamic_forms").delete().eq("id", form_id).execute()
     return {"message": "Form deleted successfully"}
 
 
 # ─── Submissions ──────────────────────────────────────────────────────────────
 
 @router.post("/{form_id}/submit", response_model=FormSubmissionOut, status_code=201)
-def submit_form(form_id: int, req: FormSubmissionCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    form = db.query(DynamicForm).filter(DynamicForm.id == form_id).first()
-    if not form or not form.is_active:
+def submit_form(form_id: int, req: FormSubmissionCreate, current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase()
+    form_res = supabase.table("dynamic_forms").select("is_active").eq("id", form_id).execute()
+    if not form_res.data or not form_res.data[0].get("is_active"):
         raise HTTPException(status_code=404, detail="Form not found or inactive")
 
-    # Check if already submitted
-    existing = db.query(FormSubmission).filter(
-        FormSubmission.form_id == form_id, FormSubmission.user_id == current_user.id
-    ).first()
-    if existing:
+    existing = supabase.table("form_submissions").select("id").eq("form_id", form_id).eq("user_id", current_user["id"]).execute()
+    if existing.data:
         raise HTTPException(status_code=400, detail="You have already submitted this form")
 
-    submission = FormSubmission(form_id=form_id, user_id=current_user.id, data=req.data)
-    db.add(submission)
-    db.commit()
-    db.refresh(submission)
-    return db.query(FormSubmission).options(joinedload(FormSubmission.user)).filter(FormSubmission.id == submission.id).first()
+    new_sub = {
+        "form_id": form_id,
+        "user_id": current_user["id"],
+        "data": req.data
+    }
+    
+    res = supabase.table("form_submissions").insert(new_sub).execute()
+    sub_id = res.data[0]["id"]
+    
+    final_res = supabase.table("form_submissions").select("*, user:users(*)").eq("id", sub_id).execute()
+    return final_res.data[0]
 
 
 @router.get("/{form_id}/responses", response_model=PaginatedResponse)
@@ -133,19 +158,18 @@ def list_responses(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     status: str = Query(""),
-    current_user: User = Depends(require_roles("admin")),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_roles("admin"))
 ):
-    q = db.query(FormSubmission).options(joinedload(FormSubmission.user)).filter(FormSubmission.form_id == form_id)
+    supabase = get_supabase()
+    query = supabase.table("form_submissions").select("*, user:users(*)", count="exact").eq("form_id", form_id)
     if status:
-        q = q.filter(FormSubmission.status == status)
+        query = query.eq("status", status)
 
-    total = q.count()
-    subs = q.order_by(FormSubmission.submitted_at.desc()).offset((page - 1) * size).limit(size).all()
+    res = query.order("submitted_at", desc=True).range((page - 1) * size, page * size - 1).execute()
 
     return PaginatedResponse(
-        items=[FormSubmissionOut.model_validate(s) for s in subs],
-        total=total, page=page, size=size, pages=math.ceil(total / size) if total else 0,
+        items=res.data,
+        total=res.count or 0, page=page, size=size, pages=math.ceil((res.count or 0) / size) if (res.count or 0) else 0,
     )
 
 
@@ -154,34 +178,45 @@ def review_response(
     form_id: int, response_id: int,
     admin_remarks: str = "",
     status: str = "reviewed",
-    current_user: User = Depends(require_roles("admin")),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_roles("admin"))
 ):
-    sub = db.query(FormSubmission).filter(FormSubmission.id == response_id, FormSubmission.form_id == form_id).first()
-    if not sub:
+    supabase = get_supabase()
+    existing = supabase.table("form_submissions").select("id").eq("id", response_id).eq("form_id", form_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Submission not found")
-    sub.status = status
-    sub.admin_remarks = admin_remarks
-    sub.reviewed_at = datetime.now(timezone.utc)
-    db.commit()
-    return db.query(FormSubmission).options(joinedload(FormSubmission.user)).filter(FormSubmission.id == sub.id).first()
+        
+    update_data = {
+        "status": status,
+        "admin_remarks": admin_remarks,
+        "reviewed_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    supabase.table("form_submissions").update(update_data).eq("id", response_id).execute()
+    
+    final_res = supabase.table("form_submissions").select("*, user:users(*)").eq("id", response_id).execute()
+    return final_res.data[0]
 
 
 @router.post("/{form_id}/duplicate", response_model=FormOut, status_code=201)
-def duplicate_form(form_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+def duplicate_form(form_id: int, current_user: dict = Depends(require_roles("admin"))):
     """Clone an existing form."""
-    form = db.query(DynamicForm).filter(DynamicForm.id == form_id).first()
-    if not form:
+    supabase = get_supabase()
+    form_res = supabase.table("dynamic_forms").select("*").eq("id", form_id).execute()
+    if not form_res.data:
         raise HTTPException(status_code=404, detail="Form not found")
-    new_form = DynamicForm(
-        title=f"Copy of {form.title}",
-        description=form.description,
-        fields=form.fields,
-        is_active=False,
-        deadline=form.deadline,
-        created_by=current_user.id,
-    )
-    db.add(new_form)
-    db.commit()
-    db.refresh(new_form)
-    return FormOut.model_validate(new_form)
+        
+    form = form_res.data[0]
+    
+    new_form = {
+        "title": f"Copy of {form['title']}",
+        "description": form.get("description"),
+        "fields": form.get("fields"),
+        "is_active": False,
+        "deadline": form.get("deadline"),
+        "created_by": current_user["id"],
+    }
+    
+    res = supabase.table("dynamic_forms").insert(new_form).execute()
+    out = res.data[0]
+    out["response_count"] = 0
+    return out

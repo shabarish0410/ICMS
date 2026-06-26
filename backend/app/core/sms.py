@@ -1,6 +1,5 @@
 import logging
 import os
-import requests
 from app.core.config import settings
 
 # Setup audit logger for SMS
@@ -23,7 +22,7 @@ def send_otp_sms(mobile: str, otp: str) -> bool:
     audit_logger.info(f"Initiated OTP delivery for mobile: {masked_mobile}")
     
     provider = settings.SMS_PROVIDER.lower()
-    message = f"Your ICMS Registration OTP is: {otp}. Valid for 5 minutes."
+    message = f"Your Spark Innovation Center Registration OTP is: {otp}. Valid for 5 minutes."
     
     if provider == "twilio":
         try:
@@ -43,6 +42,7 @@ def send_otp_sms(mobile: str, otp: str) -> bool:
             
     elif provider == "msg91":
         try:
+            import requests
             # Send using MSG91 API
             url = "https://api.msg91.com/api/v5/otp"
             params = {
@@ -64,6 +64,7 @@ def send_otp_sms(mobile: str, otp: str) -> bool:
             
     elif provider == "fast2sms":
         try:
+            import requests
             # Send using Fast2SMS Quick SMS API
             url = "https://www.fast2sms.com/dev/bulkV2"
             headers = {

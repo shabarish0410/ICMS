@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from app.core.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from app.core.security import get_current_user, require_roles
-from app.models import User, Team, Student
+from app.core.supabase import get_supabase
 from app.schemas import TeamCreate, TeamUpdate, TeamOut, PaginatedResponse
 import math
+import io
+import pandas as pd
+import pdfplumber
 
 router = APIRouter(prefix="/api/teams", tags=["Teams"])
 
@@ -14,22 +15,24 @@ def list_teams(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str = Query(""),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """List all teams."""
-    q = db.query(Team)
+    supabase = get_supabase()
+    
+    query = supabase.table("teams").select("*", count="exact")
     if search:
-        q = q.filter(Team.name.ilike(f"%{search}%"))
-
-    total = q.count()
-    teams = q.offset((page - 1) * size).limit(size).all()
-
+        query = query.ilike("name", f"%{search}%")
+        
+    res = query.range((page - 1) * size, page * size - 1).execute()
+    teams = res.data
+    total = res.count if res.count is not None else 0
+    
     items = []
     for t in teams:
-        out = TeamOut.model_validate(t)
-        out.member_count = db.query(Student).filter(Student.team_id == t.id).count()
-        items.append(out)
+        member_res = supabase.table("students").select("id", count="exact").eq("team_id", t["id"]).execute()
+        t["member_count"] = member_res.count if member_res.count is not None else 0
+        items.append(t)
 
     return PaginatedResponse(
         items=items, total=total, page=page, size=size,
@@ -38,54 +41,178 @@ def list_teams(
 
 
 @router.get("/{team_id}", response_model=TeamOut)
-def get_team(team_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    team = db.query(Team).filter(Team.id == team_id).first()
-    if not team:
+def get_team(
+    team_id: int, 
+    current_user: dict = Depends(get_current_user)
+):
+    supabase = get_supabase()
+    res = supabase.table("teams").select("*").eq("id", team_id).execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="Team not found")
-    out = TeamOut.model_validate(team)
-    out.member_count = db.query(Student).filter(Student.team_id == team.id).count()
-    return out
+        
+    team = res.data[0]
+    member_res = supabase.table("students").select("id", count="exact").eq("team_id", team["id"]).execute()
+    team["member_count"] = member_res.count if member_res.count is not None else 0
+    return team
 
 
 @router.post("", response_model=TeamOut, status_code=201)
-def create_team(req: TeamCreate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    existing = db.query(Team).filter(Team.name == req.name).first()
-    if existing:
+def create_team(
+    req: TeamCreate, 
+    current_user: dict = Depends(require_roles("admin"))
+):
+    supabase = get_supabase()
+    existing = supabase.table("teams").select("id").eq("name", req.name).execute()
+    if existing.data:
         raise HTTPException(status_code=400, detail="Team name already exists")
-    team = Team(**req.model_dump())
-    db.add(team)
-    db.commit()
-    db.refresh(team)
-    out = TeamOut.model_validate(team)
-    out.member_count = 0
-    return out
+        
+    new_team = req.model_dump()
+    res = supabase.table("teams").insert(new_team).execute()
+    
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to create team")
+        
+    team = res.data[0]
+    team["member_count"] = 0
+    return team
+
+
+@router.post("/bulk-import")
+async def bulk_import_teams(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Import teams via CSV/Excel upload."""
+    if not file.filename.endswith(('.csv', '.xlsx', '.pdf')):
+        raise HTTPException(status_code=400, detail="Only CSV, Excel, or PDF files are allowed.")
+        
+    contents = await file.read()
+    try:
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(contents))
+        elif file.filename.endswith('.pdf'):
+            with pdfplumber.open(io.BytesIO(contents)) as pdf:
+                all_data = []
+                for page in pdf.pages:
+                    table = page.extract_table()
+                    if table:
+                        all_data.extend(table)
+                if not all_data:
+                    raise ValueError("No tabular data found in PDF")
+                df = pd.DataFrame(all_data[1:], columns=all_data[0])
+        else:
+            df = pd.read_excel(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+
+    # Clean headers
+    df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
+    
+    if "name" not in df.columns:
+        raise HTTPException(status_code=400, detail="Missing required column: name")
+
+    supabase = get_supabase()
+    
+    # Fetch existing team names to avoid duplicates
+    existing_teams_res = supabase.table("teams").select("name").execute()
+    existing_names = {t["name"].lower() for t in existing_teams_res.data}
+
+    success_count = 0
+    skipped_count = 0
+    errors = []
+
+    for idx, row in df.iterrows():
+        try:
+            name = str(row["name"]).strip()
+            if pd.isna(name) or name in ('', 'nan', 'None'):
+                errors.append(f"Row {idx+2}: Team Name is empty")
+                continue
+                
+            if name.lower() in existing_names:
+                skipped_count += 1
+                errors.append(f"Row {idx+2}: Team '{name}' already exists (skipped)")
+                continue
+
+            desc = str(row["description"]).strip() if "description" in row and not pd.isna(row["description"]) else None
+            dept = str(row["department"]).strip() if "department" in row and not pd.isna(row["department"]) else None
+            mentor = str(row["mentor_name"]).strip() if "mentor_name" in row and not pd.isna(row["mentor_name"]) else None
+            
+            new_team = {
+                "name": name,
+                "description": desc,
+                "department": dept,
+                "mentor_name": mentor,
+            }
+            
+            res = supabase.table("teams").insert(new_team).execute()
+            if not res.data:
+                errors.append(f"Row {idx+2}: Failed to create team '{name}'")
+                continue
+            
+            existing_names.add(name.lower())
+            success_count += 1
+            
+        except Exception as e:
+            errors.append(f"Row {idx+2}: Error - {str(e)}")
+
+    return {
+        "message": f"Import complete. Imported {success_count}, Skipped {skipped_count}",
+        "success": success_count,
+        "skipped": skipped_count,
+        "errors": errors[:50]
+    }
 
 
 @router.put("/{team_id}", response_model=TeamOut)
-def update_team(team_id: int, req: TeamUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    team = db.query(Team).filter(Team.id == team_id).first()
-    if not team:
+def update_team(
+    team_id: int, 
+    req: TeamUpdate, 
+    current_user: dict = Depends(require_roles("admin"))
+):
+    supabase = get_supabase()
+    existing = supabase.table("teams").select("id").eq("id", team_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Team not found")
-    for key, value in req.model_dump(exclude_unset=True).items():
-        setattr(team, key, value)
-    db.commit()
-    db.refresh(team)
-    out = TeamOut.model_validate(team)
-    out.member_count = db.query(Student).filter(Student.team_id == team.id).count()
-    return out
+        
+    update_data = req.model_dump(exclude_unset=True)
+    res = supabase.table("teams").update(update_data).eq("id", team_id).execute()
+    
+    team = res.data[0]
+    member_res = supabase.table("students").select("id", count="exact").eq("team_id", team["id"]).execute()
+    team["member_count"] = member_res.count if member_res.count is not None else 0
+    return team
 
 
 @router.delete("/{team_id}")
-def delete_team(team_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    team = db.query(Team).filter(Team.id == team_id).first()
-    if not team:
+def delete_team(
+    team_id: int, 
+    current_user: dict = Depends(require_roles("admin"))
+):
+    supabase = get_supabase()
+    existing = supabase.table("teams").select("id").eq("id", team_id).execute()
+    if not existing.data:
         raise HTTPException(status_code=404, detail="Team not found")
-    db.delete(team)
-    db.commit()
+        
+    supabase.table("teams").delete().eq("id", team_id).execute()
     return {"message": "Team deleted successfully"}
 
 
 @router.get("/{team_id}/members")
-def get_team_members(team_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    members = db.query(Student).options(joinedload(Student.user)).filter(Student.team_id == team_id).all()
-    return [{"id": s.id, "user_id": s.user_id, "name": s.user.full_name, "ic_number": s.user.ic_number, "department": s.department} for s in members]
+def get_team_members(
+    team_id: int, 
+    current_user: dict = Depends(get_current_user)
+):
+    supabase = get_supabase()
+    res = supabase.table("students").select("*, user:users(*)").eq("team_id", team_id).execute()
+    
+    members = []
+    for s in res.data:
+        user_info = s.get("user", {})
+        members.append({
+            "id": s["id"],
+            "user_id": s["user_id"],
+            "name": user_info.get("full_name"),
+            "ic_number": user_info.get("ic_number"),
+            "department": s.get("department")
+        })
+    return members

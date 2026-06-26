@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, date, timezone
-from app.core.database import get_db
 from app.core.security import get_current_user, require_roles
-from app.models import User, Attendance, Student
+from app.core.supabase import get_supabase
 from app.schemas import AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut, PaginatedResponse
 import math
 
@@ -13,34 +11,43 @@ router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
 @router.post("/mark", response_model=AttendanceOut, status_code=201)
 def mark_attendance(
     req: AttendanceMarkRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Mark attendance for today. Student marks their own attendance."""
-    if not current_user.student:
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    
+    if role_name != "student" or not current_user.get("student"):
         raise HTTPException(status_code=403, detail="Only students can mark attendance")
 
-    today = date.today()
-    existing = db.query(Attendance).filter(
-        Attendance.student_id == current_user.student.id,
-        Attendance.date == today,
-    ).first()
+    student_data = current_user.get("student")
+    if isinstance(student_data, list) and len(student_data) > 0:
+        student_id = student_data[0]["id"]
+    elif isinstance(student_data, dict):
+        student_id = student_data["id"]
+    else:
+        raise HTTPException(status_code=403, detail="Student profile not found")
 
-    if existing:
+    today = date.today().isoformat()
+    supabase = get_supabase()
+
+    existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
+    if existing.data:
         raise HTTPException(status_code=400, detail="Attendance already marked for today")
 
-    attendance = Attendance(
-        student_id=current_user.student.id,
-        date=today,
-        check_in_time=datetime.now(timezone.utc),
-        method=req.method,
-        status="present",
-        photo_url=req.photo_url,
-    )
-    db.add(attendance)
-    db.commit()
-    db.refresh(attendance)
-    return attendance
+    new_att = {
+        "student_id": student_id,
+        "date": today,
+        "check_in_time": datetime.now(timezone.utc).isoformat(),
+        "method": req.method,
+        "status": "present",
+        "photo_url": req.photo_url,
+    }
+    
+    res = supabase.table("attendance").insert(new_att).execute()
+    att_id = res.data[0]["id"]
+    final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
+    return final_res.data[0]
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -51,61 +58,61 @@ def list_attendance(
     department: str = Query(""),
     team_id: int = Query(None),
     student_id: int = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """List attendance. Student: own. Admin: all with filters."""
-    q = db.query(Attendance).options(joinedload(Attendance.student).joinedload(Student.user))
+    supabase = get_supabase()
+    query = supabase.table("attendance").select("*, student:students!inner(*, user:users(*))", count="exact")
 
-    if current_user.role.name == "student" and current_user.student:
-        q = q.filter(Attendance.student_id == current_user.student.id)
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+
+    if role_name == "student" and current_user.get("student"):
+        student_data = current_user.get("student")
+        student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
+        query = query.eq("student_id", student_id)
     else:
         if student_id:
-            q = q.filter(Attendance.student_id == student_id)
+            query = query.eq("student_id", student_id)
         if department:
-            q = q.join(Student).filter(Student.department == department)
+            query = query.eq("student.department", department)
         if team_id:
-            q = q.join(Student).filter(Student.team_id == team_id)
+            query = query.eq("student.team_id", team_id)
 
     if date_filter:
-        try:
-            d = datetime.strptime(date_filter, "%Y-%m-%d").date()
-            q = q.filter(Attendance.date == d)
-        except ValueError:
-            pass
+        query = query.eq("date", date_filter)
 
-    total = q.count()
-    records = q.order_by(Attendance.date.desc()).offset((page - 1) * size).limit(size).all()
-
+    res = query.order("date", desc=True).range((page - 1) * size, page * size - 1).execute()
+    
     return PaginatedResponse(
-        items=[AttendanceOut.model_validate(r) for r in records],
-        total=total, page=page, size=size, pages=math.ceil(total / size) if total else 0,
+        items=res.data,
+        total=res.count or 0, page=page, size=size, pages=math.ceil((res.count or 0) / size) if (res.count or 0) else 0,
     )
 
 
 @router.get("/stats")
-def attendance_stats(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+def attendance_stats(current_user: dict = Depends(get_current_user)):
     """Attendance statistics."""
-    today = date.today()
-    total_students = db.query(Student).join(User).filter(User.is_active == True).count()
+    supabase = get_supabase()
+    today = date.today().isoformat()
+    
+    total_res = supabase.table("users").select("id", count="exact").eq("is_active", True).eq("role_id", 2).execute()
+    total_students = total_res.count or 0
 
-    if current_user.role.name == "student" and current_user.student:
-        # Student's own stats
-        total_days = db.query(Attendance).filter(Attendance.student_id == current_user.student.id).count()
-        present = db.query(Attendance).filter(
-            Attendance.student_id == current_user.student.id, Attendance.status == "present"
-        ).count()
-        late = db.query(Attendance).filter(
-            Attendance.student_id == current_user.student.id, Attendance.status == "late"
-        ).count()
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+
+    if role_name == "student" and current_user.get("student"):
+        student_data = current_user.get("student")
+        student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
+        
+        att_res = supabase.table("attendance").select("status").eq("student_id", student_id).execute()
+        total_days = len(att_res.data)
+        present = sum(1 for a in att_res.data if a["status"] == "present")
+        late = sum(1 for a in att_res.data if a["status"] == "late")
         percentage = (present + late) / total_days * 100 if total_days > 0 else 0
 
-        today_marked = db.query(Attendance).filter(
-            Attendance.student_id == current_user.student.id, Attendance.date == today
-        ).first()
+        today_marked_res = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
 
         return {
             "total_days": total_days,
@@ -113,16 +120,13 @@ def attendance_stats(
             "late": late,
             "absent": total_days - present - late,
             "percentage": round(percentage, 1),
-            "today_marked": today_marked is not None,
+            "today_marked": len(today_marked_res.data) > 0,
         }
     else:
         # Admin stats
-        present_today = db.query(Attendance).filter(
-            Attendance.date == today, Attendance.status.in_(["present", "late"])
-        ).count()
-        late_today = db.query(Attendance).filter(
-            Attendance.date == today, Attendance.status == "late"
-        ).count()
+        att_today_res = supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
+        present_today = sum(1 for a in att_today_res.data if a["status"] in ["present", "late"])
+        late_today = sum(1 for a in att_today_res.data if a["status"] == "late")
 
         return {
             "total_students": total_students,
@@ -137,33 +141,38 @@ def attendance_stats(
 def monthly_attendance(
     month: int = Query(None, ge=1, le=12),
     year: int = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Get monthly attendance summary."""
-    from datetime import date as d_type
+    supabase = get_supabase()
     now = datetime.now()
     m = month or now.month
     y = year or now.year
 
-    q = db.query(Attendance).filter(
-        Attendance.date >= d_type(y, m, 1),
-    )
+    start_date = date(y, m, 1).isoformat()
     if m == 12:
-        q = q.filter(Attendance.date < d_type(y + 1, 1, 1))
+        end_date = date(y + 1, 1, 1).isoformat()
     else:
-        q = q.filter(Attendance.date < d_type(y, m + 1, 1))
+        end_date = date(y, m + 1, 1).isoformat()
 
-    if current_user.role.name == "student" and current_user.student:
-        q = q.filter(Attendance.student_id == current_user.student.id)
+    query = supabase.table("attendance").select("*").gte("date", start_date).lt("date", end_date)
 
-    records = q.all()
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+
+    if role_name == "student" and current_user.get("student"):
+        student_data = current_user.get("student")
+        student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
+        query = query.eq("student_id", student_id)
+
+    res = query.execute()
+    
     days = {}
-    for r in records:
-        day_str = r.date.isoformat()
+    for r in res.data:
+        day_str = r["date"]
         if day_str not in days:
             days[day_str] = {"present": 0, "absent": 0, "late": 0}
-        days[day_str][r.status] = days[day_str].get(r.status, 0) + 1
+        days[day_str][r["status"]] = days[day_str].get(r["status"], 0) + 1
 
     return {"month": m, "year": y, "days": days}
 
@@ -171,43 +180,73 @@ def monthly_attendance(
 @router.post("/admin/mark", response_model=AttendanceOut)
 def admin_mark_attendance(
     req: AdminAttendanceMarkRequest,
-    current_user: User = Depends(require_roles("admin")),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_roles("admin"))
 ):
     """Mark or update attendance for any student on a given date (Admin only)."""
-    student = db.query(Student).filter(Student.id == req.student_id).first()
-    if not student:
+    supabase = get_supabase()
+    student_res = supabase.table("students").select("id").eq("id", req.student_id).execute()
+    if not student_res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    existing = db.query(Attendance).filter(
-        Attendance.student_id == req.student_id,
-        Attendance.date == req.date,
-    ).first()
+    date_iso = req.date.isoformat() if isinstance(req.date, date) else req.date
+    
+    existing = supabase.table("attendance").select("id, check_in_time").eq("student_id", req.student_id).eq("date", date_iso).execute()
 
-    if existing:
-        existing.status = req.status
-        existing.method = req.method
+    if existing.data:
+        att_id = existing.data[0]["id"]
+        update_data = {
+            "status": req.status,
+            "method": req.method
+        }
         if req.status == "absent":
-            existing.check_in_time = None
-        elif not existing.check_in_time:
-            existing.check_in_time = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(existing)
-        return existing
+            update_data["check_in_time"] = None
+        elif not existing.data[0].get("check_in_time"):
+            update_data["check_in_time"] = datetime.now(timezone.utc).isoformat()
+            
+        supabase.table("attendance").update(update_data).eq("id", att_id).execute()
     else:
         check_in = None
         if req.status in ["present", "late"]:
-            check_in = datetime.now(timezone.utc)
-        
-        attendance = Attendance(
-            student_id=req.student_id,
-            date=req.date,
-            check_in_time=check_in,
-            method=req.method,
-            status=req.status,
-        )
-        db.add(attendance)
-        db.commit()
-        db.refresh(attendance)
-        return attendance
+            check_in = datetime.now(timezone.utc).isoformat()
+            
+        new_att = {
+            "student_id": req.student_id,
+            "date": date_iso,
+            "check_in_time": check_in,
+            "method": req.method,
+            "status": req.status,
+        }
+        res = supabase.table("attendance").insert(new_att).execute()
+        att_id = res.data[0]["id"]
 
+    final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
+    return final_res.data[0]
+
+
+@router.delete("/{attendance_id}", status_code=204)
+def delete_attendance(
+    attendance_id: int,
+    current_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Delete an attendance record (and clears its photo_url). Admin only."""
+    supabase = get_supabase()
+    
+    existing = supabase.table("attendance").select("id, photo_url").eq("id", attendance_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+
+    # If photo stored in Supabase Storage, try to remove it
+    record = existing.data[0]
+    photo_url = record.get("photo_url") or ""
+    if "supabase.co" in photo_url and "/object/public/" in photo_url:
+        try:
+            # Extract the path after the bucket name
+            parts = photo_url.split("/object/public/attendance-photos/")
+            if len(parts) == 2:
+                file_path = parts[1].split("?")[0]  # strip query params
+                supabase.storage.from_("attendance-photos").remove([file_path])
+        except Exception as e:
+            print(f"⚠️ Could not delete photo from storage: {e}")
+
+    supabase.table("attendance").delete().eq("id", attendance_id).execute()
+    return

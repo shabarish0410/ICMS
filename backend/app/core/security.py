@@ -66,9 +66,9 @@ def is_token_blacklisted(token: str) -> bool:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme)
 ):
-    from app.models import User
+    from app.core.supabase import get_supabase
 
     if is_token_blacklisted(token):
         raise HTTPException(
@@ -87,15 +87,17 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
         )
 
-    from sqlalchemy.orm import joinedload
-    user = db.query(User).options(
-        joinedload(User.role), joinedload(User.student)
-    ).filter(User.id == int(user_id)).first()
-    if user is None:
+    supabase = get_supabase()
+    res = supabase.table("users").select("*, role:roles(id, name), student:students(*)").eq("id", user_id).execute()
+    
+    if not res.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    if not user.is_active:
+        
+    user = res.data[0]
+    
+    if not user.get("is_active"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User account is deactivated"
         )
@@ -106,9 +108,20 @@ def get_current_user(
 def require_roles(*allowed_roles: str):
     """Dependency factory for role-based access control."""
 
-    def role_checker(current_user=Depends(get_current_user)):
-        if current_user.role and current_user.role.name in allowed_roles:
+    def role_checker(current_user: dict = Depends(get_current_user)):
+        role_info = current_user.get("role")
+        role_name = None
+        
+        if isinstance(role_info, list) and len(role_info) > 0:
+            role_name = role_info[0].get("name")
+        elif isinstance(role_info, dict):
+            role_name = role_info.get("name")
+        elif isinstance(role_info, str):
+            role_name = role_info
+            
+        if role_name and role_name in allowed_roles:
             return current_user
+            
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied. Required roles: {', '.join(allowed_roles)}",
