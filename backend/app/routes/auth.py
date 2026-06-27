@@ -202,7 +202,7 @@ def forgot_password(req: ForgotPasswordRequest):
         else:
             if not email:
                 raise HTTPException(status_code=400, detail="User does not have a registered email.")
-            # This will raise a ValueError if SMTP fails, which is caught by the global try-except below
+            # This will raise a ValueError if Resend fails, which is caught by the global try-except below
             send_otp_email(email, otp, full_name)
             
         # Save OTP to database using ic_number in the 'mobile' column for lookup ONLY after email success

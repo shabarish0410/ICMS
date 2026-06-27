@@ -32,12 +32,8 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
 
     # Email Configuration
-    EMAIL_PROVIDER: str = "smtp"  # options: 'smtp', 'resend', 'mock'
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
     RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = ""
 
     # Google OAuth (scaffolded)
     GOOGLE_CLIENT_ID: str = ""
