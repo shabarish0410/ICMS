@@ -21,6 +21,12 @@ def login(req: LoginRequest):
     from app.core.supabase import get_supabase
     from app.core.security import verify_password, create_access_token, create_refresh_token
     
+    # Sanitize IC number
+    raw_ic = str(req.ic_number).strip()
+    if raw_ic.endswith(".0"):
+        raw_ic = raw_ic[:-2]
+    req.ic_number = raw_ic
+    
     supabase = get_supabase()
     
     # Query user and include role relation

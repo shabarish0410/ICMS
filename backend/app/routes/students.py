@@ -65,7 +65,11 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
     # Build list of valid rows to insert, skip duplicates immediately
     valid_rows = []
     for idx, row in enumerate(rows):
-        ic = str(row.get("ic_number", "")).strip()
+        raw_ic = str(row.get("ic_number", "")).strip()
+        if raw_ic.endswith(".0"):
+            raw_ic = raw_ic[:-2]
+            
+        ic = raw_ic
         if not ic or ic.lower() in ("nan", "none", ""):
             error_rows.append({**row, "__row__": idx + 2, "__error__": "IC Number is empty"})
             failed_count += 1
@@ -340,8 +344,8 @@ async def bulk_import_students(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
-    # Normalise headers
-    df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
+    # Normalise headers and strip UTF-8 BOM
+    df.columns = [str(c).strip().replace('\ufeff', '').lower().replace(" ", "_") for c in df.columns]
 
     required_cols = {"ic_number", "full_name", "department", "year"}
     missing = required_cols - set(df.columns)
