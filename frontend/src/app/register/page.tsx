@@ -6,7 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Cpu, IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2, User, Mail, Phone, ShieldCheck, Chrome } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { authAPI, secureStorage } from '@/services/api';
+import { authAPI, tokenStorage } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface RegisterForm {
   ic_number: string;
@@ -18,6 +20,15 @@ interface RegisterForm {
 }
 
 export default function RegisterPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   const [step, setStep] = useState<'details' | 'otp'>('details');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,8 +82,7 @@ export default function RegisterPage() {
       toast.success('Registration successful!');
 
       // Save tokens and login the user
-      await secureStorage.setItem('access_token', res.data.access_token);
-      await secureStorage.setItem('refresh_token', res.data.refresh_token);
+      tokenStorage.setTokens(res.data.access_token, res.data.refresh_token);
 
       // Redirect to profile setup/dashboard
       window.location.href = '/complete-profile';
@@ -88,8 +98,7 @@ export default function RegisterPage() {
     try {
       // Trigger google sign-in mock auth
       const res = await authAPI.googleLogin('valid_token_student@spark.edu');
-      await secureStorage.setItem('access_token', res.data.access_token);
-      await secureStorage.setItem('refresh_token', res.data.refresh_token);
+      tokenStorage.setTokens(res.data.access_token, res.data.refresh_token);
       toast.success('Signed in with Google!');
       window.location.href = '/dashboard';
     } catch (err: any) {

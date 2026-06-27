@@ -4,9 +4,7 @@ from jose import JWTError, jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.core.database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -30,7 +28,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({"exp": int(expire.timestamp()), "type": "access"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -39,20 +37,35 @@ def create_refresh_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({"exp": int(expire.timestamp()), "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
+    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+        f.write(f"--- DECODE_TOKEN CALLED ---\nToken snippet: {token[:15]}...{token[-15:] if len(token) > 30 else ''}\n")
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
+        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+            f.write(f"--- DECODE_TOKEN SUCCESS ---\nPayload: {payload}\n")
         return payload
-    except JWTError:
+    except JWTError as e:
+        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+            f.write(f"--- JWT DECODE ERROR ---\nException type: {type(e)}\nException str: {str(e)}\n")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail=f"Invalid or expired token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        import traceback
+        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+            f.write(f"--- UNEXPECTED DECODE ERROR ---\n{traceback.format_exc()}\n")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Unexpected token error: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -88,21 +101,52 @@ def get_current_user(
         )
 
     supabase = get_supabase()
-    res = supabase.table("users").select("*, role:roles(id, name), student:students(*)").eq("id", user_id).execute()
-    
-    if not res.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+    try:
+        try:
+            uid = int(user_id)
+        except ValueError:
+            uid = user_id
+            
+        res = supabase.table("users").select("*, role:roles(id, name)").eq("id", uid).execute()
         
-    user = res.data[0]
-    
-    if not user.get("is_active"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User account is deactivated"
-        )
+        if not res.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+            
+        user = res.data[0]
+        
+        if not user.get("is_active"):
+            if user.get("is_active") is False:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="User account is deactivated"
+                )
 
-    return user
+        # Normalize role from list to dict if PostgREST returns a list
+        role_info = user.get("role")
+        if isinstance(role_info, list) and len(role_info) > 0:
+            user["role"] = role_info[0]
+            role_info = user["role"]
+        
+        role_name = role_info.get("name") if isinstance(role_info, dict) else None
+        
+        if role_name == "student":
+            student_res = supabase.table("students").select("*").eq("user_id", uid).execute()
+            user["student"] = student_res.data
+            
+        # Ensure booleans are not None to prevent Pydantic ValidationError
+        user["is_active"] = bool(user.get("is_active", True))
+        user["is_profile_completed"] = bool(user.get("is_profile_completed", False))
+        user["must_change_password"] = bool(user.get("must_change_password", False))
+
+        return user
+    except Exception as e:
+        import traceback
+        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+            f.write(f"Error in get_current_user: {str(e)}\n{traceback.format_exc()}\n")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Backend Error: {str(e)}"
+        )
 
 
 def require_roles(*allowed_roles: str):

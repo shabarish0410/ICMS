@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -16,11 +16,17 @@ interface LoginForm {
 }
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
+  
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   const onSubmit = async (data: LoginForm) => {
     setIsSubmitting(true);
@@ -59,7 +65,8 @@ export default function LoginPage() {
                 src="/logo.jpg" 
                 alt="Spark Innovation Cell Logo" 
                 width={96} 
-                height={96} 
+                height={96}
+                priority
                 className="object-contain w-full h-full scale-110"
               />
             </div>

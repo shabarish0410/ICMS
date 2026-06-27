@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { User, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Loader2, CheckCircle, Cpu } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ProfileForm {
   full_name: string;
@@ -22,6 +22,7 @@ interface PasswordForm {
 function CompleteProfileContent() {
   const { user, completeProfile, changePassword } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const startStep = searchParams.get('step') === 'password' ? 'password' : 'profile';
 
   const [step, setStep] = useState<'password' | 'profile' | 'done'>(
@@ -42,6 +43,11 @@ function CompleteProfileContent() {
 
   useEffect(() => {
     if (user) {
+      if (!user.must_change_password && user.is_profile_completed) {
+        router.push('/dashboard');
+        return;
+      }
+      
       reset({
         full_name: user.full_name || '',
         email: user.email || '',
@@ -51,7 +57,7 @@ function CompleteProfileContent() {
         setStep('password');
       }
     }
-  }, [user, reset]);
+  }, [user, reset, router]);
 
   const passwordForm = useForm<PasswordForm>();
 
@@ -68,7 +74,7 @@ function CompleteProfileContent() {
         setStep('profile');
       } else {
         setStep('done');
-        setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+        setTimeout(() => { router.push('/dashboard'); }, 1500);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to change password');
@@ -83,7 +89,7 @@ function CompleteProfileContent() {
       await completeProfile(data);
       toast.success('Profile completed!');
       setStep('done');
-      setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+      setTimeout(() => { router.push('/dashboard'); }, 1500);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to update profile');
     } finally {

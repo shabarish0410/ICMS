@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Any
 from datetime import datetime, date
 import re
@@ -166,6 +166,22 @@ class UserOut(BaseModel):
     is_profile_completed: bool
     must_change_password: bool = False
     created_at: Optional[datetime] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            role_info = data.get('role')
+            if isinstance(role_info, list) and len(role_info) > 0:
+                data['role'] = role_info[0]
+            elif isinstance(role_info, list) and len(role_info) == 0:
+                data['role'] = None
+                
+            data['is_active'] = bool(data.get('is_active', True))
+            data['is_profile_completed'] = bool(data.get('is_profile_completed', False))
+            data['must_change_password'] = bool(data.get('must_change_password', False))
+        return data
+
     class Config:
         from_attributes = True
 

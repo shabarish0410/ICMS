@@ -7,8 +7,20 @@ import { authAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 import { Cpu, IdCard, Mail, Phone, Lock, ArrowRight, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function ForgotPasswordPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   const [step, setStep] = useState<'ic' | 'otp' | 'done'>('ic');
   const [method, setMethod] = useState<'email' | 'mobile'>('email');
   const [icNumber, setIcNumber] = useState('');

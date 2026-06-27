@@ -46,18 +46,19 @@ export const secureStorage = {
 
 // ─── Base URL ────────────────────────────────────────────────────────────────
 const getBaseURL = (): string => {
-  // Server-side: use internal rewrite
   if (typeof window === 'undefined') return '/api';
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
 
   // Capacitor native app
   const cap = (window as any).Capacitor;
   if (cap) {
     const isAndroid = /android/i.test(navigator.userAgent);
-    return isAndroid ? 'http://10.0.2.2:8000/api' : 'http://127.0.0.1:8000/api';
+    return isAndroid ? 'http://10.0.2.2:8000/api' : `${backendUrl}/api`;
   }
 
-  // Browser (web) — use Next.js rewrite proxy /api → 127.0.0.1:8000/api
-  return '/api';
+  // Browser (web) — hit backend directly to avoid Next.js trailing slash redirect loop stripping Auth headers
+  return `${backendUrl}/api`;
 };
 
 const api = axios.create({
@@ -70,8 +71,14 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = tokenStorage.getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    console.log('Request Interceptor - URL:', config.url);
+    console.log('Request Interceptor - Token:', token ? token.substring(0, 15) + '...' : 'null');
+    if (token && token !== 'undefined' && token !== 'null') {
+      if (config.headers && typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -111,13 +118,19 @@ api.interceptors.response.use(
     }
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
         // Queue subsequent calls while refresh is in progress
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+          if (originalRequest.headers) {
+            if (typeof originalRequest.headers.set === 'function') {
+              originalRequest.headers.set('Authorization', `Bearer ${token}`);
+            } else {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+          }
           return api(originalRequest);
         }).catch((err) => Promise.reject(err));
       }

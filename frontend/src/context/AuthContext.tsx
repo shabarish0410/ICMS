@@ -39,8 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const res = await authAPI.me();
-      setUser(res.data);
-    } catch {
+      // Handle both raw user object and { success: true, user: {...} } formats
+      const userData = res.data.success && res.data.user ? res.data.user : res.data;
+      setUser(userData);
+    } catch (error) {
+      console.error("Error in refreshUser:", error);
       // Token invalid/expired — clear everything
       setUser(null);
       tokenStorage.clearTokens();
@@ -63,6 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Fetch full user profile now that the token is in localStorage
     await refreshUser();
+
+    // 3. If refreshUser fails, it clears tokens. We should throw so the UI shows an error.
+    if (!tokenStorage.getToken()) {
+      throw { response: { data: { detail: "Failed to load user profile. Check backend logs." } } };
+    }
 
     return { is_profile_completed, must_change_password };
   };

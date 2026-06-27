@@ -1,13 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 import random
-from app.core.database import get_db
 from app.core.security import (
     hash_password, verify_password, create_access_token,
     create_refresh_token, decode_token, get_current_user
 )
-from app.models import User, Role, ActivityLog, OtpVerification, Student
 from app.schemas import (
     LoginRequest, TokenResponse, RefreshRequest, UserOut,
     CompleteProfileRequest, ChangePasswordRequest,
@@ -58,10 +55,27 @@ def login(req: LoginRequest):
     )
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/test-query")
+def test_query():
+    from app.core.supabase import get_supabase
+    supabase = get_supabase()
+    try:
+        res = supabase.table("users").select("*, role:roles(id, name), student:students(*)").limit(1).execute()
+        return {"status": "ok", "data": res.data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/me", response_model=dict)
 def get_me(current_user: dict = Depends(get_current_user)):
     """Get current authenticated user's profile."""
-    return current_user
+    # Ensure password hash is excluded from profile
+    if "password_hash" in current_user:
+        del current_user["password_hash"]
+    
+    return {
+        "success": True,
+        "user": current_user
+    }
 
 
 @router.put("/complete-profile", response_model=UserOut)
@@ -129,7 +143,12 @@ def refresh_token(req: RefreshRequest):
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    user_id = payload.get("sub")
+    user_id_str = payload.get("sub")
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        user_id = user_id_str
+        
     res = supabase.table("users").select("*, role:roles(name)").eq("id", user_id).execute()
     
     if not res.data:
@@ -162,12 +181,13 @@ def forgot_password(req: ForgotPasswordRequest):
     supabase = get_supabase()
     
     try:
-        res = supabase.table("users").select("id, email, full_name").eq("ic_number", req.ic_number).execute()
+        res = supabase.table("users").select("id, email, mobile, full_name").eq("ic_number", req.ic_number).execute()
         if not res.data:
             return {"message": "If the IC Number exists, a reset OTP has been sent"}
             
         user = res.data[0]
         email = user.get("email")
+        mobile = user.get("mobile")
         full_name = user.get("full_name", "User")
         
         # Generate 6-digit OTP
@@ -189,12 +209,25 @@ def forgot_password(req: ForgotPasswordRequest):
         else:
             supabase.table("otp_verifications").insert(otp_data).execute()
             
-        if email:
+        if req.method == "mobile":
+            if not mobile:
+                raise HTTPException(status_code=400, detail="User does not have a registered mobile number.")
+            success = send_otp_sms(mobile, otp)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to send OTP SMS.")
+        else:
+            if not email:
+                raise HTTPException(status_code=400, detail="User does not have a registered email.")
             success = send_otp_email(email, otp, full_name)
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to send OTP email. Check backend terminal for SMTP errors.")
         
-        return {"message": "If the IC Number exists, a reset OTP has been sent"}
+        response = {"message": "If the IC Number exists, a reset OTP has been sent"}
+        from app.core.config import settings
+        if req.method == "mobile" and settings.SMS_PROVIDER.lower() == "mock":
+            response["demo_otp"] = otp
+            
+        return response
     except Exception as e:
         import traceback
         traceback.print_exc()

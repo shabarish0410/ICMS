@@ -29,12 +29,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!isLoading && user) {
       if (user.must_change_password) {
-        window.location.href = '/complete-profile?step=password';
+        router.push('/complete-profile?step=password');
       } else if (!user.is_profile_completed) {
-        window.location.href = '/complete-profile';
+        router.push('/complete-profile');
       }
     }
-  }, [isLoading, user]);
+  }, [isLoading, user, router]);
 
   // Handle drawer close when pathname changes
   useEffect(() => {
@@ -55,6 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               alt="Loading..." 
               width={96} 
               height={96} 
+              priority
               className="object-contain w-full h-full scale-110"
             />
           </motion.div>

@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
+import traceback
 
 from app.core.config import settings
 from app.routes import (
@@ -33,12 +35,14 @@ app = FastAPI(
 )
 
 # CORS
-cors_origins = settings.cors_origins_list
-is_wildcard = cors_origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if is_wildcard else cors_origins,
-    allow_credentials=not is_wildcard,  # credentials not allowed with wildcard origin
+    allow_origins=[
+        "http://localhost:3000",
+        "https://myfrontend.onrender.com",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -46,6 +50,27 @@ app.add_middleware(
 # Static files for uploads
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+
+from fastapi import HTTPException
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+        f.write(f"--- GLOBAL EXCEPTION ---\nUrl: {request.url}\n")
+        traceback.print_exc(file=f)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
+        f.write(f"--- HTTP EXCEPTION ---\nUrl: {request.url}\nStatus: {exc.status_code}\nDetail: {exc.detail}\n\n")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 # Register routers
 app.include_router(auth.router)
