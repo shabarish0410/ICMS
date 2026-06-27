@@ -29,19 +29,28 @@ def login(req: LoginRequest):
     
     supabase = get_supabase()
     
+    import logging
+    logger = logging.getLogger("icms.auth")
+    
     # Query user and include role relation
     response = supabase.table("users").select("*, role:roles(name)").eq("ic_number", req.ic_number).execute()
     
     if not response.data:
+        logger.warning(f"Login failed: IC Number '{req.ic_number}' not found in database.")
         raise HTTPException(status_code=401, detail="Invalid IC Number or password")
         
     user_data = response.data[0]
+    logger.info(f"Login attempt: User '{req.ic_number}' found in database. Proceeding to password verification.")
     
     if not verify_password(req.password, user_data.get("password_hash")):
+        logger.warning(f"Login failed: Password verification failed for IC Number '{req.ic_number}'.")
         raise HTTPException(status_code=401, detail="Invalid IC Number or password")
 
     if not user_data.get("is_active", True):
+        logger.warning(f"Login failed: Account for IC Number '{req.ic_number}' is deactivated.")
         raise HTTPException(status_code=403, detail="Account is deactivated")
+        
+    logger.info(f"Login successful for IC Number '{req.ic_number}'.")
 
     now = datetime.now(timezone.utc).isoformat()
     supabase.table("users").update({"last_login": now}).eq("id", user_data["id"]).execute()
