@@ -51,9 +51,9 @@ const getBaseURL = (): string => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  if (typeof window === 'undefined') return 'http://localhost:8000/api';
+  if (typeof window === 'undefined') return 'https://icms-2ykq.onrender.com/api';
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://icms-2ykq.onrender.com';
 
   // Capacitor native app
   const cap = (window as any).Capacitor;

@@ -9,7 +9,7 @@
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET ?? 'attendance-photos';
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://icms-2ykq.onrender.com';
 
 /**
  * Returns a fully-qualified image URL from a stored photo_url value.
