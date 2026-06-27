@@ -42,43 +42,33 @@ class ResendEmailProvider(BaseEmailProvider):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(httpx.RequestError),
         reraise=True
     )
     def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         if not settings.RESEND_API_KEY:
             raise ValueError("RESEND_API_KEY is not configured.")
 
-        # If SMTP_FROM_EMAIL isn't configured, fallback to a verified Resend domain or testing domain
+        import resend
+        resend.api_key = settings.RESEND_API_KEY
+        
+        # If SMTP_USER isn't an email, fallback to testing domain
         from_email = settings.SMTP_USER if "@" in settings.SMTP_USER else "onboarding@resend.dev"
         sender_name = "Spark Innovation Cell"
         
-        payload = {
+        params = {
             "from": f"{sender_name} <{from_email}>",
             "to": [to_email],
             "subject": subject,
             "html": html_body
         }
 
-        headers = {
-            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
         try:
-            logger.info(f"Sending HTTP email via Resend to {to_email}...")
-            with httpx.Client(timeout=15.0) as client:
-                response = client.post(self.API_URL, json=payload, headers=headers)
-                
-            if response.status_code >= 400:
-                logger.error(f"Resend API Error: {response.text}")
-                raise ValueError(f"Resend API returned {response.status_code}: {response.text}")
-                
-            logger.info(f"Successfully sent HTTP email to {to_email}.")
+            logger.info(f"Sending email via Resend SDK to {to_email}...")
+            response = resend.Emails.send(params)
+            logger.info(f"Successfully sent email via Resend to {to_email}. Response: {response}")
             return True
-            
-        except httpx.RequestError as e:
-            logger.warning(f"Network error sending via Resend: {e}. Retrying...")
+        except Exception as e:
+            logger.warning(f"Error sending via Resend SDK: {e}. Retrying...")
             raise
 
 
