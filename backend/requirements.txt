@@ -1,5 +1,5 @@
 fastapi==0.110.0
-uvicorn[standard]==0.27.1
+uvicorn==0.27.1
 pydantic==2.6.4
 pydantic-core==2.16.3
 pydantic-settings==2.5.0
@@ -14,8 +14,8 @@ aiofiles==24.1.0
 Pillow==10.4.0
 jinja2==3.1.4
 supabase==2.4.5
-pandas==2.2.3
-numpy==1.26.4
 openpyxl==3.1.2
 pdfplumber==0.11.0
-psycopg2-binary
+
+# database
+psycopg2-binary==2.9.9
