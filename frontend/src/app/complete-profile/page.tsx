@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -19,7 +19,7 @@ interface PasswordForm {
   confirm_password: string;
 }
 
-export default function CompleteProfilePage() {
+function CompleteProfileContent() {
   const { user, completeProfile, changePassword } = useAuth();
   const searchParams = useSearchParams();
   const startStep = searchParams.get('step') === 'password' ? 'password' : 'profile';
@@ -257,5 +257,13 @@ export default function CompleteProfilePage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function CompleteProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="text-dark-400">Loading...</span></div>}>
+      <CompleteProfileContent />
+    </Suspense>
   );
 }
