@@ -1413,3 +1413,13 @@ Payload: {'sub': '2', 'role': 'admin', 'exp': 1782566830, 'type': 'access'}
 Token snippet: eyJhbGciOiJIUzI...8lneBiEQAVNDNtg
 --- DECODE_TOKEN SUCCESS ---
 Payload: {'sub': '2', 'role': 'admin', 'exp': 1782566830, 'type': 'access'}
+--- DECODE_TOKEN CALLED ---
+Token snippet: eyJhbGciOiJIUzI...8lneBiEQAVNDNtg
+--- JWT DECODE ERROR ---
+Exception type: <class 'jose.exceptions.ExpiredSignatureError'>
+Exception str: Signature has expired.
+--- HTTP EXCEPTION ---
+Url: http://localhost:8000/api/auth/me
+Status: 401
+Detail: Invalid or expired token: Signature has expired.
+
