@@ -1,38 +1,7 @@
-# Core framework
 fastapi==0.110.0
-uvicorn[standard]==0.27.1
+uvicorn==0.27.1
 
-# Pydantic v2 + settings
 pydantic==2.6.4
-pydantic-core==2.16.3
-pydantic-settings==2.5.0
 
-# Auth & Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
-
-# HTTP & Async
-httpx==0.27.0
-aiofiles==24.1.0
-
-# Forms & File Uploads
 python-multipart==0.0.9
-Pillow==10.4.0
-
-# Templates & Emails
-jinja2==3.1.4
-email-validator==2.2.0
-
-# Env & Config
 python-dotenv==1.0.1
-
-# Supabase
-supabase==2.4.5
-
-# Spreadsheet / PDF exports
-openpyxl==3.1.2
-pdfplumber==0.11.0
-
-# Database (optional, for direct psycopg2 usage)
-psycopg2-binary==2.9.9
