@@ -79,9 +79,12 @@ def send_otp_email(to_email: str, otp: str, user_name: str = "User"):
         server.send_message(msg)
         server.quit()
         return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"SMTP Auth error: {e}")
+        raise ValueError(f"SMTP Authentication Error: Please check SMTP credentials (app password). {e}")
     except smtplib.SMTPException as e:
         print(f"SMTP error sending email: {e}")
-        return False
+        raise ValueError(f"SMTP error: {e}")
     except OSError as e:
         print(f"Network error sending email (timeout or unreachable): {e}")
-        return False
+        raise ValueError(f"SMTP Network error (timeout/unreachable): {e}")

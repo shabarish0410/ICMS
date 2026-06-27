@@ -193,7 +193,19 @@ def forgot_password(req: ForgotPasswordRequest):
         # Generate 6-digit OTP
         otp = str(random.randint(100000, 999999))
         
-        # Save OTP to database using ic_number in the 'mobile' column for lookup
+        if req.method == "mobile":
+            if not mobile:
+                raise HTTPException(status_code=400, detail="User does not have a registered mobile number.")
+            success = send_otp_sms(mobile, otp)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to send OTP SMS.")
+        else:
+            if not email:
+                raise HTTPException(status_code=400, detail="User does not have a registered email.")
+            # This will raise a ValueError if SMTP fails, which is caught by the global try-except below
+            send_otp_email(email, otp, full_name)
+            
+        # Save OTP to database using ic_number in the 'mobile' column for lookup ONLY after email success
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
         otp_data = {
             "mobile": req.ic_number,
@@ -208,19 +220,6 @@ def forgot_password(req: ForgotPasswordRequest):
             supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
         else:
             supabase.table("otp_verifications").insert(otp_data).execute()
-            
-        if req.method == "mobile":
-            if not mobile:
-                raise HTTPException(status_code=400, detail="User does not have a registered mobile number.")
-            success = send_otp_sms(mobile, otp)
-            if not success:
-                raise HTTPException(status_code=500, detail="Failed to send OTP SMS.")
-        else:
-            if not email:
-                raise HTTPException(status_code=400, detail="User does not have a registered email.")
-            success = send_otp_email(email, otp, full_name)
-            if not success:
-                raise HTTPException(status_code=500, detail="Failed to send OTP email. Check backend terminal for SMTP errors.")
         
         response = {"message": "If the IC Number exists, a reset OTP has been sent"}
         from app.core.config import settings
