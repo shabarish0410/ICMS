@@ -1,10 +1,34 @@
+# Core framework
 fastapi
-uvicorn
+uvicorn[standard]
+
+# Pydantic & Config
 pydantic
 pydantic-settings
-python-multipart
 python-dotenv
 
+# Auth & Security
 python-jose[cryptography]
+passlib[bcrypt]
 bcrypt
+
+# HTTP & Async (Required by FastAPI & Supabase)
+httpx
+aiofiles
+
+# Forms & File Uploads
+python-multipart
+Pillow
+
+# Data Processing
+pandas
+numpy
+
+# Supabase
 supabase
+
+# Utilities
+email-validator
+jinja2
+openpyxl
+pdfplumber
