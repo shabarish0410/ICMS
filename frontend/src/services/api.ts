@@ -46,7 +46,12 @@ export const secureStorage = {
 
 // ─── Base URL ────────────────────────────────────────────────────────────────
 const getBaseURL = (): string => {
-  if (typeof window === 'undefined') return '/api';
+  // Priority: NEXT_PUBLIC_API_URL (full URL with /api) → NEXT_PUBLIC_BACKEND_URL (base URL)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  if (typeof window === 'undefined') return 'http://localhost:8000/api';
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000';
 
@@ -57,12 +62,12 @@ const getBaseURL = (): string => {
     return isAndroid ? 'http://10.0.2.2:8000/api' : `${backendUrl}/api`;
   }
 
-  // Browser (web) — hit backend directly to avoid Next.js trailing slash redirect loop stripping Auth headers
+  // Browser (web) — hit backend directly
   return `${backendUrl}/api`;
 };
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || getBaseURL(),
+  baseURL: getBaseURL(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
@@ -150,8 +155,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const baseURL = process.env.NEXT_PUBLIC_API_URL || getBaseURL();
-        const res = await axios.post(`${baseURL}/auth/refresh`, {
+        const res = await axios.post(`${getBaseURL()}/auth/refresh`, {
           refresh_token: refreshToken,
         });
         const { access_token, refresh_token: new_refresh } = res.data;
