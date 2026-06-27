@@ -69,7 +69,7 @@ const getBaseURL = (): string => {
 const api = axios.create({
   baseURL: getBaseURL(),
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000,
+  timeout: 30000,
 });
 
 // ─── Request Interceptor — SYNCHRONOUS token read (no async, no race condition) ─
@@ -220,7 +220,9 @@ export const studentsAPI = {
   importCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/students/bulk-import', formData);
+    return api.post('/students/bulk-import', formData, {
+      headers: { 'Content-Type': undefined }
+    });
   },
   departments: () => api.get('/students/departments/list'),
   getSelfProfile: () => api.get('/students/profile/self'),
@@ -238,7 +240,9 @@ export const teamsAPI = {
   importCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/teams/bulk-import', formData);
+    return api.post('/teams/bulk-import', formData, {
+      headers: { 'Content-Type': undefined }
+    });
   },
 };
 
@@ -318,7 +322,9 @@ export const uploadsAPI = {
   upload: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/uploads', formData);
+    return api.post('/uploads', formData, {
+      headers: { 'Content-Type': undefined }
+    });
   },
 };
 
