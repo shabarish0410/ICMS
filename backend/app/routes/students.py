@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/students", tags=["Students"])
 _import_jobs: dict = {}
 _jobs_lock = threading.Lock()
 
-MAX_ROWS = 5000
+MAX_ROWS = 10000
 BATCH_SIZE = 500  # rows per Supabase batch insert
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
 

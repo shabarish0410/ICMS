@@ -220,9 +220,7 @@ export const studentsAPI = {
   importCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/students/bulk-import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    return api.post('/students/bulk-import', formData);
   },
   departments: () => api.get('/students/departments/list'),
   getSelfProfile: () => api.get('/students/profile/self'),
@@ -240,9 +238,7 @@ export const teamsAPI = {
   importCSV: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/teams/bulk-import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    return api.post('/teams/bulk-import', formData);
   },
 };
 
@@ -322,9 +318,7 @@ export const uploadsAPI = {
   upload: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/uploads', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    return api.post('/uploads', formData);
   },
 };
 

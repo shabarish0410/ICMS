@@ -375,7 +375,7 @@ export default function StudentsPage() {
               <p className="font-mono">ic_number, full_name, department, year</p>
               <p className="font-semibold mt-2">📌 Optional columns:</p>
               <p className="font-mono">semester, mentor_name</p>
-              <p className="mt-2">Supports up to <strong>5,000 rows</strong> per file. Max file size: 20MB.</p>
+              <p className="mt-2">Supports up to <strong>10,000 rows</strong> per file. Max file size: 20MB.</p>
             </div>
 
             <form onSubmit={handleImportSubmit}>
