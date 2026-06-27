@@ -2,11 +2,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
+import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+# Use Python's standard logger instead of hardcoded Windows file paths
+logger = logging.getLogger("icms.security")
 
 # In-memory token blacklist (use Redis in production)
 token_blacklist: set[str] = set()
@@ -42,18 +46,15 @@ def create_refresh_token(data: dict) -> str:
 
 
 def decode_token(token: str) -> dict:
-    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-        f.write(f"--- DECODE_TOKEN CALLED ---\nToken snippet: {token[:15]}...{token[-15:] if len(token) > 30 else ''}\n")
+    logger.debug(f"decode_token called. Token snippet: {token[:15]}...")
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-            f.write(f"--- DECODE_TOKEN SUCCESS ---\nPayload: {payload}\n")
+        logger.debug(f"decode_token success. Payload: {payload}")
         return payload
     except JWTError as e:
-        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-            f.write(f"--- JWT DECODE ERROR ---\nException type: {type(e)}\nException str: {str(e)}\n")
+        logger.warning(f"JWT decode error: {type(e).__name__}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {str(e)}",
@@ -61,8 +62,7 @@ def decode_token(token: str) -> dict:
         )
     except Exception as e:
         import traceback
-        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-            f.write(f"--- UNEXPECTED DECODE ERROR ---\n{traceback.format_exc()}\n")
+        logger.error(f"Unexpected decode error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Unexpected token error: {str(e)}",
@@ -142,8 +142,7 @@ def get_current_user(
         return user
     except Exception as e:
         import traceback
-        with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-            f.write(f"Error in get_current_user: {str(e)}\n{traceback.format_exc()}\n")
+        logger.error(f"Error in get_current_user: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Backend Error: {str(e)}"
         )

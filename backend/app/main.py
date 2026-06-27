@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
+import logging
 import traceback
 
 from app.core.config import settings
@@ -12,6 +13,9 @@ from app.routes import (
     notifications, forms, weekly_reports, announcements,
     meetings, attendance, uploads, users
 )
+
+# Use Python's standard logger instead of hardcoded Windows file paths
+logger = logging.getLogger("icms")
 
 
 @asynccontextmanager
@@ -55,9 +59,7 @@ from fastapi import HTTPException
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-        f.write(f"--- GLOBAL EXCEPTION ---\nUrl: {request.url}\n")
-        traceback.print_exc(file=f)
+    logger.error(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error", "error": str(exc)},
@@ -65,8 +67,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    with open("d:\\ICMS\\backend\\debug.txt", "a") as f:
-        f.write(f"--- HTTP EXCEPTION ---\nUrl: {request.url}\nStatus: {exc.status_code}\nDetail: {exc.detail}\n\n")
+    logger.warning(f"HTTP EXCEPTION | URL: {request.url} | Status: {exc.status_code} | {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
