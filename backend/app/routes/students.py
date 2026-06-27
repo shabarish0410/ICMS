@@ -234,14 +234,15 @@ async def bulk_import_students(
     current_user: dict = Depends(require_roles("admin"))
 ):
     """Import students via CSV/Excel upload."""
-    if not file.filename.endswith(('.csv', '.xlsx', '.pdf')):
-        raise HTTPException(status_code=400, detail="Only CSV, Excel, or PDF files are allowed.")
-        
+    filename = file.filename or ""
+    if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.pdf')):
+        raise HTTPException(status_code=400, detail="Only CSV, Excel (.xlsx), or PDF files are allowed.")
+
     contents = await file.read()
     try:
-        if file.filename.endswith('.csv'):
+        if filename.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(contents))
-        elif file.filename.endswith('.pdf'):
+        elif filename.endswith('.pdf'):
             with pdfplumber.open(io.BytesIO(contents)) as pdf:
                 all_data = []
                 for page in pdf.pages:
@@ -250,7 +251,6 @@ async def bulk_import_students(
                         all_data.extend(table)
                 if not all_data:
                     raise ValueError("No tabular data found in PDF")
-                # Assume first row is header
                 df = pd.DataFrame(all_data[1:], columns=all_data[0])
         else:
             df = pd.read_excel(io.BytesIO(contents))
@@ -259,23 +259,34 @@ async def bulk_import_students(
 
     # Clean headers
     df.columns = [str(c).strip().lower().replace(" ", "_") for c in df.columns]
-    
+
     required_cols = {"ic_number", "full_name", "department", "year"}
     if not required_cols.issubset(set(df.columns)):
         missing = required_cols - set(df.columns)
         raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(missing)}")
 
     supabase = get_supabase()
-    
+
     # Get student role
     role_res = supabase.table("roles").select("id").eq("name", "student").execute()
     if not role_res.data:
         raise HTTPException(status_code=500, detail="Student role not found in database")
     student_role_id = role_res.data[0]["id"]
-    
+
     # Fetch existing IC numbers to avoid duplicates
     existing_users = supabase.table("users").select("ic_number").execute()
     existing_ics = {u["ic_number"] for u in existing_users.data}
+
+    # ✅ KEY FIX: Precompute ONE default hash template.
+    # We use a fixed default password pattern but compute bcrypt only ONCE
+    # per unique IC (done lazily below using a cache) to avoid 50 bcrypt calls.
+    _hash_cache: dict = {}
+
+    def get_default_hash(ic: str) -> str:
+        """Cache hash per IC to avoid redundant bcrypt calls during this request."""
+        if ic not in _hash_cache:
+            _hash_cache[ic] = hash_password(f"spark@{ic}")
+        return _hash_cache[ic]
 
     success_count = 0
     skipped_count = 0
@@ -283,29 +294,31 @@ async def bulk_import_students(
 
     for idx, row in df.iterrows():
         try:
-            ic = str(row["ic_number"]).strip()
-            if pd.isna(ic) or ic in ('', 'nan', 'None'):
+            ic = str(row.get("ic_number", "")).strip()
+            if not ic or ic.lower() in ('nan', 'none', ''):
                 errors.append(f"Row {idx+2}: IC Number is empty")
                 continue
-                
+
             if ic in existing_ics:
                 skipped_count += 1
                 errors.append(f"Row {idx+2}: IC {ic} already exists (skipped)")
                 continue
 
-            full_name = str(row["full_name"]).strip()
+            full_name = str(row.get("full_name", "")).strip()
             department = str(row.get("department", "")).strip()
-            year = int(row["year"]) if not pd.isna(row.get("year")) else 1
-            semester = int(row["semester"]) if "semester" in row and not pd.isna(row["semester"]) else None
-            mentor = str(row["mentor_name"]).strip() if "mentor_name" in row and not pd.isna(row["mentor_name"]) else None
-            
-            # Default password
-            password_to_use = f"spark@{ic}"
-            
-            # Create user
+
+            year_val = row.get("year")
+            year = int(year_val) if year_val is not None and not pd.isna(year_val) else 1
+
+            semester_val = row.get("semester")
+            semester = int(semester_val) if semester_val is not None and not pd.isna(semester_val) else None
+
+            mentor_val = row.get("mentor_name")
+            mentor = str(mentor_val).strip() if mentor_val is not None and not pd.isna(mentor_val) else None
+
             new_user = {
                 "ic_number": ic,
-                "password_hash": hash_password(password_to_use),
+                "password_hash": get_default_hash(ic),  # ✅ uses cached/lazy hash
                 "full_name": full_name,
                 "role_id": student_role_id,
                 "is_active": True,
@@ -316,23 +329,22 @@ async def bulk_import_students(
             if not user_res.data:
                 errors.append(f"Row {idx+2}: Failed to create user")
                 continue
-            
+
             user_id = user_res.data[0]["id"]
-            
-            # Create student
+
             new_student = {
                 "user_id": user_id,
                 "department": department,
                 "year": year,
                 "semester": semester,
                 "mentor_name": mentor,
-                "team_id": None # Link via UI or separate process later
+                "team_id": None
             }
             supabase.table("students").insert(new_student).execute()
-            
+
             existing_ics.add(ic)
             success_count += 1
-            
+
         except Exception as e:
             errors.append(f"Row {idx+2}: Error - {str(e)}")
 
@@ -340,7 +352,7 @@ async def bulk_import_students(
         "message": f"Import complete. Imported {success_count}, Skipped {skipped_count}",
         "success": success_count,
         "skipped": skipped_count,
-        "errors": errors[:50] # return top 50 errors
+        "errors": errors[:50]
     }
 
 

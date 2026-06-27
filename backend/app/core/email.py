@@ -73,12 +73,15 @@ def send_otp_email(to_email: str, otp: str, user_name: str = "User"):
         """
         msg.attach(MIMEText(html_body, "html"))
 
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
+        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.send_message(msg)
         server.quit()
         return True
-    except Exception as e:
-        print(f"Failed to send email: {e}")
+    except smtplib.SMTPException as e:
+        print(f"SMTP error sending email: {e}")
+        return False
+    except OSError as e:
+        print(f"Network error sending email (timeout or unreachable): {e}")
         return False

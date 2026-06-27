@@ -1,57 +1,78 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from datetime import datetime, date, timezone, timedelta
 from app.core.security import get_current_user
 from app.core.supabase import get_supabase
 from app.schemas import AdminDashboardStats, StudentDashboardData
+from concurrent.futures import ThreadPoolExecutor
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
-@router.get("/admin", response_model=AdminDashboardStats)
+
+@router.get("/admin")
 def admin_dashboard(current_user: dict = Depends(get_current_user)):
-    """Admin dashboard analytics."""
+    """Admin dashboard analytics — parallel queries for speed."""
     supabase = get_supabase()
     today = date.today().isoformat()
     now_utc = datetime.now(timezone.utc).isoformat()
-    
-    # Students
-    students_res = supabase.table("users").select("id", count="exact").eq("is_active", True).eq("role_id", 2).execute() # assuming 2 is student role
-    total_students = students_res.count if students_res.count is not None else 0
 
-    # Teams
-    teams_res = supabase.table("teams").select("id", count="exact").execute()
-    total_teams = teams_res.count if teams_res.count is not None else 0
+    # ✅ Run all independent queries in parallel using threads
+    def q_students():
+        return supabase.table("users").select("id", count="exact").eq("is_active", True).eq("role_id", 2).execute()
 
-    # Projects
-    projects_res = supabase.table("projects").select("status").execute()
-    projects = projects_res.data
-    total_projects = len(projects)
-    active_projects = sum(1 for p in projects if p.get("status") == "ongoing")
+    def q_teams():
+        return supabase.table("teams").select("id", count="exact").execute()
+
+    def q_projects():
+        return supabase.table("projects").select("status").execute()
+
+    def q_project_submissions():
+        return supabase.table("project_submissions").select("id", count="exact").eq("status", "submitted").execute()
+
+    def q_weekly_reports():
+        return supabase.table("weekly_reports").select("id", count="exact").eq("status", "submitted").execute()
+
+    def q_form_submissions():
+        return supabase.table("form_submissions").select("id", count="exact").eq("status", "submitted").execute()
+
+    def q_meetings():
+        return supabase.table("meetings").select("id", count="exact").gte("date", now_utc).execute()
+
+    def q_events():
+        return supabase.table("events").select("id", count="exact").execute()
+
+    def q_attendance():
+        return supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
+
+    with ThreadPoolExecutor(max_workers=9) as ex:
+        f_students    = ex.submit(q_students)
+        f_teams       = ex.submit(q_teams)
+        f_projects    = ex.submit(q_projects)
+        f_ps          = ex.submit(q_project_submissions)
+        f_wr          = ex.submit(q_weekly_reports)
+        f_fs          = ex.submit(q_form_submissions)
+        f_meetings    = ex.submit(q_meetings)
+        f_events      = ex.submit(q_events)
+        f_attendance  = ex.submit(q_attendance)
+
+    total_students = f_students.result().count or 0
+    total_teams    = f_teams.result().count or 0
+
+    projects       = f_projects.result().data
+    total_projects     = len(projects)
+    active_projects    = sum(1 for p in projects if p.get("status") == "ongoing")
     completed_projects = sum(1 for p in projects if p.get("status") == "completed")
 
-    # Pending reviews
-    ps_res = supabase.table("project_submissions").select("id", count="exact").eq("status", "submitted").execute()
-    wr_res = supabase.table("weekly_reports").select("id", count="exact").eq("status", "submitted").execute()
-    pending_reviews = (ps_res.count or 0) + (wr_res.count or 0)
+    pending_reviews = (f_ps.result().count or 0) + (f_wr.result().count or 0)
+    forms_pending   = f_fs.result().count or 0
+    upcoming_meetings = f_meetings.result().count or 0
+    total_events    = f_events.result().count or 0
 
-    # Forms Pending
-    fs_res = supabase.table("form_submissions").select("id", count="exact").eq("status", "submitted").execute()
-    forms_pending = fs_res.count or 0
+    present_today   = len(f_attendance.result().data)
+    absent_today    = total_students - present_today
+    attendance_pct  = round(present_today / total_students * 100, 1) if total_students > 0 else 0.0
 
-    # Meetings
-    m_res = supabase.table("meetings").select("id", count="exact").gte("date", now_utc).execute()
-    upcoming_meetings = m_res.count or 0
-
-    # Events
-    e_res = supabase.table("events").select("id", count="exact").execute()
-    total_events = e_res.count or 0
-
-    # Attendance
-    att_res = supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
-    present_today = len(att_res.data)
-    absent_today = total_students - present_today
-    attendance_percentage = round(present_today / total_students * 100, 1) if total_students > 0 else 0
-
-    return AdminDashboardStats(
+    data = AdminDashboardStats(
         total_students=total_students,
         total_teams=total_teams,
         total_projects=total_projects,
@@ -60,140 +81,179 @@ def admin_dashboard(current_user: dict = Depends(get_current_user)):
         pending_reviews=pending_reviews,
         students_present_today=present_today,
         students_absent_today=absent_today,
-        attendance_percentage=attendance_percentage,
+        attendance_percentage=attendance_pct,
         forms_pending=forms_pending,
         upcoming_meetings=upcoming_meetings,
         total_events=total_events,
     )
+    response = JSONResponse(content=data.model_dump())
+    response.headers["Cache-Control"] = "public, max-age=30"
+    return response
 
 
 @router.get("/student")
 def student_dashboard(current_user: dict = Depends(get_current_user)):
-    """Student's personal dashboard data."""
+    """Student's personal dashboard data — parallel queries for speed."""
     supabase = get_supabase()
     user_id = current_user["id"]
     now_utc = datetime.now(timezone.utc).isoformat()
-    
+
+    # 1. Fetch student profile first (needed to derive student_id / team_id)
     student_res = supabase.table("students").select("*, team:teams!students_team_id_fkey(*)").eq("user_id", user_id).execute()
     student = student_res.data[0] if student_res.data else None
-    
-    project = None
-    if student and student.get("team_id"):
-        project_res = supabase.table("projects").select("*").eq("team_id", student["team_id"]).execute()
-        project = project_res.data[0] if project_res.data else None
 
-    # Attendance
-    if student:
-        att_res = supabase.table("attendance").select("status").eq("student_id", student["id"]).execute()
-        att_total = len(att_res.data)
-        att_present = sum(1 for a in att_res.data if a.get("status") in ["present", "late"])
-        att_pct = round(att_present / att_total * 100, 1) if att_total > 0 else 0
-    else:
-        att_pct = 0.0
+    student_id = student["id"] if student else None
+    team_id    = student.get("team_id") if student else None
+
+    # 2. Run all remaining queries in parallel
+    def q_project():
+        if not team_id:
+            return None
+        res = supabase.table("projects").select("*").eq("team_id", team_id).execute()
+        return res.data[0] if res.data else None
+
+    def q_attendance():
+        if not student_id:
+            return []
+        return supabase.table("attendance").select("status").eq("student_id", student_id).execute().data
+
+    def q_forms_total():
+        return supabase.table("dynamic_forms").select("id", count="exact").eq("is_active", True).execute()
+
+    def q_forms_submitted():
+        return supabase.table("form_submissions").select("id", count="exact").eq("user_id", user_id).execute()
+
+    def q_meeting_invites():
+        return supabase.table("meeting_invites").select("meeting_id").eq("user_id", user_id).execute()
+
+    def q_notifications():
+        return supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(5).execute()
+
+    def q_latest_report():
+        if not student_id:
+            return None
+        res = supabase.table("weekly_reports").select("*").eq("student_id", student_id).order("submitted_at", desc=True).limit(1).execute()
+        return res.data[0] if res.data else None
+
+    with ThreadPoolExecutor(max_workers=7) as ex:
+        f_project      = ex.submit(q_project)
+        f_attendance   = ex.submit(q_attendance)
+        f_forms_total  = ex.submit(q_forms_total)
+        f_forms_sub    = ex.submit(q_forms_submitted)
+        f_invites      = ex.submit(q_meeting_invites)
+        f_notifs       = ex.submit(q_notifications)
+        f_report       = ex.submit(q_latest_report)
+
+    # Attendance stats
+    att_data    = f_attendance.result()
+    att_total   = len(att_data)
+    att_present = sum(1 for a in att_data if a.get("status") in ["present", "late"])
+    att_pct     = round(att_present / att_total * 100, 1) if att_total > 0 else 0.0
 
     # Forms
-    f_res = supabase.table("dynamic_forms").select("id", count="exact").eq("is_active", True).execute()
-    pending_forms = f_res.count or 0
-    sub_res = supabase.table("form_submissions").select("id", count="exact").eq("user_id", user_id).execute()
-    submitted_forms = sub_res.count or 0
+    pending_forms   = f_forms_total.result().count or 0
+    submitted_forms = f_forms_sub.result().count or 0
 
-    # Meetings
-    m_res = supabase.table("meeting_invites").select("meeting_id").eq("user_id", user_id).execute()
+    # Meetings — resolve meeting IDs to upcoming count
+    invites = f_invites.result().data
     upcoming_meetings = 0
-    if m_res.data:
-        m_ids = [m["meeting_id"] for m in m_res.data]
+    if invites:
+        m_ids = [m["meeting_id"] for m in invites]
         if m_ids:
             mtgs = supabase.table("meetings").select("id").gte("date", now_utc).in_("id", m_ids).execute()
             upcoming_meetings = len(mtgs.data)
-
-    # Notifications
-    notif_res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(5).execute()
-    notifications = notif_res.data
-
-    # Weekly Report
-    latest_report = None
-    if student:
-        wr_res = supabase.table("weekly_reports").select("*").eq("student_id", student["id"]).order("submitted_at", desc=True).limit(1).execute()
-        latest_report = wr_res.data[0] if wr_res.data else None
 
     return {
         "user": current_user,
         "student": student,
         "team": student.get("team") if student else None,
-        "project": project,
+        "project": f_project.result(),
         "attendance_percentage": att_pct,
-        "weekly_progress": latest_report,
+        "weekly_progress": f_report.result(),
         "pending_forms": pending_forms - submitted_forms,
         "upcoming_meetings": upcoming_meetings,
-        "recent_notifications": notifications,
+        "recent_notifications": f_notifs.result().data,
     }
 
 
 @router.get("/charts/attendance-trend")
 def attendance_trend(current_user: dict = Depends(get_current_user)):
-    """Attendance trend for last 7 days."""
+    """Attendance trend for last 7 days — single query instead of 7 sequential."""
     supabase = get_supabase()
     today = date.today()
-    labels = []
-    present_data = []
-    absent_data = []
-    
+
+    # ✅ KEY FIX: Fetch ALL 7 days of attendance in ONE query, then group in Python
+    start_date = (today - timedelta(days=6)).isoformat()
+    end_date   = today.isoformat()
+
     students_res = supabase.table("users").select("id", count="exact").eq("is_active", True).eq("role_id", 2).execute()
     total_students = students_res.count or 0
 
+    att_res = supabase.table("attendance").select("date, status").gte("date", start_date).lte("date", end_date).in_("status", ["present", "late"]).execute()
+
+    # Group by date in Python
+    present_by_date: dict = {}
+    for record in att_res.data:
+        d = record.get("date")
+        if d:
+            present_by_date[d] = present_by_date.get(d, 0) + 1
+
+    labels = []
+    present_data = []
+    absent_data  = []
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
         d_iso = d.isoformat()
         labels.append(d.strftime("%a"))
-        
-        att_res = supabase.table("attendance").select("id", count="exact").eq("date", d_iso).in_("status", ["present", "late"]).execute()
-        present = att_res.count or 0
+        present = present_by_date.get(d_iso, 0)
         present_data.append(present)
         absent_data.append(total_students - present)
 
-    return {
+    response = JSONResponse(content={
         "labels": labels,
         "datasets": [
             {"label": "Present", "data": present_data, "backgroundColor": "#10b981"},
-            {"label": "Absent", "data": absent_data, "backgroundColor": "#ef4444"},
+            {"label": "Absent",  "data": absent_data,  "backgroundColor": "#ef4444"},
         ]
-    }
+    })
+    response.headers["Cache-Control"] = "public, max-age=60"
+    return response
 
 
 @router.get("/charts/project-status")
 def project_status_chart(current_user: dict = Depends(get_current_user)):
+    """Project status distribution — single query, grouped in Python."""
     supabase = get_supabase()
     statuses = ["planning", "ongoing", "completed", "on_hold"]
-    counts = []
-    
+
     res = supabase.table("projects").select("status").execute()
     all_statuses = [p.get("status") for p in res.data]
-    
-    for s in statuses:
-        counts.append(all_statuses.count(s))
+    counts = [all_statuses.count(s) for s in statuses]
 
-    return {
+    response = JSONResponse(content={
         "labels": ["Planning", "Ongoing", "Completed", "On Hold"],
         "datasets": [{"data": counts, "backgroundColor": ["#3b82f6", "#f59e0b", "#10b981", "#6b7280"]}]
-    }
+    })
+    response.headers["Cache-Control"] = "public, max-age=60"
+    return response
 
 
 @router.get("/charts/department-distribution")
 def department_chart(current_user: dict = Depends(get_current_user)):
+    """Department distribution — single query, grouped in Python."""
     supabase = get_supabase()
     res = supabase.table("students").select("department").execute()
-    
-    depts = {}
+
+    depts: dict = {}
     for r in res.data:
         d = r.get("department")
         if d:
             depts[d] = depts.get(d, 0) + 1
-            
+
     colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#ef4444", "#f97316"]
-    return {
+    resp = JSONResponse(content={
         "labels": list(depts.keys()),
-        "datasets": [{
-            "data": list(depts.values()),
-            "backgroundColor": colors[:len(depts)]
-        }]
-    }
+        "datasets": [{"data": list(depts.values()), "backgroundColor": colors[:len(depts)]}]
+    })
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    return resp
