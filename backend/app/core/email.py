@@ -1,26 +1,166 @@
+import smtplib
+import socket
 import logging
+from abc import ABC, abstractmethod
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from tenacity import retry, stop_after_attempt, wait_exponential
-import resend
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+import httpx
 
 from app.core.config import settings
 
 logger = logging.getLogger("icms.email")
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    reraise=True
-)
-def send_otp_email(to_email: str, otp: str, user_name: str = "User") -> bool:
-    """Send an OTP email using the Resend python SDK."""
-    if not settings.RESEND_API_KEY:
-        raise ValueError("RESEND_API_KEY is not configured in environment variables.")
-    if not settings.FROM_EMAIL:
-        raise ValueError("FROM_EMAIL is not configured in environment variables.")
+# ─── Email Provider Interface ────────────────────────────────────────────────
 
-    resend.api_key = settings.RESEND_API_KEY
-    sender_name = "Spark Innovation Cell"
+class BaseEmailProvider(ABC):
+    @abstractmethod
+    def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        """Sends an email and returns True on success, raises exception on failure."""
+        pass
+
+
+# ─── Mock Email Provider ──────────────────────────────────────────────────────
+
+class MockEmailProvider(BaseEmailProvider):
+    def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        logger.info(f"⚠️ [MOCK EMAIL] To: {to_email} | Subject: {subject}")
+        return True
+
+
+# ─── Resend HTTP Provider (Bypasses SMTP port blocking) ─────────────────────
+
+class ResendEmailProvider(BaseEmailProvider):
+    """
+    Sends email via the Resend REST API over standard HTTPS (port 443).
+    This bypasses Render's outbound SMTP port blocking (ports 25, 465, 587).
+    """
+    API_URL = "https://api.resend.com/emails"
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(httpx.RequestError),
+        reraise=True
+    )
+    def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        if not settings.RESEND_API_KEY:
+            raise ValueError("RESEND_API_KEY is not configured.")
+
+        # If SMTP_FROM_EMAIL isn't configured, fallback to a verified Resend domain or testing domain
+        from_email = settings.SMTP_USER if "@" in settings.SMTP_USER else "onboarding@resend.dev"
+        sender_name = "Spark Innovation Cell"
+        
+        payload = {
+            "from": f"{sender_name} <{from_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body
+        }
+
+        headers = {
+            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            logger.info(f"Sending HTTP email via Resend to {to_email}...")
+            with httpx.Client(timeout=15.0) as client:
+                response = client.post(self.API_URL, json=payload, headers=headers)
+                
+            if response.status_code >= 400:
+                logger.error(f"Resend API Error: {response.text}")
+                raise ValueError(f"Resend API returned {response.status_code}: {response.text}")
+                
+            logger.info(f"Successfully sent HTTP email to {to_email}.")
+            return True
+            
+        except httpx.RequestError as e:
+            logger.warning(f"Network error sending via Resend: {e}. Retrying...")
+            raise
+
+
+# ─── Standard SMTP Provider ───────────────────────────────────────────────────
+
+class SMTPEmailProvider(BaseEmailProvider):
+    """
+    Sends email via standard SMTP.
+    Includes robust retries and network logging for debugging.
+    """
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((OSError, smtplib.SMTPException)),
+        reraise=True
+    )
+    def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            raise ValueError("SMTP_USER and SMTP_PASSWORD must be configured.")
+
+        msg = MIMEMultipart()
+        sender_name = "Spark Innovation Cell"
+        msg["From"] = f"{sender_name} <{settings.SMTP_USER}>"
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.attach(MIMEText(html_body, "html"))
+
+        host = settings.SMTP_PORT
+        
+        try:
+            logger.info(f"Resolving DNS for {settings.SMTP_HOST}...")
+            ip_address = socket.gethostbyname(settings.SMTP_HOST)
+            logger.info(f"Resolved {settings.SMTP_HOST} to {ip_address}.")
+            
+            logger.info(f"Connecting to SMTP {settings.SMTP_HOST}:{settings.SMTP_PORT}...")
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
+            
+            # Start TLS for ports 587 or 25
+            if settings.SMTP_PORT in (587, 25):
+                logger.info("Initiating STARTTLS handshake...")
+                server.starttls()
+            
+            logger.info("Authenticating with SMTP server...")
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            
+            logger.info("Sending message payload...")
+            server.send_message(msg)
+            server.quit()
+            
+            logger.info(f"Successfully sent SMTP email to {to_email}.")
+            return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"SMTP Authentication Error: {e}")
+            raise ValueError("SMTP Authentication Error: Please check SMTP credentials (app password if using Gmail).")
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP Protocol Error: {e}")
+            raise ValueError(f"SMTP error: {e}")
+        except socket.gaierror as e:
+            logger.error(f"DNS Resolution Failed: {e}")
+            raise ValueError(f"SMTP DNS Resolution Failed: {e}")
+        except OSError as e:
+            logger.warning(f"SMTP Network error (timeout/unreachable): {e}. Retrying...")
+            raise ValueError(f"SMTP Network error (timeout/unreachable): {e}")
+
+
+# ─── Factory ──────────────────────────────────────────────────────────────────
+
+def get_email_provider() -> BaseEmailProvider:
+    provider_name = settings.EMAIL_PROVIDER.lower().strip()
+    if provider_name == "mock":
+        return MockEmailProvider()
+    elif provider_name == "resend":
+        return ResendEmailProvider()
+    else:
+        return SMTPEmailProvider()
+
+
+# ─── Legacy Wrapper for Backwards Compatibility ───────────────────────────────
+
+def send_otp_email(to_email: str, otp: str, user_name: str = "User") -> bool:
+    """Send an OTP email using the configured provider."""
     
     html_body = f"""
     <!DOCTYPE html>
@@ -74,19 +214,10 @@ def send_otp_email(to_email: str, otp: str, user_name: str = "User") -> bool:
     </body>
     </html>
     """
-
-    params = {
-        "from": f"{sender_name} <{settings.FROM_EMAIL}>",
-        "to": [to_email],
-        "subject": "Spark Innovation Cell - Your Verification Code",
-        "html": html_body
-    }
-
-    try:
-        logger.info(f"Sending email via Resend SDK to {to_email}...")
-        response = resend.Emails.send(params)
-        logger.info(f"Successfully sent email via Resend to {to_email}. Response: {response}")
-        return True
-    except Exception as e:
-        logger.warning(f"Error sending via Resend SDK: {e}. Retrying...")
-        raise
+    
+    provider = get_email_provider()
+    return provider.send_email(
+        to_email=to_email,
+        subject="Spark Innovation Cell - Your Verification Code",
+        html_body=html_body
+    )
