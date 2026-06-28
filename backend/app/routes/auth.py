@@ -193,9 +193,9 @@ def refresh_token(req: RefreshRequest):
 def forgot_password(req: ForgotPasswordRequest):
     """Request password reset OTP."""
     from app.core.supabase import get_supabase
-    from app.core.email import send_otp_email
+    from app.services.email_service import send_email
+    from app.utils.otp import generate_otp
     from app.core.security import hash_password
-    import random
     from datetime import datetime, timezone, timedelta
     
     supabase = get_supabase()
@@ -211,7 +211,7 @@ def forgot_password(req: ForgotPasswordRequest):
         full_name = user.get("full_name", "User")
         
         # Generate 6-digit OTP
-        otp = str(random.randint(100000, 999999))
+        otp = generate_otp()
         
         if req.method == "mobile":
             if not mobile:
@@ -222,8 +222,21 @@ def forgot_password(req: ForgotPasswordRequest):
         else:
             if not email:
                 raise HTTPException(status_code=400, detail="User does not have a registered email.")
-            # This will raise a ValueError if SMTP fails, which is caught by the global try-except below
-            send_otp_email(email, otp, full_name)
+            
+            html = f"""
+            <div style="font-family:Arial">
+                <h2>Password Reset OTP</h2>
+                <p>Your OTP is:</p>
+                <h1 style="color:blue">{otp}</h1>
+                <p>This OTP is valid for 10 minutes.</p>
+            </div>
+            """
+            
+            send_email(
+                to_email=email,
+                subject="Password Reset OTP",
+                html=html
+            )
             
         # Save OTP to database using ic_number in the 'identifier' column for lookup ONLY after email success
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
@@ -338,7 +351,8 @@ def request_otp(req: RequestOTPRequest):
                 detail=f"Please wait {cooldown_left} seconds before requesting a new OTP."
             )
             
-    otp = f"{random.randint(100000, 999999)}"
+    from app.utils.otp import generate_otp
+    otp = generate_otp()
     otp_hash = hash_password(otp)
     expires_at = (now + timedelta(minutes=5)).isoformat()
     
