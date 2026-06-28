@@ -381,7 +381,7 @@ class FormFieldSchema(BaseModel):
 class FormCreate(BaseModel):
     title: str = Field(..., min_length=2)
     description: Optional[str] = None
-    fields: List[FormFieldSchema]
+    google_form_url: str = Field(..., description="The URL to the Google Form")
     is_active: bool = True
     deadline: Optional[datetime] = None
 
@@ -389,7 +389,7 @@ class FormCreate(BaseModel):
 class FormUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    fields: Optional[List[FormFieldSchema]] = None
+    google_form_url: Optional[str] = None
     is_active: Optional[bool] = None
     deadline: Optional[datetime] = None
 
@@ -398,30 +398,11 @@ class FormOut(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
-    fields: List[dict]
+    google_form_url: str
     is_active: bool
     deadline: Optional[datetime] = None
     created_by: Optional[int] = None
-    response_count: Optional[int] = 0
     created_at: Optional[datetime] = None
-    class Config:
-        from_attributes = True
-
-
-class FormSubmissionCreate(BaseModel):
-    data: dict
-
-
-class FormSubmissionOut(BaseModel):
-    id: int
-    form_id: int
-    user_id: int
-    data: dict
-    status: str
-    admin_remarks: Optional[str] = None
-    submitted_at: Optional[datetime] = None
-    reviewed_at: Optional[datetime] = None
-    user: Optional[UserOut] = None
     class Config:
         from_attributes = True
 
