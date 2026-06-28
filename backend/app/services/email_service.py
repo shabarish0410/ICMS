@@ -1,10 +1,14 @@
 import resend
-import os
+from app.core.config import settings
 
-resend.api_key = os.getenv("RESEND_API_KEY")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
+# Initialize resend API key from settings which correctly loads .env variables
+resend.api_key = settings.RESEND_API_KEY
+# Keep FROM_EMAIL from settings or default
+FROM_EMAIL = getattr(settings, "FROM_EMAIL", "onboarding@resend.dev")
 
 def send_email(to_email: str, subject: str, html: str):
+    if not resend.api_key:
+        print("Warning: RESEND_API_KEY is not set.")
     try:
         return resend.Emails.send({
             "from": FROM_EMAIL,
