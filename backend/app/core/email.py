@@ -83,6 +83,14 @@ class ResendEmailProvider(BaseEmailProvider):
 
 # ─── Standard SMTP Provider ───────────────────────────────────────────────────
 
+# Force IPv4 for Render (Errno 101 fix)
+old_getaddr = socket.getaddrinfo
+
+def getaddrinfo_ipv4(*args, **kwargs):
+    return [x for x in old_getaddr(*args, **kwargs) if x[0] == socket.AF_INET]
+
+socket.getaddrinfo = getaddrinfo_ipv4
+
 class SMTPEmailProvider(BaseEmailProvider):
     """
     Sends email via standard SMTP.
@@ -108,23 +116,24 @@ class SMTPEmailProvider(BaseEmailProvider):
         msg.add_alternative(html_body, subtype='html')
         
         try:
-            logger.info(f"Resolving DNS for {settings.SMTP_HOST}...")
-            ip_address = socket.gethostbyname(settings.SMTP_HOST)
-            logger.info(f"Resolved {settings.SMTP_HOST} to {ip_address}.")
-            
             logger.info(f"Connecting to SMTP {settings.SMTP_HOST}:{settings.SMTP_PORT}...")
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-                # Start TLS for ports 587 or 25
-                if settings.SMTP_PORT in (587, 25):
-                    logger.info("Initiating STARTTLS handshake...")
-                    server.starttls()
-                
-                logger.info("Authenticating with SMTP server...")
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                
-                logger.info("Sending message payload...")
-                server.send_message(msg)
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+            server.set_debuglevel(1)  # IMPORTANT for Render debugging
             
+            # Start TLS for ports 587 or 25
+            if settings.SMTP_PORT in (587, 25):
+                server.ehlo()
+                logger.info("Initiating STARTTLS handshake...")
+                server.starttls()
+                server.ehlo()
+            
+            logger.info("Authenticating with SMTP server...")
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            
+            logger.info("Sending message payload...")
+            server.send_message(msg)
+            
+            server.quit()
             logger.info(f"Successfully sent SMTP email to {to_email}.")
             return True
             

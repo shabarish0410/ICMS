@@ -465,3 +465,12 @@ def register_student(req: RegisterRequest):
 # def google_login(req: dict):
 #     pass
 
+
+@router.get("/test-smtp")
+def test_smtp():
+    import socket
+    try:
+        socket.create_connection(("smtp.gmail.com", 587), timeout=10)
+        return {"status": "OK"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
