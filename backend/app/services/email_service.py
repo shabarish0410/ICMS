@@ -1,59 +1,51 @@
-import smtplib
-import socket
-from email.message import EmailMessage
+import os
+import requests
 from app.core.config import settings
-
-# --- IPv4 Patch for Render ---
-# Cloud providers often fail on IPv6 connections to smtp.gmail.com (Errno 101)
-# This forces the socket to only return IPv4 addresses.
-_orig_getaddrinfo = socket.getaddrinfo
-def _ipv4_getaddrinfo(*args, **kwargs):
-    responses = _orig_getaddrinfo(*args, **kwargs)
-    return [res for res in responses if res[0] == socket.AF_INET]
-# -----------------------------
 
 def send_email(to_email: str, subject: str, html: str):
     """
-    Send an email using standard SMTP.
-    Uses settings.SMTP_USER, settings.SMTP_PASSWORD, settings.SMTP_HOST, and settings.SMTP_PORT.
+    Send an email using the Brevo (Sendinblue) HTTP API.
+    This completely bypasses any outbound SMTP firewalls on Render.
     """
-    smtp_host = getattr(settings, "SMTP_HOST", "smtp.gmail.com")
-    smtp_port = getattr(settings, "SMTP_PORT", 587)
-    smtp_user = getattr(settings, "SMTP_USER", "").strip()
-    smtp_password = getattr(settings, "SMTP_PASSWORD", "").strip()
+    # Prefer explicitly loaded environment variable or fallback to settings
+    api_key = os.getenv("BREVO_API_KEY", getattr(settings, "BREVO_API_KEY", "")).strip()
+    from_email = os.getenv("FROM_EMAIL", getattr(settings, "FROM_EMAIL", "sparkinnovationsbit@gmail.com")).strip()
     
-    if not smtp_user or not smtp_password:
-        print("Warning: SMTP_USER or SMTP_PASSWORD is not set. Email will fail.")
+    if not api_key:
+        print("Warning: BREVO_API_KEY is not set. Email will fail.")
         
-    try:
-        msg = EmailMessage()
-        msg['Subject'] = subject
-        msg['From'] = smtp_user
-        msg['To'] = to_email
-        msg.set_content(html, subtype='html')
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+    payload = {
+        "sender": {
+            "name": "Spark Innovation Center",
+            "email": from_email
+        },
+        "to": [
+            {
+                "email": to_email
+            }
+        ],
+        "subject": subject,
+        "htmlContent": html
+    }
 
-        # Force port to 465 for SSL
-        smtp_port = 465
-        print(f"Attempting to send SMTP email to {to_email} via {smtp_host}:{smtp_port} (SSL)")
+    try:
+        print(f"Attempting to send Brevo HTTP email to {to_email}")
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
         
-        # Apply the IPv4 patch temporarily
-        socket.getaddrinfo = _ipv4_getaddrinfo
-        
-        # Connect to the SMTP server (using SMTP_SSL on port 465)
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
-            server.set_debuglevel(1)  # Enable debug output for testing
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
+        if response.status_code in [200, 201, 202]:
+            print(f"Email sent successfully to {to_email} via Brevo!")
+            return True
+        else:
+            error_msg = f"Brevo API Error ({response.status_code}): {response.text}"
+            print(error_msg)
+            raise RuntimeError(error_msg)
             
-        print(f"Email sent successfully to {to_email}")
-        return True
-    except smtplib.SMTPAuthenticationError:
-        error_msg = "SMTP Authentication failed. Did you use an App Password (not your main password)?"
-        print("SMTP ERROR:", error_msg)
-        raise RuntimeError(f"Email delivery failed: {error_msg}")
     except Exception as e:
-        print("SMTP ERROR:", str(e))
+        print("BREVO ERROR:", str(e))
         raise RuntimeError(f"Email delivery failed: {str(e)}")
-    finally:
-        # Always restore the original socket resolver
-        socket.getaddrinfo = _orig_getaddrinfo
