@@ -52,7 +52,7 @@ def mark_attendance(
         final_status = "ABSENT"
         
     # AI Dress Code Logic
-    if req.method == "face" and req.photo_url and final_status != "ABSENT":
+    if req.method == "face" and req.photo_url:
         is_valid_dress = verify_dress_code(req.photo_url)
         if not is_valid_dress:
             final_status = "REJECTED_DRESSCODE"
