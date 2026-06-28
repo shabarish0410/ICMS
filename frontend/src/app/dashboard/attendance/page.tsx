@@ -271,8 +271,9 @@ export default function AttendancePage() {
       markMutation.mutate({ method: 'face', photo_url: photoUrl });
     } catch (uploadErr) {
       console.error(uploadErr);
-      toast.error('Photo upload failed. Marking manual fallback.');
-      markMutation.mutate({ method: 'face', photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250' });
+      toast.error('Photo upload failed. Please use manual check-in.');
+      setScanPhase('error');
+      setScanMessage('Upload failed. Try manual entry.');
     }
   };
 
@@ -335,7 +336,7 @@ export default function AttendancePage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
               className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
             >
-              <p className="text-sm font-semibold text-dark-500 font-medium">Attendance Rate</p>
+              <p className="text-sm font-semibold text-dark-500">Attendance Rate</p>
               <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 mt-1.5">{s?.percentage || 0}%</p>
               <div className="w-full bg-dark-100 dark:bg-dark-750 rounded-full h-1.5 mt-3">
                 <div className="bg-primary-500 h-1.5 rounded-full" style={{ width: `${s?.percentage || 0}%` }} />

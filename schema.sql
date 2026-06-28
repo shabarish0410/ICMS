@@ -266,7 +266,7 @@ create table activity_logs (
 -- 20. OTP Verifications
 create table otp_verifications (
     id serial primary key,
-    mobile varchar(20) unique not null,
+    identifier varchar(255) unique not null,
     otp_hash varchar(255) not null,
     attempts integer default 0,
     expires_at timestamptz not null,

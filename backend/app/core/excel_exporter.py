@@ -3,26 +3,16 @@ import csv
 import sqlite3
 from app.core.config import settings
 
+import os
+import csv
+from app.core.config import settings
+
 def export_to_csv():
-    """Reads SQLite database and exports tables to Excel-compatible CSV files in backend directory."""
-    db_url = settings.DATABASE_URL
-    if db_url.startswith("sqlite:///"):
-        db_path = db_url.replace("sqlite:///", "")
-        if not os.path.isabs(db_path):
-            backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            db_path = os.path.abspath(os.path.join(backend_root, db_path))
-    else:
-        # Export logic currently tailored for local SQLite setup
-        return
-
-    if not os.path.exists(db_path):
-        print(f"Database file not found at {db_path}, skipping CSV export.")
-        return
-
+    """Reads Supabase database and exports tables to Excel-compatible CSV files in backend directory."""
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
+        from app.core.supabase import get_supabase
+        supabase = get_supabase()
+        
         # List of tables to track and export
         tables_to_export = [
             "users", 
@@ -34,24 +24,27 @@ def export_to_csv():
         ]
         
         backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        os.makedirs(os.path.join(backend_dir, "exports"), exist_ok=True)
 
         for table in tables_to_export:
-            # Get table structure (column headers)
-            cursor.execute(f"PRAGMA table_info({table});")
-            columns = [col[1] for col in cursor.fetchall()]
-
             # Fetch all rows from table
-            cursor.execute(f"SELECT * FROM {table};")
-            rows = cursor.fetchall()
+            res = supabase.table(table).select("*").execute()
+            rows = res.data
+            
+            if not rows:
+                continue
 
-            # Write to CSV in the backend directory
-            csv_path = os.path.join(backend_dir, f"{table}_export.csv")
+            # Get table structure (column headers)
+            columns = list(rows[0].keys())
+
+            # Write to CSV in the backend/exports directory
+            csv_path = os.path.join(backend_dir, "exports", f"{table}_export.csv")
             with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(columns)
-                writer.writerows(rows)
+                for row in rows:
+                    writer.writerow([row.get(col) for col in columns])
             
-        conn.close()
         print("📊 Automatically exported database changes to CSV files successfully!")
     except Exception as e:
         print(f"Error during auto-exporting database to CSV: {e}")

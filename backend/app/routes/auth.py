@@ -3,7 +3,8 @@ from datetime import datetime, timezone, timedelta
 import random
 from app.core.security import (
     hash_password, verify_password, create_access_token,
-    create_refresh_token, decode_token, get_current_user
+    create_refresh_token, decode_token, get_current_user,
+    oauth2_scheme
 )
 from app.schemas import (
     LoginRequest, TokenResponse, RefreshRequest, UserOut,
@@ -220,17 +221,17 @@ def forgot_password(req: ForgotPasswordRequest):
             # This will raise a ValueError if SMTP fails, which is caught by the global try-except below
             send_otp_email(email, otp, full_name)
             
-        # Save OTP to database using ic_number in the 'mobile' column for lookup ONLY after email success
+        # Save OTP to database using ic_number in the 'identifier' column for lookup ONLY after email success
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
         otp_data = {
-            "mobile": req.ic_number,
+            "identifier": req.ic_number,
             "otp_hash": hash_password(otp),
             "expires_at": expires_at,
             "attempts": 0
         }
         
-        # Upsert OTP (since mobile is unique)
-        existing_otp = supabase.table("otp_verifications").select("id").eq("mobile", req.ic_number).execute()
+        # Upsert OTP (since identifier is unique)
+        existing_otp = supabase.table("otp_verifications").select("id").eq("identifier", req.ic_number).execute()
         if existing_otp.data:
             supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
         else:
@@ -263,7 +264,7 @@ def verify_otp(req: VerifyOTPRequest):
         
     user = res.data[0]
     
-    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.ic_number).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", req.ic_number).execute()
     if not otp_res.data:
         raise HTTPException(status_code=400, detail="No OTP requested for this user")
         
@@ -294,8 +295,13 @@ def verify_otp(req: VerifyOTPRequest):
 
 
 @router.post("/logout")
-def logout(current_user: dict = Depends(get_current_user)):
-    """Logout current user."""
+def logout(
+    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(get_current_user)
+):
+    """Logout current user by blacklisting their access token."""
+    from app.core.security import blacklist_token
+    blacklist_token(token)
     return {"message": "Successfully logged out"}
 
 
@@ -315,7 +321,7 @@ def request_otp(req: RequestOTPRequest):
     now = datetime.now(timezone.utc)
     
     # Check OTP record
-    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.mobile).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", req.mobile).execute()
     
     if otp_res.data:
         otp_record = otp_res.data[0]
@@ -338,10 +344,10 @@ def request_otp(req: RequestOTPRequest):
             "attempts": 0,
             "expires_at": expires_at,
             "created_at": now.isoformat()
-        }).eq("mobile", req.mobile).execute()
+        }).eq("identifier", req.mobile).execute()
     else:
         supabase.table("otp_verifications").insert({
-            "mobile": req.mobile,
+            "identifier": req.mobile,
             "otp_hash": otp_hash,
             "attempts": 0,
             "expires_at": expires_at,
@@ -378,7 +384,7 @@ def register_student(req: RegisterRequest):
     if mobile_res.data:
         raise HTTPException(status_code=400, detail="Mobile number is already registered")
 
-    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.mobile).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", req.mobile).execute()
     if not otp_res.data:
         raise HTTPException(status_code=400, detail="No OTP requested for this mobile number")
         
@@ -387,16 +393,16 @@ def register_student(req: RegisterRequest):
     expires_at = datetime.fromisoformat(otp_record["expires_at"].replace("Z", "+00:00"))
     
     if expires_at < now:
-        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
+        supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
 
     if otp_record["attempts"] >= 3:
-        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
+        supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
         raise HTTPException(status_code=400, detail="Maximum OTP verification attempts exceeded.")
 
     if not verify_password(req.otp, otp_record["otp_hash"]):
         attempts = otp_record["attempts"] + 1
-        supabase.table("otp_verifications").update({"attempts": attempts}).eq("mobile", req.mobile).execute()
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", req.mobile).execute()
         raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - attempts} attempts remaining.")
 
     role_res = supabase.table("roles").select("id").eq("name", "student").execute()
@@ -437,7 +443,7 @@ def register_student(req: RegisterRequest):
     }
     supabase.table("activity_logs").insert(log).execute()
     
-    supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
+    supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
 
     access_token = create_access_token({"sub": str(user_id), "role": "student"})
     refresh_token = create_refresh_token({"sub": str(user_id)})

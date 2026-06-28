@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 # Load backend/.env explicitly so env vars are available regardless of the working directory.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DOTENV_PATH = BASE_DIR / ".env"
 if DOTENV_PATH.exists():
     load_dotenv(DOTENV_PATH)

@@ -17,14 +17,14 @@ export const tokenStorage = {
     localStorage.setItem('access_token', access);
     localStorage.setItem('refresh_token', refresh);
     // Also set a cookie so Next.js middleware (edge runtime) can read auth state
-    document.cookie = `access_token=${access}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Strict`;
+    document.cookie = `access_token=${access}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
   },
   clearTokens: () => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     // Expire the cookie
-    document.cookie = 'access_token=; path=/; max-age=0; SameSite=Strict';
+    document.cookie = 'access_token=; path=/; max-age=0; SameSite=Lax';
   },
 };
 
