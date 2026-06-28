@@ -11,8 +11,8 @@ if DOTENV_PATH.exists():
 else:
     load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
     raise RuntimeError(

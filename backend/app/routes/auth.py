@@ -262,8 +262,13 @@ def forgot_password(req: ForgotPasswordRequest):
         return response
     except Exception as e:
         import traceback
+        error_msg = str(e)
+        print("FORGOT PASSWORD ERROR TRACE:")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}")
+        # Add context to help debug if it's Supabase vs Resend
+        if "API key is invalid" in error_msg:
+            error_msg = f"API Key Validation Error (Check Supabase/Resend keys on Render): {error_msg}"
+        raise HTTPException(status_code=500, detail=f"Backend Error: {error_msg}")
 
 
 @router.post("/verify-otp")
