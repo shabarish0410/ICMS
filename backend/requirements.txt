@@ -34,3 +34,7 @@ openpyxl
 pdfplumber
 tenacity
 resend
+
+# AI & Timzones (Attendance)
+pytz
+google-generativeai
