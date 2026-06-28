@@ -55,7 +55,7 @@ def mark_attendance(
     if req.method == "face" and req.photo_url:
         is_valid_dress = verify_dress_code(req.photo_url)
         if not is_valid_dress:
-            final_status = "REJECTED_DRESSCODE"
+            raise HTTPException(status_code=400, detail="Invalid Dresscode: You must wear the official uniform to check in.")
 
     new_att = {
         "student_id": student_id,
