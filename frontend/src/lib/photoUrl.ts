@@ -20,12 +20,12 @@ export function resolvePhotoUrl(photoUrl: string | null | undefined): string | n
 
   // Already a full URL (Supabase Storage or external)
   if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-    return encodeURI(photoUrl);
+    return photoUrl;
   }
 
   // Local relative path (e.g. /uploads/abc123.jpg)
   if (photoUrl.startsWith('/uploads/')) {
-    return `${BACKEND_URL}${encodeURI(photoUrl)}`;
+    return `${BACKEND_URL}${photoUrl}`;
   }
 
   // Bare filename – assume it lives in Supabase Storage
