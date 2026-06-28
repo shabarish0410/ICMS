@@ -241,14 +241,14 @@ def forgot_password(req: ForgotPasswordRequest):
         # Save OTP to database using ic_number in the 'identifier' column for lookup ONLY after email success
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
         otp_data = {
-            "identifier": req.ic_number,
+            "mobile": req.ic_number,
             "otp_hash": hash_password(otp),
             "expires_at": expires_at,
             "attempts": 0
         }
         
-        # Upsert OTP (since identifier is unique)
-        existing_otp = supabase.table("otp_verifications").select("id").eq("identifier", req.ic_number).execute()
+        # Upsert OTP (since mobile column stores the IC number as the unique key)
+        existing_otp = supabase.table("otp_verifications").select("id").eq("mobile", req.ic_number).execute()
         if existing_otp.data:
             supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
         else:
@@ -286,7 +286,7 @@ def verify_otp(req: VerifyOTPRequest):
         
     user = res.data[0]
     
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", req.ic_number).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.ic_number).execute()
     if not otp_res.data:
         raise HTTPException(status_code=400, detail="No OTP requested for this user")
         
