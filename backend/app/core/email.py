@@ -2,8 +2,7 @@ import smtplib
 import socket
 import logging
 from abc import ABC, abstractmethod
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from email.message import EmailMessage
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -99,14 +98,14 @@ class SMTPEmailProvider(BaseEmailProvider):
         if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
             raise ValueError("SMTP_USER and SMTP_PASSWORD must be configured.")
 
-        msg = MIMEMultipart()
+        msg = EmailMessage()
         sender_name = "Spark Innovation Cell"
         msg["From"] = f"{sender_name} <{settings.SMTP_USER}>"
         msg["To"] = to_email
         msg["Subject"] = subject
-        msg.attach(MIMEText(html_body, "html"))
-
-        host = settings.SMTP_PORT
+        # Fallback plaintext content, then attach the HTML version
+        msg.set_content("Please enable HTML to view this email.")
+        msg.add_alternative(html_body, subtype='html')
         
         try:
             logger.info(f"Resolving DNS for {settings.SMTP_HOST}...")
@@ -114,19 +113,17 @@ class SMTPEmailProvider(BaseEmailProvider):
             logger.info(f"Resolved {settings.SMTP_HOST} to {ip_address}.")
             
             logger.info(f"Connecting to SMTP {settings.SMTP_HOST}:{settings.SMTP_PORT}...")
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
-            
-            # Start TLS for ports 587 or 25
-            if settings.SMTP_PORT in (587, 25):
-                logger.info("Initiating STARTTLS handshake...")
-                server.starttls()
-            
-            logger.info("Authenticating with SMTP server...")
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            
-            logger.info("Sending message payload...")
-            server.send_message(msg)
-            server.quit()
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
+                # Start TLS for ports 587 or 25
+                if settings.SMTP_PORT in (587, 25):
+                    logger.info("Initiating STARTTLS handshake...")
+                    server.starttls()
+                
+                logger.info("Authenticating with SMTP server...")
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                
+                logger.info("Sending message payload...")
+                server.send_message(msg)
             
             logger.info(f"Successfully sent SMTP email to {to_email}.")
             return True
