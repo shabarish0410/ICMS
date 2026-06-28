@@ -32,15 +32,16 @@ def send_email(to_email: str, subject: str, html: str):
         msg['To'] = to_email
         msg.set_content(html, subtype='html')
 
-        print(f"Attempting to send SMTP email to {to_email} via {smtp_host}:{smtp_port}")
+        # Force port to 465 for SSL
+        smtp_port = 465
+        print(f"Attempting to send SMTP email to {to_email} via {smtp_host}:{smtp_port} (SSL)")
         
         # Apply the IPv4 patch temporarily
         socket.getaddrinfo = _ipv4_getaddrinfo
         
-        # Connect to the SMTP server (using STARTTLS)
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+        # Connect to the SMTP server (using SMTP_SSL on port 465)
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10) as server:
             server.set_debuglevel(1)  # Enable debug output for testing
-            server.starttls()         # Secure the connection
             server.login(smtp_user, smtp_password)
             server.send_message(msg)
             
