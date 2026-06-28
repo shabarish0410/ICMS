@@ -66,14 +66,18 @@ def create_team(
     if existing.data:
         raise HTTPException(status_code=400, detail="Team name already exists")
         
-    new_team = req.model_dump()
+    new_team = req.model_dump(exclude={"student_ids"})
     res = supabase.table("teams").insert(new_team).execute()
     
     if not res.data:
         raise HTTPException(status_code=500, detail="Failed to create team")
         
     team = res.data[0]
-    team["member_count"] = 0
+    
+    if req.student_ids:
+        supabase.table("students").update({"team_id": team["id"]}).in_("id", req.student_ids).execute()
+        
+    team["member_count"] = len(req.student_ids) if req.student_ids else 0
     return team
 
 
@@ -174,10 +178,18 @@ def update_team(
     if not existing.data:
         raise HTTPException(status_code=404, detail="Team not found")
         
-    update_data = req.model_dump(exclude_unset=True)
-    res = supabase.table("teams").update(update_data).eq("id", team_id).execute()
+    update_data = req.model_dump(exclude_unset=True, exclude={"student_ids"})
+    if update_data:
+        res = supabase.table("teams").update(update_data).eq("id", team_id).execute()
+        team = res.data[0]
+    else:
+        team = existing.data[0]
+        
+    if req.student_ids is not None:
+        supabase.table("students").update({"team_id": None}).eq("team_id", team_id).execute()
+        if req.student_ids:
+            supabase.table("students").update({"team_id": team_id}).in_("id", req.student_ids).execute()
     
-    team = res.data[0]
     member_res = supabase.table("students").select("id", count="exact").eq("team_id", team["id"]).execute()
     team["member_count"] = member_res.count if member_res.count is not None else 0
     return team

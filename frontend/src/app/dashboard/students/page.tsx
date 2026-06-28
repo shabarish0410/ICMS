@@ -142,7 +142,7 @@ export default function StudentsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['students', page, search],
-    queryFn: () => studentsAPI.list({ page, size: 20, search }),
+    queryFn: () => studentsAPI.list({ page, size: 100, search }),
   });
 
   const createMutation = useMutation({
@@ -208,7 +208,7 @@ export default function StudentsPage() {
     setShowModal(true);
   };
 
-  const students = data?.data?.items || [];
+  const students = [...(data?.data?.items || [])].sort((a, b) => (a.user?.full_name || '').localeCompare(b.user?.full_name || ''));
   const total = data?.data?.total || 0;
   const allSelected = students.length > 0 && selectedIds.length === students.length;
   const someSelected = selectedIds.length > 0 && !allSelected;

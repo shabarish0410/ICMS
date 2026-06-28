@@ -58,8 +58,8 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="h-16 flex items-center gap-3 px-4 border-b border-dark-200 dark:border-dark-800">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
-          <Cpu className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden p-1 shadow-sm">
+          <img src="/logo.jpg" alt="Spark Logo" className="w-full h-full object-contain" />
         </div>
         <AnimatePresence>
           {!collapsed && (
@@ -120,23 +120,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* AI Insights */}
-      <AnimatePresence>
-        {!collapsed && isAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-            className="mx-3 mb-3 p-4 rounded-xl bg-gradient-to-br from-primary-500/10 to-violet-500/10 border border-primary-500/20"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-primary-500" />
-              <span className="text-xs font-semibold text-primary-600 dark:text-primary-400">AI Insights</span>
-            </div>
-            <p className="text-[11px] text-dark-500 dark:text-dark-400">
-              3 projects approaching deadlines. Review recommended.
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* AI Insights removed per user request */}
 
       {/* Footer */}
       <div className="border-t border-dark-200 dark:border-dark-800 p-3 space-y-2">

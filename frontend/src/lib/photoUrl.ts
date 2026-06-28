@@ -16,26 +16,26 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://icms-2ykq.on
  * Returns null if no URL is provided.
  */
 export function resolvePhotoUrl(photoUrl: string | null | undefined): string | null {
-  if (!photoUrl) return null;
+  if (!photoUrl || photoUrl === 'null' || photoUrl === 'undefined') return null;
 
   // Already a full URL (Supabase Storage or external)
   if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-    return photoUrl;
+    return encodeURI(photoUrl);
   }
 
   // Local relative path (e.g. /uploads/abc123.jpg)
   if (photoUrl.startsWith('/uploads/')) {
-    return `${BACKEND_URL}${photoUrl}`;
+    return `${BACKEND_URL}${encodeURI(photoUrl)}`;
   }
 
   // Bare filename – assume it lives in Supabase Storage
   const filename = photoUrl.replace(/^\//, '');
-  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${filename}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${encodeURIComponent(filename)}`;
 }
 
 /**
  * Returns a Supabase Storage public URL for a given filename.
  */
 export function supabasePublicUrl(filename: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${filename}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${encodeURIComponent(filename)}`;
 }

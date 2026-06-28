@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { teamsAPI } from '@/services/api';
+import { teamsAPI, studentsAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Edit2, Trash2, Users2, X, Loader2, ArrowRight, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,7 +19,13 @@ export default function TeamsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: '', description: '', department: '', mentor_name: '' });
+  const [form, setForm] = useState({ name: '', description: '', department: '', mentor_name: '', student_ids: [] as number[] });
+  
+  const { data: studentsData } = useQuery({ 
+    queryKey: ['students-all'], 
+    queryFn: () => studentsAPI.list({ size: 1000 }) 
+  });
+  const allStudents = studentsData?.data?.items || [];
   const [importFile, setImportFile] = useState<File | null>(null);
 
   const { data, isLoading } = useQuery({ 
@@ -73,7 +79,11 @@ export default function TeamsPage() {
   const openEdit = (t: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid triggering route details click
     setEditing(t); 
-    setForm({ name: t.name, description: t.description || '', department: t.department || '', mentor_name: t.mentor_name || '' }); 
+    teamsAPI.members(t.id).then((res) => {
+      const memberIds = res.data.map((m: any) => m.id);
+      setForm(prev => ({ ...prev, student_ids: memberIds }));
+    });
+    setForm({ name: t.name, description: t.description || '', department: t.department || '', mentor_name: t.mentor_name || '', student_ids: [] }); 
     setShowModal(true);
   };
 
@@ -114,7 +124,7 @@ export default function TeamsPage() {
     }
   };
 
-  const teams = data?.data?.items || [];
+  const teams = [...(data?.data?.items || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return (
     <div className="space-y-6">
@@ -129,7 +139,7 @@ export default function TeamsPage() {
               <Upload className="w-4 h-4" /> Import CSV/Excel
             </button>
             <button 
-              onClick={() => { setEditing(null); setForm({ name: '', description: '', department: '', mentor_name: '' }); setShowModal(true); }} 
+              onClick={() => { setEditing(null); setForm({ name: '', description: '', department: '', mentor_name: '', student_ids: [] }); setShowModal(true); }} 
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Create Team
@@ -239,6 +249,25 @@ export default function TeamsPage() {
                     <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Mentor Name</label>
                     <input value={form.mentor_name} onChange={(e) => setForm({ ...form, mentor_name: e.target.value })} className="input-field text-sm" placeholder="e.g. Dr. John" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Students</label>
+                  <select 
+                    multiple 
+                    value={form.student_ids.map(String)} 
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value));
+                      setForm({ ...form, student_ids: selected });
+                    }} 
+                    className="input-field h-32"
+                  >
+                    {allStudents.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.user?.full_name} ({s.user?.ic_number})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-dark-400 mt-1">Hold Ctrl/Cmd to select multiple students.</p>
                 </div>
                 <div className="flex gap-3 pt-4 border-t border-dark-100 dark:border-dark-700">
                   <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
