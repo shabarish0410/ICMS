@@ -1,6 +1,16 @@
 import smtplib
+import socket
 from email.message import EmailMessage
 from app.core.config import settings
+
+# --- IPv4 Patch for Render ---
+# Cloud providers often fail on IPv6 connections to smtp.gmail.com (Errno 101)
+# This forces the socket to only return IPv4 addresses.
+_orig_getaddrinfo = socket.getaddrinfo
+def _ipv4_getaddrinfo(*args, **kwargs):
+    responses = _orig_getaddrinfo(*args, **kwargs)
+    return [res for res in responses if res[0] == socket.AF_INET]
+# -----------------------------
 
 def send_email(to_email: str, subject: str, html: str):
     """
@@ -24,6 +34,9 @@ def send_email(to_email: str, subject: str, html: str):
 
         print(f"Attempting to send SMTP email to {to_email} via {smtp_host}:{smtp_port}")
         
+        # Apply the IPv4 patch temporarily
+        socket.getaddrinfo = _ipv4_getaddrinfo
+        
         # Connect to the SMTP server (using STARTTLS)
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
             server.set_debuglevel(1)  # Enable debug output for testing
@@ -40,3 +53,6 @@ def send_email(to_email: str, subject: str, html: str):
     except Exception as e:
         print("SMTP ERROR:", str(e))
         raise RuntimeError(f"Email delivery failed: {str(e)}")
+    finally:
+        # Always restore the original socket resolver
+        socket.getaddrinfo = _orig_getaddrinfo
