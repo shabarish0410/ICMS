@@ -31,12 +31,23 @@ async def lifespan(app: FastAPI):
             buckets = sb.storage.list_buckets()
             bucket_names = [b.name for b in buckets]
             if "attendance-photos" not in bucket_names:
-                print("⚠️ Bucket 'attendance-photos' not found. Creating it now...")
-                sb.storage.create_bucket(
-                    "attendance-photos", 
-                    {"name": "attendance-photos", "public": True}
-                )
-                print("✅ Bucket created successfully!")
+                print("⚠️ Bucket 'attendance-photos' not found. Creating it now via REST...")
+                import httpx
+                headers = {
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "id": "attendance-photos",
+                    "name": "attendance-photos",
+                    "public": True
+                }
+                bucket_url = f"{settings.SUPABASE_URL}/storage/v1/bucket"
+                resp = httpx.post(bucket_url, json=payload, headers=headers, timeout=10.0)
+                if resp.status_code in [200, 201]:
+                    print("✅ Bucket created successfully!")
+                else:
+                    print(f"⚠️ Failed to create bucket via REST: {resp.text}")
         except Exception as bucket_err:
             print(f"⚠️ Could not verify/create bucket: {bucket_err}")
             
