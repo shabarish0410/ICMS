@@ -35,9 +35,6 @@ def verify_dress_code(image_url: str) -> bool:
             
         genai.configure(api_key=settings.GEMINI_API_KEY)
         
-        # Use gemini-1.5-flash for fast multimodal tasks
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
         prompt = (
             "You are a strict automated dress code verifier for a college. "
             "Examine this photo. The acceptable uniform is: "
@@ -48,7 +45,20 @@ def verify_dress_code(image_url: str) -> bool:
             "Respond exactly with the word 'YES' if it matches, or 'NO' if it does not match or if you cannot tell."
         )
         
-        response = model.generate_content([prompt, image])
+        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro-vision']
+        response = None
+        
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content([prompt, image])
+                break # Success!
+            except Exception as e:
+                print(f"⚠️ Model {model_name} failed: {e}")
+                
+        if not response:
+            raise Exception("All attempted Gemini models failed or threw 404.")
+            
         result = response.text.strip().upper()
         
         print(f"🧠 AI Dress Code Result: {result}")
