@@ -174,7 +174,7 @@ def update_team(
     current_user: dict = Depends(require_roles("admin"))
 ):
     supabase = get_supabase()
-    existing = supabase.table("teams").select("id").eq("id", team_id).execute()
+    existing = supabase.table("teams").select("*").eq("id", team_id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Team not found")
         

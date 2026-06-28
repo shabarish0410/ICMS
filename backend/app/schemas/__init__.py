@@ -263,7 +263,7 @@ class TeamCreate(BaseModel):
     description: Optional[str] = None
     department: Optional[str] = None
     mentor_name: Optional[str] = None
-    student_ids: Optional[List[int]] = []
+    student_ids: Optional[List[int]] = Field(default_factory=list)
 
 
 class TeamUpdate(BaseModel):

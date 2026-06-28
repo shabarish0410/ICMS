@@ -58,8 +58,8 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="h-16 flex items-center gap-3 px-4 border-b border-dark-200 dark:border-dark-800">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white overflow-hidden p-1 shadow-sm">
-          <img src="/logo.jpg" alt="Spark Logo" className="w-full h-full object-contain" />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
+          <img src="/logo.jpg" alt="Spark Logo" className="w-full h-full object-cover" />
         </div>
         <AnimatePresence>
           {!collapsed && (
