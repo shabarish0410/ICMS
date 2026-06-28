@@ -47,7 +47,7 @@ def login(req: LoginRequest):
         logger.warning(f"Login failed: Password verification failed for IC Number '{req.ic_number}'.")
         raise HTTPException(status_code=401, detail="Invalid IC Number or password")
 
-    if not user_data.get("is_active", True):
+    if user_data.get("is_active") is False:
         logger.warning(f"Login failed: Account for IC Number '{req.ic_number}' is deactivated.")
         raise HTTPException(status_code=403, detail="Account is deactivated")
         
@@ -58,6 +58,8 @@ def login(req: LoginRequest):
 
     # Extract role name safely, fallback to 'student'
     role_info = user_data.get("role")
+    if isinstance(role_info, list) and len(role_info) > 0:
+        role_info = role_info[0]
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
 
     access_token = create_access_token({"sub": str(user_data["id"]), "role": role_name})
@@ -66,8 +68,8 @@ def login(req: LoginRequest):
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        is_profile_completed=user_data.get("is_profile_completed", False),
-        must_change_password=user_data.get("must_change_password", False),
+        is_profile_completed=bool(user_data.get("is_profile_completed")),
+        must_change_password=bool(user_data.get("must_change_password")),
     )
 
 
@@ -172,6 +174,8 @@ def refresh_token(req: RefreshRequest):
         
     user = res.data[0]
     role_info = user.get("role")
+    if isinstance(role_info, list) and len(role_info) > 0:
+        role_info = role_info[0]
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
 
     access_token = create_access_token({"sub": str(user["id"]), "role": role_name})
@@ -180,8 +184,8 @@ def refresh_token(req: RefreshRequest):
     return TokenResponse(
         access_token=access_token,
         refresh_token=new_refresh,
-        is_profile_completed=user.get("is_profile_completed", False),
-        must_change_password=user.get("must_change_password", False),
+        is_profile_completed=bool(user.get("is_profile_completed")),
+        must_change_password=bool(user.get("must_change_password")),
     )
 
 

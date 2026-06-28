@@ -7,6 +7,28 @@ from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
+@router.get("/fix-passwords")
+def fix_imported_passwords():
+    """Temporary diagnostic endpoint to fix unhashed imported passwords."""
+    supabase = get_supabase()
+    res = supabase.table("users").select("id, ic_number, password_hash").execute()
+    users = res.data
+    
+    fixed_count = 0
+    fixed_users = []
+    
+    for u in users:
+        # Check if the password hash does not start with bcrypt standard prefix '$2b$'
+        # Or if it looks like a plain text password (e.g. no '$' at all)
+        p_hash = u.get("password_hash", "")
+        if p_hash and not p_hash.startswith("$2b$"):
+            new_hash = hash_password(p_hash)
+            supabase.table("users").update({"password_hash": new_hash}).eq("id", u["id"]).execute()
+            fixed_count += 1
+            fixed_users.append(u["ic_number"])
+            
+    return {"status": "success", "fixed_count": fixed_count, "fixed_ic_numbers": fixed_users}
+
 
 @router.get("/roles")
 def list_roles(
