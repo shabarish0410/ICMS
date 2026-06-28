@@ -48,15 +48,15 @@ def mark_attendance(
     if time_str > "14:40":
         raise HTTPException(status_code=400, detail="INVALID - OUT OF TIME WINDOW")
         
-    final_status = "present"
+    final_status = "PRESENT"
     if "14:36" <= time_str <= "14:40":
-        final_status = "late"
+        final_status = "LATE"
         
     # AI Dress Code Logic
     if req.method == "face" and req.photo_url:
         is_valid_dress = verify_dress_code(req.photo_url)
         if not is_valid_dress:
-            final_status = "rejected_dresscode"
+            final_status = "REJECTED_DRESSCODE"
 
     new_att = {
         "student_id": student_id,
@@ -131,8 +131,8 @@ def attendance_stats(current_user: dict = Depends(get_current_user)):
         
         att_res = supabase.table("attendance").select("status").eq("student_id", student_id).execute()
         total_days = len(att_res.data)
-        present = sum(1 for a in att_res.data if a["status"] == "present")
-        late = sum(1 for a in att_res.data if a["status"] == "late")
+        present = sum(1 for a in att_res.data if a["status"] == "PRESENT")
+        late = sum(1 for a in att_res.data if a["status"] == "LATE")
         percentage = (present + late) / total_days * 100 if total_days > 0 else 0
 
         today_marked_res = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
@@ -147,9 +147,9 @@ def attendance_stats(current_user: dict = Depends(get_current_user)):
         }
     else:
         # Admin stats
-        att_today_res = supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
-        present_today = sum(1 for a in att_today_res.data if a["status"] in ["present", "late"])
-        late_today = sum(1 for a in att_today_res.data if a["status"] == "late")
+        att_today_res = supabase.table("attendance").select("status").eq("date", today).in_("status", ["PRESENT", "LATE"]).execute()
+        present_today = sum(1 for a in att_today_res.data if a["status"] in ["PRESENT", "LATE"])
+        late_today = sum(1 for a in att_today_res.data if a["status"] == "LATE")
 
         return {
             "total_students": total_students,
@@ -221,7 +221,7 @@ def admin_mark_attendance(
             "status": req.status,
             "method": req.method
         }
-        if req.status == "absent":
+        if req.status == "ABSENT":
             update_data["check_in_time"] = None
         elif not existing.data[0].get("check_in_time"):
             update_data["check_in_time"] = datetime.now(timezone.utc).isoformat()
@@ -229,7 +229,7 @@ def admin_mark_attendance(
         supabase.table("attendance").update(update_data).eq("id", att_id).execute()
     else:
         check_in = None
-        if req.status in ["present", "late"]:
+        if req.status in ["PRESENT", "LATE"]:
             check_in = datetime.now(timezone.utc).isoformat()
             
         new_att = {

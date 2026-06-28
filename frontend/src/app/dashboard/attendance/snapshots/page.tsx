@@ -45,8 +45,8 @@ const fmtShortDate = (d: string) =>
   new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 function statusStyle(s: string) {
-  if (s === 'present') return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-  if (s === 'late')    return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+  if (s === 'PRESENT') return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+  if (s === 'LATE')    return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
   return 'bg-red-500/20 text-red-400 border-red-500/30';
 }
 
@@ -231,9 +231,9 @@ export default function AttendanceSnapshotsPage() {
           className="px-3 py-2 text-sm rounded-xl border border-dark-200 dark:border-dark-700 bg-dark-50 dark:bg-dark-900 text-dark-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
         >
           <option value="">All Statuses</option>
-          <option value="present">Present</option>
-          <option value="late">Late</option>
-          <option value="absent">Absent</option>
+          <option value="PRESENT">Present</option>
+          <option value="LATE">Late</option>
+          <option value="ABSENT">Absent</option>
         </select>
 
         <button

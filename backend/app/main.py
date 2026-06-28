@@ -25,6 +25,18 @@ async def lifespan(app: FastAPI):
     try:
         sb = get_supabase()
         print("✅ Connected to Supabase REST client.")
+        
+        # Ensure the attendance-photos bucket exists and is public
+        try:
+            buckets = sb.storage.list_buckets()
+            bucket_names = [b.name for b in buckets]
+            if "attendance-photos" not in bucket_names:
+                print("⚠️ Bucket 'attendance-photos' not found. Creating it now...")
+                sb.storage.create_bucket("attendance-photos", {"public": True})
+                print("✅ Bucket created successfully!")
+        except Exception as bucket_err:
+            print(f"⚠️ Could not verify/create bucket: {bucket_err}")
+            
     except Exception as e:
         print(f"⚠️ Supabase connection issue: {e}")
     yield

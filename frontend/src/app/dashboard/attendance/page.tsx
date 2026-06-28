@@ -653,19 +653,19 @@ export default function AttendancePage() {
                         }}
                         disabled={adminMarkMutation.isPending}
                         className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border border-transparent focus:ring-1 focus:ring-primary-500 bg-transparent cursor-pointer font-sans focus:outline-none ${
-                          r.status === 'present' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          r.status === 'late' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                          r.status === 'PRESENT' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          r.status === 'LATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                           'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                         }`}
                       >
-                        <option value="present" className="bg-white dark:bg-dark-800 text-green-700 dark:text-green-400">Present</option>
-                        <option value="late" className="bg-white dark:bg-dark-800 text-amber-700 dark:text-amber-400">Late</option>
-                        <option value="absent" className="bg-white dark:bg-dark-800 text-red-700 dark:text-red-400">Absent</option>
+                        <option value="PRESENT" className="bg-white dark:bg-dark-800 text-green-700 dark:text-green-400">Present</option>
+                        <option value="LATE" className="bg-white dark:bg-dark-800 text-amber-700 dark:text-amber-400">Late</option>
+                        <option value="ABSENT" className="bg-white dark:bg-dark-800 text-red-700 dark:text-red-400">Absent</option>
                       </select>
                     ) : (
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                        r.status === 'present' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                        r.status === 'late' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                        r.status === 'PRESENT' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        r.status === 'LATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       }`}>{r.status}</span>
                     )}
@@ -775,16 +775,16 @@ export default function AttendancePage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-dark-500 dark:text-dark-400">Status</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['present', 'late', 'absent'].map((s) => (
+                  {['PRESENT', 'LATE', 'ABSENT'].map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setAdminStatus(s)}
                       className={`py-2 px-3 rounded-xl text-xs font-bold uppercase border transition-all ${
                         adminStatus === s
-                          ? s === 'present'
+                          ? s === 'PRESENT'
                             ? 'bg-green-500/10 border-green-500 text-green-600 dark:text-green-400'
-                            : s === 'late'
+                            : s === 'LATE'
                             ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400'
                             : 'bg-red-500/10 border-red-500 text-red-600 dark:text-red-400'
                           : 'bg-transparent border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-850'
