@@ -25,6 +25,9 @@ export function resolvePhotoUrl(photoUrl: string | null | undefined): string | n
 
   // Local relative path (e.g. /uploads/abc123.jpg)
   if (photoUrl.startsWith('/uploads/')) {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return `http://localhost:8000${photoUrl}`;
+    }
     return `${BACKEND_URL}${photoUrl}`;
   }
 

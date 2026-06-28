@@ -4,6 +4,7 @@ import uuid
 from app.core.security import get_current_user
 from app.core.config import settings
 from app.core.supabase import get_supabase
+import io
 
 router = APIRouter(prefix="/api/uploads", tags=["Uploads"])
 
@@ -15,25 +16,33 @@ def upload_file(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload a file to Supabase Storage and return the public URL."""
-    # Generate a unique, safe filename using UUID
+    """Upload a file, saving locally first, then pushing to Supabase Storage."""
     ext = os.path.splitext(file.filename or "file.jpg")[1] or ".jpg"
     filename = f"{uuid.uuid4().hex}{ext}"
     
     file_bytes = file.file.read()
     
-    # ── Try Supabase Storage first ────────────────────────────────────────────
+    # 1. ALWAYS save locally first to guarantee we have a file path
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    filepath = os.path.join(settings.UPLOAD_DIR, filename)
+    
+    try:
+        with open(filepath, "wb") as buffer:
+            buffer.write(file_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not save file locally: {str(e)}")
+
+    # 2. Try to upload the local file to Supabase
     try:
         supabase = get_supabase()
         
-        # Upload to Supabase Storage
+        # Pass the string filepath instead of BytesIO
         res = supabase.storage.from_(SNAPSHOT_BUCKET).upload(
             path=filename,
-            file=file_bytes,
+            file=filepath,
             file_options={"content-type": file.content_type or "image/jpeg", "upsert": "false"},
         )
         
-        # Get public URL
         public_url = supabase.storage.from_(SNAPSHOT_BUCKET).get_public_url(filename)
         
         return {
@@ -43,20 +52,14 @@ def upload_file(
         }
         
     except Exception as supabase_err:
-        print(f"⚠️ Supabase Storage upload failed, falling back to local: {supabase_err}")
-    
-    # ── Fallback: save locally ────────────────────────────────────────────────
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    filepath = os.path.join(settings.UPLOAD_DIR, filename)
-    
-    try:
-        with open(filepath, "wb") as buffer:
-            buffer.write(file_bytes)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
-        
-    return {
-        "file_url": f"/uploads/{filename}",
-        "filename": filename,
-        "storage": "local",
-    }
+        import traceback
+        with open("upload_error.txt", "w") as f:
+            f.write(traceback.format_exc())
+            
+        print(f"⚠️ Supabase Storage upload failed, using local: {supabase_err}")
+        return {
+            "file_url": f"/uploads/{filename}",
+            "filename": filename,
+            "storage": "local",
+        }
+
