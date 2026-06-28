@@ -42,7 +42,8 @@ def send_email(to_email: str, subject: str, html: str):
             print(f"Email sent successfully to {to_email} via Brevo!")
             return True
         else:
-            error_msg = f"Brevo API Error ({response.status_code}): {response.text}"
+            key_len = len(api_key) if api_key else 0
+            error_msg = f"Brevo API Error (Key length on Render: {key_len}) ({response.status_code}): {response.text}"
             print(error_msg)
             raise RuntimeError(error_msg)
             
