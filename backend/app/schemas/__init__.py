@@ -378,31 +378,73 @@ class FormFieldSchema(BaseModel):
     default_value: Optional[str] = None
 
 
+class QuestionOptionSchema(BaseModel):
+    id: Optional[int] = None
+    option_text: str
+    order_no: int = 0
+
+class FormQuestionSchema(BaseModel):
+    id: Optional[int] = None
+    question: str
+    type: str
+    required: bool = False
+    order_no: int = 0
+    validation: dict = {}
+    logic: dict = {}
+    options: Optional[List[QuestionOptionSchema]] = []
+
 class FormCreate(BaseModel):
     title: str = Field(..., min_length=2)
     description: Optional[str] = None
-    google_form_url: str = Field(..., description="The URL to the Google Form")
-    is_active: bool = True
-    deadline: Optional[datetime] = None
-
+    category: str = "Survey"
+    status: str = "Published"
+    settings: dict = {}
+    publish_date: Optional[datetime] = None
+    close_date: Optional[datetime] = None
+    questions: List[FormQuestionSchema] = []
 
 class FormUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    google_form_url: Optional[str] = None
-    is_active: Optional[bool] = None
-    deadline: Optional[datetime] = None
-
+    category: Optional[str] = None
+    status: Optional[str] = None
+    settings: Optional[dict] = None
+    publish_date: Optional[datetime] = None
+    close_date: Optional[datetime] = None
+    questions: Optional[List[FormQuestionSchema]] = None
 
 class FormOut(BaseModel):
     id: int
     title: str
     description: Optional[str] = None
-    google_form_url: str
-    is_active: bool
-    deadline: Optional[datetime] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    settings: Optional[dict] = None
     created_by: Optional[int] = None
     created_at: Optional[datetime] = None
+    publish_date: Optional[datetime] = None
+    close_date: Optional[datetime] = None
+    questions: Optional[List[dict]] = None
+    response_count: Optional[int] = 0
+    class Config:
+        from_attributes = True
+
+class FormResponseAnswer(BaseModel):
+    question_id: int
+    answer: Optional[str] = None
+    file_path: Optional[str] = None
+
+class FormResponseCreate(BaseModel):
+    answers: List[FormResponseAnswer]
+
+class FormResponseOut(BaseModel):
+    id: int
+    form_id: int
+    student_id: int
+    status: str
+    submitted_at: Optional[datetime] = None
+    student: Optional[dict] = None
+    answers: Optional[List[dict]] = None
     class Config:
         from_attributes = True
 
