@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, date, timezone
+import pytz
 from app.core.security import get_current_user, require_roles
 from app.core.supabase import get_supabase
 from app.schemas import AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut, PaginatedResponse
+from app.services.ai_service import verify_dress_code
 import math
 
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
@@ -35,12 +37,33 @@ def mark_attendance(
     if existing.data:
         raise HTTPException(status_code=400, detail="Attendance already marked for today")
 
+    # Time Window Logic (IST)
+    ist_tz = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(timezone.utc).astimezone(ist_tz)
+    time_str = now_ist.strftime("%H:%M")
+    
+    if time_str < "14:30":
+        raise HTTPException(status_code=400, detail="NOT ALLOWED")
+        
+    if time_str > "14:40":
+        raise HTTPException(status_code=400, detail="INVALID - OUT OF TIME WINDOW")
+        
+    final_status = "present"
+    if "14:36" <= time_str <= "14:40":
+        final_status = "late"
+        
+    # AI Dress Code Logic
+    if req.method == "face" and req.photo_url:
+        is_valid_dress = verify_dress_code(req.photo_url)
+        if not is_valid_dress:
+            final_status = "rejected_dresscode"
+
     new_att = {
         "student_id": student_id,
         "date": today,
         "check_in_time": datetime.now(timezone.utc).isoformat(),
         "method": req.method,
-        "status": "present",
+        "status": final_status,
         "photo_url": req.photo_url,
     }
     

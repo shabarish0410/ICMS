@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_REGION: str = "us-east-1"
+    
+    # AI / Vision
+    GEMINI_API_KEY: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:
