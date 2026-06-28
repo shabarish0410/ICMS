@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "onboarding@resend.dev"
+
+    # Render / Environment
+    PYTHONUNBUFFERED: Optional[str] = None
 
     # Google OAuth (scaffolded)
     GOOGLE_CLIENT_ID: str = ""
@@ -62,6 +66,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = str(Path(__file__).resolve().parent.parent.parent / ".env")
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

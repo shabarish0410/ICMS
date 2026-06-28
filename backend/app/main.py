@@ -89,3 +89,8 @@ app.include_router(users.router)
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "version": settings.APP_VERSION}
+
+@app.get("/")
+@app.head("/")
+def root_health_check():
+    return {"status": "ok", "message": "ICMS Backend is running"}
