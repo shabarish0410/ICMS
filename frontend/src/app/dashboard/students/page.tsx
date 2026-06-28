@@ -208,7 +208,11 @@ export default function StudentsPage() {
     setShowModal(true);
   };
 
-  const students = [...(data?.data?.items || [])].sort((a, b) => (a.user?.full_name || '').localeCompare(b.user?.full_name || ''));
+  const students = [...(data?.data?.items || [])].sort((a, b) => {
+    const icA = a.user?.ic_number || '';
+    const icB = b.user?.ic_number || '';
+    return icA.localeCompare(icB, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const total = data?.data?.total || 0;
   const allSelected = students.length > 0 && selectedIds.length === students.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
