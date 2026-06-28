@@ -51,9 +51,9 @@ const getBaseURL = (): string => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  if (typeof window === 'undefined') return 'https://icms-2ykq.onrender.com/api';
+  if (typeof window === 'undefined') return 'https://spark-innovation.onrender.com/api';
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://icms-2ykq.onrender.com';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://spark-innovation.onrender.com';
 
   // Capacitor native app
   const cap = (window as any).Capacitor;
