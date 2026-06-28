@@ -20,5 +20,6 @@ def send_email(to_email: str, subject: str, html: str):
         print("Email sent successfully:", response)
         return response
     except Exception as e:
+        key_len = len(resend.api_key) if resend.api_key else 0
         print("RESEND API ERROR:", str(e))
-        raise RuntimeError(f"Email delivery failed: {str(e)}")
+        raise RuntimeError(f"Email delivery failed (Key length on Render: {key_len}): {str(e)}")
