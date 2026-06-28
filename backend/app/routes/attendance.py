@@ -43,17 +43,16 @@ def mark_attendance(
     time_str = now_ist.strftime("%H:%M")
     
     if time_str < "14:30":
-        raise HTTPException(status_code=400, detail="NOT ALLOWED")
-        
-    if time_str > "14:40":
-        raise HTTPException(status_code=400, detail="INVALID - OUT OF TIME WINDOW")
+        raise HTTPException(status_code=400, detail="Attendance is not taken before 2:30 PM.")
         
     final_status = "PRESENT"
     if "14:36" <= time_str <= "14:40":
         final_status = "LATE"
+    elif time_str > "14:40":
+        final_status = "ABSENT"
         
     # AI Dress Code Logic
-    if req.method == "face" and req.photo_url:
+    if req.method == "face" and req.photo_url and final_status != "ABSENT":
         is_valid_dress = verify_dress_code(req.photo_url)
         if not is_valid_dress:
             final_status = "REJECTED_DRESSCODE"
