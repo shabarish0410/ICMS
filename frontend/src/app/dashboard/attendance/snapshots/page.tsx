@@ -232,7 +232,7 @@ export default function AttendanceSnapshotsPage() {
         >
           <option value="">All Statuses</option>
           <option value="PRESENT">Present</option>
-          <option value="LATE">Late</option>
+          <option value="LATE">Present but Late</option>
           <option value="ABSENT">Absent</option>
         </select>
 
@@ -309,7 +309,7 @@ export default function AttendanceSnapshotsPage() {
 
                   {/* Status badge */}
                   <span className={`absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase border backdrop-blur-sm ${statusStyle(record.status)}`}>
-                    {record.status}
+                    {record.status === 'LATE' ? 'Present but Late' : record.status}
                   </span>
                 </div>
 
@@ -381,7 +381,7 @@ export default function AttendanceSnapshotsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase border ${statusStyle(r.status)}`}>
-                          {r.status}
+                          {r.status === 'LATE' ? 'Present but Late' : r.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-dark-500">⌨️ Manual</td>
@@ -508,7 +508,7 @@ export default function AttendanceSnapshotsPage() {
                     </div>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase border ${statusStyle(lightbox.status)}`}>
-                    {lightbox.status}
+                    {lightbox.status === 'LATE' ? 'Present but Late' : lightbox.status}
                   </span>
                 </div>
 

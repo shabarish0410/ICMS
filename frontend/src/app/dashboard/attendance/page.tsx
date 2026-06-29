@@ -659,7 +659,7 @@ export default function AttendancePage() {
                         }`}
                       >
                         <option value="PRESENT" className="bg-white dark:bg-dark-800 text-green-700 dark:text-green-400">Present</option>
-                        <option value="LATE" className="bg-white dark:bg-dark-800 text-amber-700 dark:text-amber-400">Late</option>
+                        <option value="LATE" className="bg-white dark:bg-dark-800 text-amber-700 dark:text-amber-400">Present but Late</option>
                         <option value="ABSENT" className="bg-white dark:bg-dark-800 text-red-700 dark:text-red-400">Absent</option>
                       </select>
                     ) : (
@@ -667,7 +667,7 @@ export default function AttendancePage() {
                         r.status === 'PRESENT' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                         r.status === 'LATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                      }`}>{r.status}</span>
+                      }`}>{r.status === 'LATE' ? 'Present but Late' : r.status}</span>
                     )}
                   </td>
                   <td className="px-5 py-3.5 text-sm text-dark-500 font-mono">{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '—'}</td>
