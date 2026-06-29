@@ -100,10 +100,13 @@ def create_form(req: FormCreate, current_user: dict = Depends(require_roles("adm
         "created_by": current_user["id"],
     }
     
-    res = supabase.table("forms").insert(new_form).execute()
-    if not res.data:
-        raise HTTPException(status_code=500, detail="Form creation failed in Supabase. Check RLS policies or database constraints.")
-    form_id = res.data[0]["id"]
+    try:
+        res = supabase.table("forms").insert(new_form).execute()
+        if not res.data:
+            raise HTTPException(status_code=500, detail="Form creation failed in Supabase. Check RLS policies or database constraints.")
+        form_id = res.data[0]["id"]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Supabase error creating form: {str(e)}")
 
     # Insert Questions
     for q_idx, q in enumerate(req.questions):
