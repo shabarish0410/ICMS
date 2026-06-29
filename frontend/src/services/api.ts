@@ -69,7 +69,7 @@ const getBaseURL = (): string => {
 const api = axios.create({
   baseURL: getBaseURL(),
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 60000, // Increased to 60s to accommodate Render's slow cold starts
 });
 
 // ─── Request Interceptor — SYNCHRONOUS token read (no async, no race condition) ─
