@@ -217,6 +217,7 @@ class StudentCreate(BaseModel):
     department: str
     year: int = Field(..., ge=1, le=5)
     semester: Optional[int] = None
+    section: Optional[str] = None
     mentor_name: Optional[str] = None
     team_id: Optional[int] = None
     password: Optional[str] = None
@@ -232,6 +233,7 @@ class StudentUpdate(BaseModel):
     department: Optional[str] = None
     year: Optional[int] = None
     semester: Optional[int] = None
+    section: Optional[str] = None
     mentor_name: Optional[str] = None
     team_id: Optional[int] = None
     is_active: Optional[bool] = None
@@ -245,6 +247,7 @@ class StudentOut(BaseModel):
     department: str
     year: int
     semester: Optional[int] = None
+    section: Optional[str] = None
     mentor_name: Optional[str] = None
     team_id: Optional[int] = None
     resume_url: Optional[str] = None
@@ -649,6 +652,8 @@ class AdminDashboardStats(BaseModel):
     forms_pending: int
     upcoming_meetings: int
     total_events: int
+    unread_notifications: int = 0
+    new_registrations_today: int = 0
 
 
 class StudentDashboardData(BaseModel):

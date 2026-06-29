@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from app.core.security import get_current_user, require_roles
 from app.core.supabase import get_supabase
 from app.schemas import TeamCreate, TeamUpdate, TeamOut, PaginatedResponse
+from app.utils.actions import log_admin_action, broadcast_notification
 import math
 import io
 import pandas as pd
@@ -75,9 +76,31 @@ def create_team(
     team = res.data[0]
     
     if req.student_ids:
+        if len(req.student_ids) != len(set(req.student_ids)):
+            supabase.table("teams").delete().eq("id", team["id"]).execute()
+            raise HTTPException(status_code=400, detail="Duplicate students in the selection")
+
+        students_res = supabase.table("students").select("id, team_id, user:users(is_active)").in_("id", req.student_ids).execute()
+        found_ids = {s["id"] for s in (students_res.data or [])}
+        for s_id in req.student_ids:
+            if s_id not in found_ids:
+                supabase.table("teams").delete().eq("id", team["id"]).execute()
+                raise HTTPException(status_code=400, detail=f"Student ID {s_id} does not exist")
+        for s in students_res.data:
+            if not s.get("user", {}).get("is_active"):
+                supabase.table("teams").delete().eq("id", team["id"]).execute()
+                raise HTTPException(status_code=400, detail=f"Student ID {s['id']} is not active")
+            if s.get("team_id"):
+                supabase.table("teams").delete().eq("id", team["id"]).execute()
+                raise HTTPException(status_code=400, detail=f"Student ID {s['id']} is already in another team")
+
         supabase.table("students").update({"team_id": team["id"]}).in_("id", req.student_ids).execute()
         
     team["member_count"] = len(req.student_ids) if req.student_ids else 0
+    
+    log_admin_action(current_user["id"], "create", "teams", team["id"], new_value=team)
+    broadcast_notification("Team Created", f"Team '{team['name']}' has been created.")
+    
     return team
 
 
@@ -186,12 +209,30 @@ def update_team(
         team = existing.data[0]
         
     if req.student_ids is not None:
+        if len(req.student_ids) != len(set(req.student_ids)):
+            raise HTTPException(status_code=400, detail="Duplicate students in the selection")
+
+        students_res = supabase.table("students").select("id, team_id, user:users(is_active)").in_("id", req.student_ids).execute()
+        found_ids = {s["id"] for s in (students_res.data or [])}
+        for s_id in req.student_ids:
+            if s_id not in found_ids:
+                raise HTTPException(status_code=400, detail=f"Student ID {s_id} does not exist")
+        for s in students_res.data:
+            if not s.get("user", {}).get("is_active"):
+                raise HTTPException(status_code=400, detail=f"Student ID {s['id']} is not active")
+            if s.get("team_id") and s.get("team_id") != team_id:
+                raise HTTPException(status_code=400, detail=f"Student ID {s['id']} is already in another team")
+
         supabase.table("students").update({"team_id": None}).eq("team_id", team_id).execute()
         if req.student_ids:
             supabase.table("students").update({"team_id": team_id}).in_("id", req.student_ids).execute()
     
     member_res = supabase.table("students").select("id", count="exact").eq("team_id", team["id"]).execute()
     team["member_count"] = member_res.count if member_res.count is not None else 0
+    
+    log_admin_action(current_user["id"], "update", "teams", team["id"], old_value=existing.data[0], new_value=team)
+    broadcast_notification("Team Updated", f"Team '{team['name']}' has been updated.")
+    
     return team
 
 
@@ -206,6 +247,7 @@ def delete_team(
         raise HTTPException(status_code=404, detail="Team not found")
         
     supabase.table("teams").delete().eq("id", team_id).execute()
+    log_admin_action(current_user["id"], "delete", "teams", team_id, old_value=existing.data[0])
     return {"message": "Team deleted successfully"}
 
 

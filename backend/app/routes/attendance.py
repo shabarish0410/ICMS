@@ -5,6 +5,7 @@ from app.core.security import get_current_user, require_roles
 from app.core.supabase import get_supabase
 from app.schemas import AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut, PaginatedResponse
 from app.services.ai_service import verify_dress_code
+from app.utils.actions import log_admin_action, broadcast_notification
 import math
 
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
@@ -35,7 +36,7 @@ def mark_attendance(
 
     existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
     if existing.data:
-        raise HTTPException(status_code=400, detail="Attendance already marked for today")
+        raise HTTPException(status_code=409, detail="Attendance has already been recorded for today.")
 
     # Time Window Logic (IST)
     ist_tz = pytz.timezone("Asia/Kolkata")
@@ -43,12 +44,12 @@ def mark_attendance(
     time_str = now_ist.strftime("%H:%M")
     
     if time_str < "14:30":
-        raise HTTPException(status_code=400, detail="Attendance is not taken before 2:30 PM.")
+        raise HTTPException(status_code=400, detail="Attendance is not open yet.")
         
     final_status = "PRESENT"
-    if "14:36" <= time_str <= "14:40":
+    if "14:46" <= time_str <= "15:00":
         final_status = "LATE"
-    elif time_str > "14:40":
+    elif time_str > "15:00":
         final_status = "ABSENT"
         
     # AI Dress Code Logic
@@ -242,6 +243,7 @@ def admin_mark_attendance(
         att_id = res.data[0]["id"]
 
     final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
+    log_admin_action(current_user["id"], "mark_attendance", "attendance", att_id, new_value=req.model_dump(mode='json'))
     return final_res.data[0]
 
 
@@ -271,4 +273,5 @@ def delete_attendance(
             print(f"⚠️ Could not delete photo from storage: {e}")
 
     supabase.table("attendance").delete().eq("id", attendance_id).execute()
+    log_admin_action(current_user["id"], "delete", "attendance", attendance_id, old_value=existing.data[0])
     return

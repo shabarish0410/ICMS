@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from app.core.security import get_current_user, require_roles
 from app.core.supabase import get_supabase
 from app.schemas import MeetingCreate, MeetingUpdate, MeetingOut, PaginatedResponse
+from app.utils.actions import log_admin_action, broadcast_notification
 import math
 
 router = APIRouter(prefix="/api/meetings", tags=["Meetings"])
@@ -88,10 +89,13 @@ def create_meeting(req: MeetingCreate, current_user: dict = Depends(require_role
                 "notification_type": "meeting", 
                 "link": "/dashboard/meetings",
             })
-        if notifications:
-            supabase.table("notifications").insert(notifications).execute()
+            if notifications:
+                supabase.table("notifications").insert(notifications).execute()
 
     final_res = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)").eq("id", meeting["id"]).execute()
+    log_admin_action(current_user["id"], "create", "meetings", meeting["id"], new_value=meeting)
+    broadcast_notification("Meeting Scheduled", f"A new meeting '{meeting['title']}' has been scheduled.", "meeting")
+    
     return final_res.data[0]
 
 
@@ -109,6 +113,9 @@ def update_meeting(meeting_id: int, req: MeetingUpdate, current_user: dict = Dep
     supabase.table("meetings").update(update_data).eq("id", meeting_id).execute()
     
     final_res = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)").eq("id", meeting_id).execute()
+    log_admin_action(current_user["id"], "update", "meetings", meeting_id, old_value=existing.data[0], new_value=update_data)
+    broadcast_notification("Meeting Updated", f"The meeting '{update_data.get('title', 'Meeting')}' has been updated.", "meeting")
+    
     return final_res.data[0]
 
 
@@ -120,6 +127,7 @@ def delete_meeting(meeting_id: int, current_user: dict = Depends(require_roles("
         raise HTTPException(status_code=404, detail="Meeting not found")
         
     supabase.table("meetings").delete().eq("id", meeting_id).execute()
+    log_admin_action(current_user["id"], "delete", "meetings", meeting_id, old_value=existing.data[0])
     return {"message": "Meeting deleted successfully"}
 
 

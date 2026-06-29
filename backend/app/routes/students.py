@@ -93,7 +93,10 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
         for row_num, row, ic in batch:
             try:
                 full_name = str(row.get("full_name", "")).strip() or ic
+                email = str(row.get("email", "")).strip()
+                phone_number = str(row.get("phone_number", "")).strip()
                 department = str(row.get("department", "")).strip() or "General"
+                section = str(row.get("section", "")).strip()
                 year_val = row.get("year")
                 year = int(float(year_val)) if year_val and str(year_val).lower() not in ("nan", "none", "") else 1
                 semester_val = row.get("semester")
@@ -105,12 +108,14 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
                     "ic_number": ic,
                     "password_hash": hash_password(f"spark@{ic}"),
                     "full_name": full_name,
+                    "email": email if email else None,
+                    "mobile": phone_number if phone_number else None,
                     "role_id": student_role_id,
                     "is_active": True,
                     "is_profile_completed": False,
                     "must_change_password": True,
                 })
-                batch_meta.append((row_num, row, ic, department, year, semester, mentor))
+                batch_meta.append((row_num, row, ic, department, year, semester, mentor, section))
             except Exception as e:
                 error_rows.append({**row, "__row__": row_num, "__error__": str(e)})
                 failed_count += 1
@@ -130,7 +135,7 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
 
             # Build student records
             students_to_insert = []
-            for row_num, row, ic, department, year, semester, mentor in batch_meta:
+            for row_num, row, ic, department, year, semester, mentor, section in batch_meta:
                 uid = ic_to_uid.get(ic)
                 if uid:
                     students_to_insert.append({
@@ -138,6 +143,7 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
                         "department": department,
                         "year": year,
                         "semester": semester,
+                        "section": section if section else None,
                         "mentor_name": mentor,
                         "team_id": None,
                     })
@@ -347,7 +353,7 @@ async def bulk_import_students(
     # Normalise headers and strip UTF-8 BOM
     df.columns = [str(c).strip().replace('\ufeff', '').lower().replace(" ", "_") for c in df.columns]
 
-    required_cols = {"ic_number", "full_name", "department", "year"}
+    required_cols = {"ic_number", "full_name", "email", "department", "year", "section", "phone_number"}
     missing = required_cols - set(df.columns)
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(sorted(missing))}. Found: {', '.join(df.columns.tolist())}")

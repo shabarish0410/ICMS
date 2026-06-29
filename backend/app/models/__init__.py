@@ -69,6 +69,7 @@ class Student(Base):
     department = Column(String(100), nullable=False)
     year = Column(Integer, nullable=False)
     semester = Column(Integer)
+    section = Column(String(50))
     mentor_name = Column(String(255))
     team_id = Column(Integer, ForeignKey("teams.id"))
     resume_url = Column(String(500), nullable=True)
@@ -334,6 +335,7 @@ class ActivityLog(Base):
     entity_id = Column(Integer)
     details = Column(JSON, default={})
     ip_address = Column(String(50))
+    device = Column(String(255))
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="activity_logs")

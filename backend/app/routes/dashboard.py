@@ -44,7 +44,13 @@ def admin_dashboard(current_user: dict = Depends(get_current_user)):
     def q_attendance():
         return supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
 
-    with ThreadPoolExecutor(max_workers=9) as ex:
+    def q_new_registrations():
+        return supabase.table("students").select("id", count="exact").gte("created_at", today).execute()
+
+    def q_unread_notifications():
+        return supabase.table("notifications").select("id", count="exact").eq("user_id", current_user["id"]).eq("is_read", False).execute()
+
+    with ThreadPoolExecutor(max_workers=11) as ex:
         f_students    = ex.submit(q_students)
         f_teams       = ex.submit(q_teams)
         f_projects    = ex.submit(q_projects)
@@ -54,6 +60,8 @@ def admin_dashboard(current_user: dict = Depends(get_current_user)):
         f_meetings    = ex.submit(q_meetings)
         f_events      = ex.submit(q_events)
         f_attendance  = ex.submit(q_attendance)
+        f_new_regs    = ex.submit(q_new_registrations)
+        f_unread_notif= ex.submit(q_unread_notifications)
 
     total_students = f_students.result().count or 0
     total_teams    = f_teams.result().count or 0
@@ -72,6 +80,9 @@ def admin_dashboard(current_user: dict = Depends(get_current_user)):
     absent_today    = total_students - present_today
     attendance_pct  = round(present_today / total_students * 100, 1) if total_students > 0 else 0.0
 
+    new_registrations_today = f_new_regs.result().count or 0
+    unread_notifications = f_unread_notif.result().count or 0
+
     data = AdminDashboardStats(
         total_students=total_students,
         total_teams=total_teams,
@@ -85,6 +96,8 @@ def admin_dashboard(current_user: dict = Depends(get_current_user)):
         forms_pending=forms_pending,
         upcoming_meetings=upcoming_meetings,
         total_events=total_events,
+        unread_notifications=unread_notifications,
+        new_registrations_today=new_registrations_today,
     )
     response = JSONResponse(content=data.model_dump())
     response.headers["Cache-Control"] = "public, max-age=30"
