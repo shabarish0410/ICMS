@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/teams", tags=["Teams"])
 @router.get("", response_model=PaginatedResponse)
 def list_teams(
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=1000),
     search: str = Query(""),
     current_user: dict = Depends(get_current_user)
 ):

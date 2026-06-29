@@ -193,7 +193,7 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
 @router.get("", response_model=PaginatedResponse)
 def list_students(
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=1000),
     search: str = Query("", description="Search by name or IC number"),
     department: str = Query("", description="Filter by department"),
     team_id: int = Query(None, description="Filter by team"),
