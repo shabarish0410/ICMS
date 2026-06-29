@@ -147,7 +147,6 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
                         "department": department,
                         "year": year,
                         "semester": semester,
-                        "section": section if section else None,
                         "mentor_name": mentor,
                         "team_id": None,
                     })
