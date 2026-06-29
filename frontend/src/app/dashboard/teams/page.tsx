@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { teamsAPI, studentsAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Edit2, Trash2, Users2, X, Loader2, ArrowRight, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users2, X, Loader2, ArrowRight, Upload, Search, Check, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TeamsPage() {
@@ -19,13 +19,7 @@ export default function TeamsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: '', description: '', department: '', mentor_name: '', student_ids: [] as number[] });
   
-  const { data: studentsData } = useQuery({ 
-    queryKey: ['students-all'], 
-    queryFn: () => studentsAPI.list({ size: 1000 }) 
-  });
-  const allStudents = studentsData?.data?.items || [];
   const [importFile, setImportFile] = useState<File | null>(null);
 
   const { data, isLoading } = useQuery({ 
@@ -37,7 +31,7 @@ export default function TeamsPage() {
     mutationFn: (d: any) => teamsAPI.create(d),
     onSuccess: () => { 
       queryClient.invalidateQueries({ queryKey: ['teams'] }); 
-      toast.success('Team created!'); 
+      toast.success('Team created successfully!'); 
       setShowModal(false); 
     },
     onError: (e: any) => toast.error(e.response?.data?.detail || 'Failed to create team'),
@@ -77,27 +71,21 @@ export default function TeamsPage() {
   });
 
   const openEdit = (t: any, e: React.MouseEvent) => {
-    e.stopPropagation(); // Avoid triggering route details click
+    e.stopPropagation();
     setEditing(t); 
-    teamsAPI.members(t.id).then((res) => {
-      const memberIds = res.data.map((m: any) => m.id);
-      setForm(prev => ({ ...prev, student_ids: memberIds }));
-    });
-    setForm({ name: t.name, description: t.description || '', department: t.department || '', mentor_name: t.mentor_name || '', student_ids: [] }); 
     setShowModal(true);
   };
 
   const handleDelete = (id: number, e: React.MouseEvent) => {
-    e.stopPropagation(); // Avoid triggering route details click
+    e.stopPropagation();
     if (confirm('Are you sure you want to delete this team? All student assignments will be cleared.')) {
       deleteMutation.mutate(id);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editing) updateMutation.mutate({ id: editing.id, data: form });
-    else createMutation.mutate(form);
+  const handleModalSubmit = (formData: any) => {
+    if (editing) updateMutation.mutate({ id: editing.id, data: formData });
+    else createMutation.mutate(formData);
   };
 
   const handleImportSubmit = (e: React.FormEvent) => {
@@ -139,7 +127,7 @@ export default function TeamsPage() {
               <Upload className="w-4 h-4" /> Import CSV/Excel
             </button>
             <button 
-              onClick={() => { setEditing(null); setForm({ name: '', description: '', department: '', mentor_name: '', student_ids: [] }); setShowModal(true); }} 
+              onClick={() => { setEditing(null); setShowModal(true); }} 
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Create Team
@@ -217,67 +205,15 @@ export default function TeamsPage() {
         </div>
       )}
 
-      {/* Edit/Create Modal */}
+      {/* Edit/Create Modal - Enhanced UI */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }} 
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-6 w-full max-w-lg border border-dark-200 dark:border-dark-700 shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-4 border-b border-dark-100 dark:border-dark-700 pb-3">
-                <h3 className="text-lg font-bold text-dark-900 dark:text-white">{editing ? 'Edit Team' : 'Create Team'}</h3>
-                <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg hover:bg-dark-100 dark:hover:bg-dark-750"><X className="w-5 h-5" /></button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Team Name *</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="input-field" placeholder="e.g. Team Alpha" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Description</label>
-                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field" rows={3} placeholder="Describe the team focus area..." />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Department</label>
-                    <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="input-field text-sm" placeholder="e.g. Computer Science" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Mentor Name</label>
-                    <input value={form.mentor_name} onChange={(e) => setForm({ ...form, mentor_name: e.target.value })} className="input-field text-sm" placeholder="e.g. Dr. John" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Students</label>
-                  <select 
-                    multiple 
-                    value={form.student_ids.map(String)} 
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value));
-                      setForm({ ...form, student_ids: selected });
-                    }} 
-                    className="input-field h-32"
-                  >
-                    {allStudents.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.user?.full_name} ({s.user?.ic_number})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-dark-400 mt-1">Hold Ctrl/Cmd to select multiple students.</p>
-                </div>
-                <div className="flex gap-3 pt-4 border-t border-dark-100 dark:border-dark-700">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
-                  <button type="submit" className="btn-primary flex-1">
-                    {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : editing ? 'Update Team' : 'Create Team'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
+          <TeamModal 
+            editing={editing} 
+            onClose={() => setShowModal(false)} 
+            onSubmit={handleModalSubmit} 
+            isSubmitting={createMutation.isPending || updateMutation.isPending} 
+          />
         )}
       </AnimatePresence>
 
@@ -356,6 +292,308 @@ export default function TeamsPage() {
         )}
       </AnimatePresence>
 
+    </div>
+  );
+}
+
+// ─── Team Modal with Searchable Student Selection ─────────────────────────────
+
+function TeamModal({ editing, onClose, onSubmit, isSubmitting }: any) {
+  const MAX_STUDENTS = 6;
+  
+  const [form, setForm] = useState({ name: '', description: '', department: '', mentor_name: '' });
+  const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
+  const [initialLoading, setInitialLoading] = useState(!!editing);
+  
+  // Search state
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Fetch departments for filter
+  const { data: deptData } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => studentsAPI.departments(),
+  });
+  const departments = deptData?.data || [];
+
+  // Fetch available students
+  const { data: availableData, isLoading: isLoadingAvailable } = useQuery({
+    queryKey: ['students-available', searchTerm, departmentFilter],
+    queryFn: () => studentsAPI.available({ search: searchTerm, department: departmentFilter, size: 50, exclude_assigned: true }),
+  });
+  
+  const availableStudents = availableData?.data?.items || [];
+
+  // Load existing data if editing
+  useEffect(() => {
+    if (editing) {
+      setForm({ 
+        name: editing.name || '', 
+        description: editing.description || '', 
+        department: editing.department || '', 
+        mentor_name: editing.mentor_name || '' 
+      });
+      teamsAPI.members(editing.id).then(res => {
+        setSelectedStudents(res.data);
+        setInitialLoading(false);
+      }).catch(() => {
+        toast.error("Failed to load team members");
+        setInitialLoading(false);
+      });
+    }
+  }, [editing]);
+
+  const toggleStudent = (student: any) => {
+    const isSelected = selectedStudents.some(s => s.id === student.id);
+    if (isSelected) {
+      setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
+    } else {
+      if (selectedStudents.length >= MAX_STUDENTS) {
+        toast.error(`Maximum ${MAX_STUDENTS} students allowed per team.`);
+        return;
+      }
+      setSelectedStudents(prev => [...prev, student]);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({ ...form, student_ids: selectedStudents.map(s => s.id) });
+  };
+
+  // The displayed students should be a mix of the API results and the currently selected students
+  // so that if a selected student is filtered out by search, they are still "available" to be toggled off
+  // Actually, we show selected students in the right panel anyway, so the left panel only needs to show available + search results.
+  // BUT we must ensure students already in the team (during edit) appear correctly if searched.
+  const displayStudents = [...availableStudents];
+  // Add any selected students that are missing from the available list to display them (optional, but good UX)
+  selectedStudents.forEach(selected => {
+    if (!displayStudents.find(s => s.id === selected.id)) {
+      displayStudents.push(selected);
+    }
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-white dark:bg-dark-800 rounded-2xl w-full max-w-5xl border border-dark-200 dark:border-dark-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-dark-100 dark:border-dark-700 bg-dark-50/50 dark:bg-dark-800/50 shrink-0">
+          <div>
+            <h3 className="text-xl font-bold text-dark-900 dark:text-white">
+              {editing ? 'Edit Team' : 'Create Team'}
+            </h3>
+            <p className="text-xs text-dark-500 mt-1">Fill in the details and assemble your team members.</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-dark-200 dark:hover:bg-dark-700 transition-colors">
+            <X className="w-5 h-5 text-dark-500" />
+          </button>
+        </div>
+
+        {initialLoading ? (
+          <div className="flex-1 p-12 flex flex-col items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary-500 mb-4" />
+            <p className="text-dark-500 font-medium">Loading team data...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto flex flex-col">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+              
+              {/* Left Column: Team Details & Available Students */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* Team Details Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Team Name *</label>
+                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="input-field" placeholder="e.g. Innovators Club" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Description</label>
+                    <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field" rows={2} placeholder="Briefly describe the team's objective..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Department</label>
+                    <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="input-field" placeholder="e.g. Computer Science" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-dark-700 dark:text-dark-300 mb-1">Mentor Name</label>
+                    <input value={form.mentor_name} onChange={(e) => setForm({ ...form, mentor_name: e.target.value })} className="input-field" placeholder="e.g. Dr. Smith" />
+                  </div>
+                </div>
+
+                <hr className="border-dark-100 dark:border-dark-700" />
+
+                {/* Student Selection Section */}
+                <div>
+                  <h4 className="text-base font-bold text-dark-900 dark:text-white mb-3">Student Selection</h4>
+                  
+                  {/* Search and Filters */}
+                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" />
+                      <input 
+                        type="text"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        placeholder="Search by Name, IC Number, Email..."
+                        className="input-field pl-9"
+                      />
+                    </div>
+                    <select 
+                      value={departmentFilter}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
+                      className="input-field sm:w-48"
+                    >
+                      <option value="">All Departments</option>
+                      {departments.map((d: string) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Available Students Grid */}
+                  <div className="border border-dark-200 dark:border-dark-700 rounded-xl bg-dark-50 dark:bg-dark-900/50 p-2 h-[350px] overflow-y-auto">
+                    {isLoadingAvailable ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="h-20 bg-dark-200 dark:bg-dark-800 rounded-lg animate-pulse" />
+                        ))}
+                      </div>
+                    ) : displayStudents.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-dark-400">
+                        <Users2 className="w-10 h-10 mb-2 opacity-50" />
+                        <p className="text-sm">No students found matching your search.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {displayStudents.map((s: any) => {
+                          const isSelected = selectedStudents.some(sel => sel.id === s.id);
+                          const isMaxReached = selectedStudents.length >= MAX_STUDENTS;
+                          
+                          return (
+                            <div 
+                              key={s.id} 
+                              className={`p-3 rounded-xl border flex flex-col justify-between transition-all ${
+                                isSelected 
+                                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                                  : 'border-white dark:border-dark-800 bg-white dark:bg-dark-800 hover:border-dark-300 dark:hover:border-dark-600 shadow-sm'
+                              }`}
+                            >
+                              <div>
+                                <h5 className="font-semibold text-sm text-dark-900 dark:text-white truncate">{s.user?.full_name}</h5>
+                                <div className="text-xs text-dark-500 mt-0.5 font-mono">{s.user?.ic_number}</div>
+                                <div className="flex items-center gap-2 mt-2 text-[10px] font-medium text-dark-400">
+                                  <span className="bg-dark-100 dark:bg-dark-700 px-1.5 py-0.5 rounded">{s.department || 'No Dept'}</span>
+                                  {s.year && <span>Year {s.year}</span>}
+                                  {s.section && <span>Sec {s.section}</span>}
+                                </div>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => toggleStudent(s)}
+                                disabled={!isSelected && isMaxReached}
+                                className={`mt-3 py-1.5 px-3 rounded-lg text-xs font-bold w-full transition-colors flex items-center justify-center gap-1.5 ${
+                                  isSelected
+                                    ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400'
+                                    : (!isSelected && isMaxReached)
+                                      ? 'bg-dark-100 dark:bg-dark-800 text-dark-400 cursor-not-allowed'
+                                      : 'bg-dark-900 dark:bg-white text-white dark:text-dark-900 hover:bg-dark-800 dark:hover:bg-dark-100'
+                                }`}
+                              >
+                                {isSelected ? (
+                                  <><Check className="w-3.5 h-3.5" /> Added</>
+                                ) : (
+                                  <><Plus className="w-3.5 h-3.5" /> Add</>
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Selected Students */}
+              <div className="bg-dark-50 dark:bg-dark-800/50 border border-dark-200 dark:border-dark-700 rounded-2xl p-5 flex flex-col h-[550px] lg:h-auto">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-dark-200 dark:border-dark-700">
+                  <h4 className="font-bold text-dark-900 dark:text-white">Selected Students</h4>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                    selectedStudents.length === MAX_STUDENTS 
+                      ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                      : 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                  }`}>
+                    {selectedStudents.length} / {MAX_STUDENTS}
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {selectedStudents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-32 text-dark-400">
+                      <p className="text-sm">No students selected yet.</p>
+                      <p className="text-xs mt-1">Search and add students from the left panel.</p>
+                    </div>
+                  ) : (
+                    <AnimatePresence>
+                      {selectedStudents.map(s => (
+                        <motion.div 
+                          key={s.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20, scale: 0.95 }}
+                          className="flex items-center justify-between p-3 bg-white dark:bg-dark-900 border border-dark-200 dark:border-dark-700 rounded-xl shadow-sm group"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-dark-900 dark:text-white truncate">{s.user?.full_name}</p>
+                            <p className="text-xs text-dark-500 font-mono mt-0.5">{s.user?.ic_number}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleStudent(s)}
+                            className="p-1.5 text-dark-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                            title="Remove student"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  )}
+                </div>
+
+                {selectedStudents.length === MAX_STUDENTS && (
+                  <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-700 dark:text-red-400">
+                      You have reached the maximum limit of {MAX_STUDENTS} students per team.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-dark-100 dark:border-dark-700 bg-dark-50/50 dark:bg-dark-800/50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={onClose} className="btn-secondary px-6">Cancel</button>
+              <button type="submit" disabled={isSubmitting || selectedStudents.length === 0} className="btn-primary px-8">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : editing ? 'Update Team' : 'Create Team'}
+              </button>
+            </div>
+          </form>
+        )}
+      </motion.div>
     </div>
   );
 }

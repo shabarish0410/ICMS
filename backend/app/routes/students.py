@@ -236,6 +236,66 @@ def list_departments(current_user: dict = Depends(require_roles("admin"))):
     return depts
 
 
+@router.get("/available", response_model=PaginatedResponse)
+def get_available_students(
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=1000),
+    search: str = Query("", description="Search by name, IC, or email"),
+    department: str = Query("", description="Filter by department"),
+    year: int = Query(None, description="Filter by year"),
+    section: str = Query("", description="Filter by section"),
+    exclude_assigned: bool = Query(True, description="Exclude students who already have a team"),
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get active students for team assignment."""
+    supabase = get_supabase()
+    
+    # We select users directly filtering by is_active=True using inner join string representation
+    # But PostgREST doesn't support deep filtering on nested objects easily for booleans without special syntax.
+    # We will fetch and filter in Python for complex searches to guarantee safety.
+    query = supabase.table("students").select("*, user:users(*)", count="exact")
+
+    if department:
+        query = query.eq("department", department)
+    if year:
+        query = query.eq("year", year)
+    if section:
+        query = query.eq("section", section)
+    if exclude_assigned:
+        query = query.is_("team_id", "null")
+
+    # Fetch more rows to allow for in-memory filtering of user.is_active and search
+    res = query.execute()
+    all_students = res.data or []
+
+    # Filter active and search term
+    filtered_students = []
+    search_lower = search.lower().strip()
+    
+    for s in all_students:
+        u = s.get("user")
+        if not u or not u.get("is_active"):
+            continue
+            
+        if search_lower:
+            name = (u.get("full_name") or "").lower()
+            ic = (u.get("ic_number") or "").lower()
+            email = (u.get("email") or "").lower()
+            
+            if search_lower not in name and search_lower not in ic and search_lower not in email:
+                continue
+                
+        filtered_students.append(s)
+
+    total = len(filtered_students)
+    paginated = filtered_students[(page - 1) * size : page * size]
+
+    return PaginatedResponse(
+        items=paginated,
+        total=total, page=page, size=size, pages=math.ceil(total / size) if total else 0,
+    )
+
+
 @router.get("/profile/self", response_model=StudentOut)
 def get_self_profile(current_user: dict = Depends(get_current_user)):
     """Get own student profile (Student only)."""
