@@ -103,10 +103,14 @@ def _run_import(job_id: str, rows: list[dict], student_role_id: int):
                 semester = int(float(semester_val)) if semester_val and str(semester_val).lower() not in ("nan", "none", "") else None
                 mentor_val = row.get("mentor_name")
                 mentor = str(mentor_val).strip() if mentor_val and str(mentor_val).lower() not in ("nan", "none", "") else None
+                
+                # Check for custom password in row
+                custom_pass = str(row.get("password", "")).strip()
+                pass_to_hash = custom_pass if custom_pass and custom_pass.lower() not in ("nan", "none", "") else f"spark@{ic}"
 
                 users_to_insert.append({
                     "ic_number": ic,
-                    "password_hash": hash_password(f"spark@{ic}"),
+                    "password_hash": hash_password(pass_to_hash),
                     "full_name": full_name,
                     "email": email if email else None,
                     "mobile": phone_number if phone_number else None,
@@ -413,7 +417,7 @@ async def bulk_import_students(
     # Normalise headers and strip UTF-8 BOM
     df.columns = [str(c).strip().replace('\ufeff', '').lower().replace(" ", "_") for c in df.columns]
 
-    required_cols = {"ic_number", "full_name", "email", "department", "year", "section", "phone_number"}
+    required_cols = {"ic_number", "full_name", "department", "year"}
     missing = required_cols - set(df.columns)
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(sorted(missing))}. Found: {', '.join(df.columns.tolist())}")
