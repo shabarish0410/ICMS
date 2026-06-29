@@ -50,7 +50,15 @@ export default function FormBuilder() {
       toast.success('Form published successfully!');
       router.push('/dashboard/forms');
     },
-    onError: (err: any) => toast.error(err.response?.data?.detail || 'Failed to save form')
+    onError: (err: any) => {
+      console.error("Form creation error:", err);
+      const detail = err.response?.data?.detail;
+      if (detail) {
+        toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      } else {
+        toast.error(`Error: ${err.message || 'Network/Server Error'}`);
+      }
+    }
   });
 
   const addQuestion = () => {
