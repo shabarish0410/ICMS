@@ -5,19 +5,6 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          primary: '#6C63FF',
-          blue: '#00D4FF',
-          purple: '#8B5CF6',
-          orange: '#FF7A18',
-          pink: '#FF4D8D',
-          green: '#00E676',
-        },
-        bg: {
-          900: '#050816',
-          800: '#0B1120',
-          700: '#111827',
-        },
         primary: {
           50: '#EFF6FF',
           100: '#DBEAFE',

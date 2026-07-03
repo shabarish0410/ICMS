@@ -1,36 +1,28 @@
-import { Navbar } from '@/components/landing/Navbar';
-import { HeroSection } from '@/components/landing/HeroSection';
-import { AboutTimeline } from '@/components/landing/AboutTimeline';
-import { ProgramsGrid } from '@/components/landing/ProgramsGrid';
-import { Facilities } from '@/components/landing/Facilities';
-import { SuccessStories } from '@/components/landing/SuccessStories';
-import { EventsTimeline } from '@/components/landing/EventsTimeline';
-import { MentorsGrid } from '@/components/landing/MentorsGrid';
-import { GalleryMasonry } from '@/components/landing/GalleryMasonry';
-import { CallToAction } from '@/components/landing/CallToAction';
-import { Footer } from '@/components/landing/Footer';
+'use client';
 
-export const metadata = {
-  title: 'Spark Innovation Center | Build the Future',
-  description: 'A next-generation innovation ecosystem helping students, startups, researchers, and entrepreneurs transform ideas into successful products and companies.',
-};
+import { redirect } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { useEffect } from 'react';
 
 export default function HomePage() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        window.location.href = '/dashboard';
+      } else {
+        window.location.href = '/login';
+      }
+    }
+  }, [isAuthenticated, isLoading]);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-bg-900 selection:bg-brand-primary/30 selection:text-brand-primary">
-      <Navbar />
-      <main>
-        <HeroSection />
-        <AboutTimeline />
-        <ProgramsGrid />
-        <Facilities />
-        <SuccessStories />
-        <EventsTimeline />
-        <MentorsGrid />
-        <GalleryMasonry />
-        <CallToAction />
-      </main>
-      <Footer />
+    <div className="min-h-screen flex items-center justify-center bg-dark-900">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 animate-pulse" />
+        <p className="text-dark-400 text-sm">Loading Spark Innovation Center...</p>
+      </div>
     </div>
   );
 }
