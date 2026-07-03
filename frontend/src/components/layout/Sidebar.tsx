@@ -52,20 +52,20 @@ export default function Sidebar() {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-white dark:bg-dark-950 border-r border-dark-200 dark:border-dark-800"
+      animate={{ width: collapsed ? 80 : 280 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-2xl border-r border-dark-100 dark:border-white/5 shadow-2xl"
     >
       {/* Logo */}
-      <div className="h-16 flex items-center gap-3 px-4 border-b border-dark-200 dark:border-dark-800">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
-          <img src="/logo.jpg" alt="Spark Logo" className="w-full h-full object-cover" />
+      <div className="h-20 flex items-center gap-3 px-6 border-b border-dark-100 dark:border-white/5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-brand-blue/20 bg-gradient-to-br from-brand-blue to-brand-purple">
+          <img src="/logo.jpg" alt="Spark Logo" className="w-full h-full object-cover mix-blend-overlay opacity-90" />
         </div>
         <AnimatePresence>
           {!collapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h1 className="text-lg font-bold text-dark-900 dark:text-white whitespace-nowrap">Spark</h1>
-              <p className="text-[10px] text-dark-400 -mt-1 whitespace-nowrap">Innovation Center</p>
+            <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-col overflow-hidden">
+              <h1 className="text-xl font-heading font-bold text-dark-900 dark:text-white tracking-tight whitespace-nowrap">Spark</h1>
+              <p className="text-xs text-brand-blue font-medium -mt-1 whitespace-nowrap tracking-wide">Innovation Center</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -75,18 +75,18 @@ export default function Sidebar() {
       <AnimatePresence>
         {!collapsed && user && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="px-4 py-3 border-b border-dark-200 dark:border-dark-800"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-6 py-4 border-b border-dark-100 dark:border-white/5 overflow-hidden"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-sm">
+            <div className="flex items-center gap-3 glass-card p-3 rounded-xl border border-white/10 bg-white/10">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-blue to-brand-cyan flex items-center justify-center text-white font-bold shadow-inner">
                 {user.full_name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-dark-900 dark:text-white truncate">{user.full_name}</p>
-                <p className="text-[11px] text-dark-400 truncate">{user.ic_number} · {user.role?.name}</p>
+                <p className="text-sm font-semibold text-dark-900 dark:text-white truncate">{user.full_name}</p>
+                <p className="text-xs text-dark-400 truncate mt-0.5">{user.ic_number} • <span className="text-brand-cyan">{user.role?.name}</span></p>
               </div>
             </div>
           </motion.div>
@@ -94,49 +94,55 @@ export default function Sidebar() {
       </AnimatePresence>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 scrollbar-hide">
         {menuItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href}>
               <motion.div
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
-                className={`sidebar-link ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-0' : ''}`}
+                whileHover={{ x: 4 }}
+                whileTap={{ scale: 0.96 }}
+                className={`sidebar-link ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-0' : 'px-4'}`}
                 title={collapsed ? item.label : undefined}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className={`w-5 h-5 flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-white' : 'text-dark-400 group-hover:text-brand-blue'}`} />
                 <AnimatePresence>
                   {!collapsed && (
-                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="font-medium whitespace-nowrap">
                       {item.label}
                     </motion.span>
                   )}
                 </AnimatePresence>
+                {isActive && !collapsed && (
+                  <motion.div
+                    layoutId="activeIndicator"
+                    className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  />
+                )}
               </motion.div>
             </Link>
           );
         })}
       </nav>
 
-      {/* AI Insights removed per user request */}
-
       {/* Footer */}
-      <div className="border-t border-dark-200 dark:border-dark-800 p-3 space-y-2">
-        <button
-          onClick={logout}
-          className={`sidebar-link w-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 ${collapsed ? 'justify-center px-0' : ''}`}
-        >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
+      <div className="border-t border-dark-100 dark:border-white/5 p-4 space-y-2">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className={`sidebar-link w-full ${collapsed ? 'justify-center px-0' : ''}`}
+          className={`sidebar-link w-full text-dark-500 hover:bg-dark-50 dark:hover:bg-white/5 ${collapsed ? 'justify-center px-0' : 'px-4'}`}
         >
           {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          {!collapsed && <span>Collapse</span>}
+          {!collapsed && <span className="font-medium">Collapse</span>}
+        </button>
+        <button
+          onClick={logout}
+          className={`sidebar-link w-full group text-red-500 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-brand-pink hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 ${collapsed ? 'justify-center px-0' : 'px-4'}`}
+        >
+          <LogOut className="w-5 h-5 flex-shrink-0 group-hover:text-white transition-colors" />
+          {!collapsed && <span className="font-medium">Logout</span>}
         </button>
       </div>
     </motion.aside>

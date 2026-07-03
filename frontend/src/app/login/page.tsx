@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Cpu, IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
+import { Cpu, IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -48,133 +48,185 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex">
-      {/* Left Panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-indigo-900">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE4YzMuMzE0IDAgNiAyLjY4NiA2IDZzLTIuNjg2IDYtNiA2LTYtMi42ODYtNi02IDIuNjg2LTYgNi02eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+  // Particles generator
+  const particles = Array.from({ length: 15 });
 
-        <div className="relative z-10 flex flex-col justify-center px-12 text-white">
+  return (
+    <div className="min-h-screen flex bg-dark-900 overflow-hidden font-sans">
+      {/* Left Panel - Premium Animated Background */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-brand-blue via-[#0f172a] to-brand-purple">
+        {/* Animated Glow Orbs */}
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-blue/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-brand-purple/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        
+        {/* Floating Particles */}
+        {particles.map((_, i) => (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            key={i}
+            className="absolute w-2 h-2 rounded-full bg-white/20 blur-[1px]"
+            initial={{
+              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth / 2 : 500),
+              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
+            }}
+            animate={{
+              y: [null, Math.random() * -100 - 50],
+              x: [null, Math.random() * 100 - 50],
+              opacity: [0.2, 0.8, 0],
+            }}
+            transition={{
+              duration: Math.random() * 5 + 5,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+          />
+        ))}
+
+        <div className="relative z-10 flex flex-col justify-center px-16 text-white w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <div className="w-24 h-24 mb-8 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/20 bg-black flex items-center justify-center">
+            <motion.div 
+              className="w-24 h-24 mb-10 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(37,99,235,0.4)] border border-white/20 bg-white/10 backdrop-blur-md flex items-center justify-center relative group"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue/20 to-brand-purple/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <Image 
                 src="/logo.jpg" 
                 alt="Spark Innovation Cell Logo" 
                 width={96} 
                 height={96}
                 priority
-                className="object-contain w-full h-full scale-110"
+                className="object-contain w-full h-full p-2 drop-shadow-2xl mix-blend-screen"
               />
-            </div>
-            <h1 className="text-4xl font-bold mb-4 leading-tight">
+            </motion.div>
+            <h1 className="text-5xl font-heading font-extrabold mb-6 leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
               Spark Innovation Center
             </h1>
-            <p className="text-lg text-white/70 mb-8 max-w-md">
+            <p className="text-xl text-white/70 mb-12 max-w-lg font-medium leading-relaxed">
               Empowering the next generation of innovators.
               Manage projects, track progress, and build the future.
             </p>
-            <div className="flex gap-8">
-              <div>
-                <div className="text-3xl font-bold">500+</div>
-                <div className="text-sm text-white/50">Students</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">120+</div>
-                <div className="text-sm text-white/50">Projects</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">50+</div>
-                <div className="text-sm text-white/50">Events</div>
-              </div>
+            <div className="flex gap-10">
+              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
+                <div className="text-3xl font-mono font-bold text-brand-cyan">500+</div>
+                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Students</div>
+              </motion.div>
+              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
+                <div className="text-3xl font-mono font-bold text-brand-emerald">120+</div>
+                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Projects</div>
+              </motion.div>
+              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
+                <div className="text-3xl font-mono font-bold text-brand-pink">50+</div>
+                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Events</div>
+              </motion.div>
             </div>
           </motion.div>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white dark:bg-dark-900">
+      {/* Right Panel - Login Form in a Glass Card */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 relative bg-[#0f172a]">
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
+        
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
           className="w-full max-w-md"
         >
-          <h2 className="text-2xl font-bold text-dark-900 dark:text-white mb-2">Welcome back</h2>
-          <p className="text-dark-500 dark:text-dark-400 mb-8">Sign in to your account to continue</p>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {/* IC Number */}
-            <div>
-              <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">IC Number</label>
-              <div className="relative">
-                <IdCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                <input
-                  {...register('ic_number', {
-                    required: 'IC Number is required',
-                    pattern: { value: /^IC\d{7}$/, message: 'Format: IC followed by 7 digits (e.g., IC0000001)' }
-                  })}
-                  placeholder="IC0000001"
-                  className="input-field pl-10"
-                  id="login-ic"
-                  autoComplete="username"
-                />
+          <div className="glass-card p-10 bg-white/5 border-white/10 shadow-2xl relative overflow-hidden">
+            {/* Top border highlight */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-blue via-brand-purple to-brand-pink" />
+            
+            <div className="flex items-center gap-3 mb-8">
+              <Sparkles className="w-8 h-8 text-brand-blue" />
+              <div>
+                <h2 className="text-3xl font-heading font-bold text-white tracking-tight">Welcome back</h2>
+                <p className="text-dark-400 mt-1">Sign in to your account to continue</p>
               </div>
-              {errors.ic_number && <p className="text-xs text-red-500 mt-1">{errors.ic_number.message}</p>}
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                <input
-                  {...register('password', { required: 'Password is required' })}
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  className="input-field pl-10 pr-10"
-                  id="login-password"
-                  autoComplete="current-password"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400 hover:text-dark-600">
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
+              {/* IC Number */}
+              <div className="form-group">
+                <div className="relative">
+                  <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 z-20" />
+                  <input
+                    {...register('ic_number', {
+                      required: 'IC Number is required',
+                      pattern: { value: /^IC\d{7}$/, message: 'Format: IC followed by 7 digits' }
+                    })}
+                    placeholder=" "
+                    className="peer input-field pl-12 bg-dark-900/50 border-white/10 focus:border-brand-blue/50 focus:bg-dark-900/80 h-12 text-lg rounded-xl"
+                    id="login-ic"
+                    autoComplete="username"
+                  />
+                  <label htmlFor="login-ic" className="floating-label left-10">IC Number</label>
+                </div>
+                {errors.ic_number && <p className="text-xs text-red-400 mt-1.5 font-medium ml-1 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-400"/>{errors.ic_number.message}</p>}
               </div>
-              {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-dark-600 dark:text-dark-400">
-                <input type="checkbox" className="rounded border-dark-300" />
-                Remember me
-              </label>
-              <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                Forgot password?
-              </Link>
-            </div>
+              {/* Password */}
+              <div className="form-group">
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 z-20" />
+                  <input
+                    {...register('password', { required: 'Password is required' })}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder=" "
+                    className="peer input-field pl-12 pr-12 bg-dark-900/50 border-white/10 focus:border-brand-blue/50 focus:bg-dark-900/80 h-12 text-lg rounded-xl"
+                    id="login-password"
+                    autoComplete="current-password"
+                  />
+                  <label htmlFor="login-password" className="floating-label left-10">Password</label>
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors z-20">
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-xs text-red-400 mt-1.5 font-medium ml-1 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-400"/>{errors.password.message}</p>}
+              </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary w-full py-3"
-              id="login-submit"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-              ) : (
-                <span className="flex items-center justify-center gap-2">Sign in <ArrowRight className="w-4 h-4" /></span>
-              )}
-            </button>
-          </form>
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2.5 text-sm text-dark-300 hover:text-white cursor-pointer transition-colors group">
+                  <div className="relative flex items-center justify-center">
+                    <input type="checkbox" className="peer sr-only" />
+                    <div className="w-5 h-5 border-2 border-dark-400 rounded group-hover:border-brand-blue peer-checked:bg-brand-blue peer-checked:border-brand-blue transition-all" />
+                    <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 14 14" fill="none">
+                      <path d="M3 8L6 11L11 3.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" stroke="currentColor" />
+                    </svg>
+                  </div>
+                  Remember me
+                </label>
+                <Link href="/forgot-password" className="text-sm text-brand-blue hover:text-brand-cyan font-semibold transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
 
-          <p className="mt-6 text-center text-sm text-dark-500 dark:text-dark-400">
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={isSubmitting}
+                className="btn-primary w-full h-12 rounded-xl text-base font-bold tracking-wide mt-4 relative group overflow-hidden"
+                id="login-submit"
+              >
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                {isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                ) : (
+                  <span className="flex items-center justify-center gap-2 relative z-10">Sign In <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+                )}
+              </motion.button>
+            </form>
+          </div>
+
+          <p className="mt-8 text-center text-sm text-dark-400">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium transition-colors">
+            <Link href="/register" className="text-brand-blue hover:text-brand-cyan font-bold transition-colors">
               Register here
             </Link>
           </p>
