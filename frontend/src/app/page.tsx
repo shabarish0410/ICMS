@@ -7,7 +7,6 @@ import { SuccessStories } from '@/components/landing/SuccessStories';
 import { EventsTimeline } from '@/components/landing/EventsTimeline';
 import { MentorsGrid } from '@/components/landing/MentorsGrid';
 import { GalleryMasonry } from '@/components/landing/GalleryMasonry';
-import { PartnersSlider } from '@/components/landing/PartnersSlider';
 import { CallToAction } from '@/components/landing/CallToAction';
 import { Footer } from '@/components/landing/Footer';
 
@@ -22,7 +21,6 @@ export default function HomePage() {
       <Navbar />
       <main>
         <HeroSection />
-        <PartnersSlider />
         <AboutTimeline />
         <ProgramsGrid />
         <Facilities />
