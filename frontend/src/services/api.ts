@@ -372,4 +372,35 @@ export const attendanceExtAPI = {
   deleteRecord: (id: number) => api.delete(`/attendance/${id}`),
 };
 
+// ─── Face Recognition API ────────────────────────────────────────────────────
+export const faceAPI = {
+  /** Register student face — 5-10 base64 images */
+  register: (images_base64: string[]) =>
+    api.post('/face/register', { images_base64 }),
+
+  /** Get my face registration status */
+  myStatus: () => api.get('/face/my-status'),
+
+  /** Get any student's face status (admin or own) */
+  status: (studentId: number) => api.get(`/face/status/${studentId}`),
+
+  /** Update face — requires password confirmation */
+  update: (images_base64: string[], password: string) =>
+    api.put('/face/update', { images_base64, password }),
+
+  /** Admin: reset student face registration */
+  reset: (studentId: number) => api.delete(`/face/reset/${studentId}`),
+
+  /** Admin: get all students' face registration status */
+  adminAllStatus: (params?: Record<string, any>) =>
+    api.get('/face/admin/all-status', { params }),
+};
+
+// ─── Face Attendance API ─────────────────────────────────────────────────────
+export const faceAttendanceAPI = {
+  /** Mark attendance via face recognition */
+  mark: (data: { image_base64: string; liveness_frames: string[]; photo_url?: string }) =>
+    api.post('/attendance/face', data),
+};
+
 export default api;

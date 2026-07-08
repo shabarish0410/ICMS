@@ -4,6 +4,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.core.database import Base
+from sqlalchemy import LargeBinary
 
 
 # ─── Junction Tables ─────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ class Student(Base):
     team_id = Column(Integer, ForeignKey("teams.id"))
     resume_url = Column(String(500), nullable=True)
     resume_data = Column(JSON, nullable=True)
+    # ── Face Registration Fields ──────────────────────────────────────────────
+    face_registered = Column(Boolean, default=False)
+    face_registered_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -84,6 +88,7 @@ class Student(Base):
     weekly_reports = relationship("WeeklyReport", back_populates="student")
     registrations = relationship("Registration", back_populates="student")
     certificates = relationship("Certificate", back_populates="student")
+    face = relationship("StudentFace", back_populates="student", uselist=False)
 
 
 class Team(Base):
@@ -252,6 +257,11 @@ class Attendance(Base):
     method = Column(String(50), default="manual")  # manual, face
     status = Column(String(20), default="present")  # present, absent, late
     photo_url = Column(String(500))  # Facial recognition capture
+    # ── Face Verification Fields ──────────────────────────────────────────────
+    face_verified = Column(Boolean, default=False)
+    liveness_verified = Column(Boolean, default=False)
+    dress_verified = Column(Boolean, default=False)
+    attendance_method = Column(String(50), default="manual")  # manual, face
 
     student = relationship("Student", back_populates="attendances")
 
@@ -354,3 +364,34 @@ class OtpVerification(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
+
+
+# ─── Student Face Embeddings ───────────────────────────────────────────────────
+
+class StudentFace(Base):
+    __tablename__ = "student_faces"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), unique=True, nullable=False)
+    face_embedding = Column(JSON, nullable=False)  # ArcFace 512-dim vector as list of floats
+    model_version = Column(String(50), default="ArcFace")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    student = relationship("Student", back_populates="face")
+
+
+# ─── Attendance Validation Logs ────────────────────────────────────────────────
+
+class AttendanceLog(Base):
+    __tablename__ = "attendance_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    validation_step = Column(String(100), nullable=False)  # e.g. face_detect, liveness, embedding_match
+    result = Column(String(20), nullable=False)  # PASS / FAIL
+    message = Column(Text)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    student = relationship("Student")

@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
     notifications, forms, weekly_reports, announcements,
-    meetings, attendance, uploads, users
+    meetings, attendance, uploads, users, face
 )
 
 # Use Python's standard logger instead of hardcoded Windows file paths
@@ -112,6 +112,7 @@ app.include_router(meetings.router)
 app.include_router(attendance.router)
 app.include_router(uploads.router)
 app.include_router(users.router)
+app.include_router(face.router)
 
 
 @app.get("/api/health")

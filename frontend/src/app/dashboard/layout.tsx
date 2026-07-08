@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, UserCheck, FolderKanban, Calendar, Menu, X, 
   GraduationCap, Users2, ClipboardList, FileText, Megaphone, Video, 
-  Bell, Settings, LogOut, Cpu, Sparkles
+  Bell, Settings, LogOut, Cpu, Sparkles, Shield
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -83,12 +83,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Secondary items shown in the bottom drawer
   const drawerItems = [
     ...(isAdmin ? [{ label: 'Students', href: '/dashboard/students', icon: GraduationCap }] : []),
+    ...(isAdmin ? [{ label: 'Face Management', href: '/dashboard/admins/face-management', icon: Shield }] : []),
     { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
     { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },
     { label: 'Weekly Reports', href: '/dashboard/weekly-reports', icon: FileText },
     { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
     { label: 'Meetings', href: '/dashboard/meetings', icon: Video },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
+    ...(!isAdmin ? [{ label: 'Face Registration', href: '/dashboard/face-registration', icon: Shield }] : []),
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 

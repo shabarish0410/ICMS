@@ -1,13 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, date, timezone
 import pytz
+import base64
+import logging
 from app.core.security import get_current_user, require_roles
 from app.core.supabase import get_supabase
-from app.schemas import AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut, PaginatedResponse
+from app.schemas import (
+    AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut,
+    PaginatedResponse, FaceMarkAttendanceRequest
+)
 from app.services.ai_service import verify_dress_code
+from app.services.face_service import (
+    decode_base64_image,
+    validate_face_image,
+    generate_face_embedding,
+    compare_embeddings,
+    perform_liveness_check,
+)
 from app.utils.actions import log_admin_action, broadcast_notification
 import math
 
+logger = logging.getLogger("icms.attendance")
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
 
 
@@ -71,6 +84,200 @@ def mark_attendance(
     att_id = res.data[0]["id"]
     final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
     return final_res.data[0]
+
+
+def _log_att(supabase, student_id: int, step: str, result: str, message: str):
+    """Write a validation step to attendance_logs (non-blocking)."""
+    try:
+        supabase.table("attendance_logs").insert({
+            "student_id": student_id,
+            "validation_step": step,
+            "result": result,
+            "message": message,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }).execute()
+    except Exception as e:
+        logger.warning(f"attendance_log write failed: {e}")
+
+
+@router.post("/face", status_code=201)
+def face_attendance(
+    req: FaceMarkAttendanceRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Mark attendance using Face Recognition.
+    
+    Sequential validation pipeline (all must pass):
+    1.  Student is logged in ✔ (JWT)
+    2.  Student has a registered face embedding
+    3.  Face detected in submitted image (single, clear face)
+    4.  Liveness detection passed (blink / head movement)
+    5.  Generate embedding from live image
+    6.  Load ONLY this student's registered embedding
+    7.  Compare embeddings (cosine distance < 0.40)
+    8.  Dress code verification (Gemini Vision)
+    9.  Attendance time window check
+    10. Duplicate attendance check (today)
+    """
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    if role_name != "student" or not current_user.get("student"):
+        raise HTTPException(status_code=403, detail="Only students can mark attendance")
+
+    student_data = current_user.get("student")
+    if isinstance(student_data, list) and len(student_data) > 0:
+        student_id = student_data[0]["id"]
+    elif isinstance(student_data, dict):
+        student_id = student_data["id"]
+    else:
+        raise HTTPException(status_code=403, detail="Student profile not found")
+
+    supabase = get_supabase()
+
+    # ── STEP 1: Check face registration ──────────────────────────────────────
+    student_res = supabase.table("students").select("id, face_registered").eq("id", student_id).execute()
+    if not student_res.data or not student_res.data[0].get("face_registered"):
+        _log_att(supabase, student_id, "face_registered_check", "FAIL", "Face not registered")
+        raise HTTPException(
+            status_code=400,
+            detail="Face not registered. Please register your face in Profile → Face Registration before using face attendance."
+        )
+    _log_att(supabase, student_id, "face_registered_check", "PASS", "Face is registered")
+
+    # ── STEP 2: Decode and validate the live image ────────────────────────────
+    try:
+        img_bytes = decode_base64_image(req.image_base64)
+    except ValueError as e:
+        _log_att(supabase, student_id, "image_decode", "FAIL", str(e))
+        raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
+
+    validation = validate_face_image(img_bytes)
+    if not validation["valid"]:
+        _log_att(supabase, student_id, "face_detect", "FAIL", validation["reason"])
+        raise HTTPException(status_code=400, detail=validation["reason"])
+    _log_att(supabase, student_id, "face_detect", "PASS", f"Face detected (count={validation['face_count']})")
+
+    # ── STEP 3: Liveness detection ────────────────────────────────────────────
+    liveness_frames = req.liveness_frames or []
+    # Include the main image as a frame if liveness_frames is empty
+    if not liveness_frames:
+        liveness_frames = [req.image_base64]
+
+    liveness = perform_liveness_check(liveness_frames)
+    if not liveness["passed"]:
+        _log_att(supabase, student_id, "liveness_check", "FAIL", liveness["reason"])
+        raise HTTPException(status_code=400, detail=f"Liveness verification failed: {liveness['reason']}")
+    _log_att(supabase, student_id, "liveness_check", "PASS",
+             f"blink={liveness['blink_detected']}, movement={liveness['movement_detected']}")
+
+    # ── STEP 4: Generate embedding from live image ────────────────────────────
+    live_embedding = generate_face_embedding(img_bytes)
+    if live_embedding is None:
+        _log_att(supabase, student_id, "embedding_generate", "FAIL", "Could not generate face embedding")
+        raise HTTPException(status_code=400, detail="Could not analyze face. Please ensure good lighting and try again.")
+    _log_att(supabase, student_id, "embedding_generate", "PASS", "Embedding generated")
+
+    # ── STEP 5: Load ONLY this student's registered embedding ─────────────────
+    face_res = supabase.table("student_faces").select("face_embedding").eq("student_id", student_id).execute()
+    if not face_res.data:
+        _log_att(supabase, student_id, "embedding_load", "FAIL", "No embedding found in database")
+        raise HTTPException(status_code=400, detail="Face embedding not found. Please re-register your face.")
+    registered_embedding = face_res.data[0]["face_embedding"]
+    _log_att(supabase, student_id, "embedding_load", "PASS", "Registered embedding loaded")
+
+    # ── STEP 6: Compare embeddings ────────────────────────────────────────────
+    comparison = compare_embeddings(live_embedding, registered_embedding)
+    if not comparison["match"]:
+        _log_att(supabase, student_id, "face_match", "FAIL",
+                 f"distance={comparison['distance']}, threshold={comparison['threshold']}, confidence={comparison['confidence']}%")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Face verification failed. The face does not match the registered student. (Confidence: {comparison['confidence']}%)"
+        )
+    _log_att(supabase, student_id, "face_match", "PASS",
+             f"Match! distance={comparison['distance']}, confidence={comparison['confidence']}%")
+
+    # ── STEP 7: Save photo & verify dress code ────────────────────────────────
+    photo_url = req.photo_url  # If client pre-uploaded
+
+    # Upload the attendance photo to Supabase Storage
+    if not photo_url:
+        try:
+            import uuid
+            photo_filename = f"{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
+            upload_res = supabase.storage.from_("attendance-photos").upload(
+                photo_filename,
+                img_bytes,
+                file_options={"content-type": "image/jpeg"}
+            )
+            photo_url = supabase.storage.from_("attendance-photos").get_public_url(photo_filename)
+        except Exception as upload_err:
+            logger.warning(f"Photo upload failed (non-blocking): {upload_err}")
+            photo_url = None
+
+    # Dress code check
+    dress_verified = True
+    if photo_url:
+        dress_verified = verify_dress_code(photo_url)
+        if not dress_verified:
+            _log_att(supabase, student_id, "dress_code", "FAIL", "Dress code violation detected")
+            raise HTTPException(
+                status_code=400,
+                detail="Dress code verification failed. You must wear the official college uniform."
+            )
+    _log_att(supabase, student_id, "dress_code", "PASS", "Dress code verified")
+
+    # ── STEP 8: Attendance time window ────────────────────────────────────────
+    ist_tz = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(timezone.utc).astimezone(ist_tz)
+    time_str = now_ist.strftime("%H:%M")
+    today = date.today().isoformat()
+
+    if time_str < "14:30":
+        _log_att(supabase, student_id, "time_window", "FAIL", f"Too early: {time_str}")
+        raise HTTPException(status_code=400, detail="Attendance is not open yet. Attendance opens at 2:30 PM.")
+
+    if time_str > "15:00":
+        _log_att(supabase, student_id, "time_window", "FAIL", f"Too late: {time_str}")
+        raise HTTPException(status_code=400, detail="Attendance window has closed. It closed at 3:00 PM.")
+
+    final_status = "PRESENT"
+    if "14:46" <= time_str <= "15:00":
+        final_status = "LATE"
+
+    _log_att(supabase, student_id, "time_window", "PASS", f"Time {time_str} → status={final_status}")
+
+    # ── STEP 9: Duplicate check ───────────────────────────────────────────────
+    existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
+    if existing.data:
+        _log_att(supabase, student_id, "duplicate_check", "FAIL", f"Already marked for {today}")
+        raise HTTPException(status_code=409, detail="Attendance has already been recorded for today.")
+    _log_att(supabase, student_id, "duplicate_check", "PASS", "No duplicate found")
+
+    # ── STEP 10: Save attendance ──────────────────────────────────────────────
+    new_att = {
+        "student_id": student_id,
+        "date": today,
+        "check_in_time": datetime.now(timezone.utc).isoformat(),
+        "method": "face",
+        "status": final_status,
+        "photo_url": photo_url,
+        "face_verified": True,
+        "liveness_verified": True,
+        "dress_verified": dress_verified,
+        "attendance_method": "face",
+    }
+
+    res = supabase.table("attendance").insert(new_att).execute()
+    att_id = res.data[0]["id"]
+    final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
+
+    _log_att(supabase, student_id, "attendance_saved", "PASS",
+             f"Attendance ID={att_id} saved. Status={final_status}")
+
+    return final_res.data[0]
+
 
 
 @router.get("", response_model=PaginatedResponse)

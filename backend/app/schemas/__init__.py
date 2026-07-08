@@ -547,6 +547,47 @@ class MeetingOut(BaseModel):
         from_attributes = True
 
 
+# ─── Face Schemas ─────────────────────────────────────────────────────────────
+
+class FaceRegisterRequest(BaseModel):
+    images_base64: List[str] = Field(..., min_length=5, max_length=10)
+
+
+class FaceStatusOut(BaseModel):
+    student_id: int
+    face_registered: bool
+    registered_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class FaceUpdateRequest(BaseModel):
+    images_base64: List[str] = Field(..., min_length=5, max_length=10)
+    password: str = Field(..., min_length=1)
+
+
+class FaceVerifyRequest(BaseModel):
+    image_base64: str
+    liveness_frames: List[str] = Field(default_factory=list)
+
+
+class FaceMarkAttendanceRequest(BaseModel):
+    image_base64: str
+    liveness_frames: List[str] = Field(default_factory=list)
+    photo_url: Optional[str] = None  # Pre-uploaded URL (optional; backend can generate)
+
+
+class AttendanceLogOut(BaseModel):
+    id: int
+    student_id: int
+    validation_step: str
+    result: str
+    message: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
 # ─── Attendance Schemas ───────────────────────────────────────────────────────
 
 class AttendanceMarkRequest(BaseModel):

@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { attendanceAPI, uploadsAPI, studentsAPI } from '@/services/api';
+import { useRouter } from 'next/navigation';
 import { 
   UserCheck, Camera, CheckCircle, Clock, Calendar, 
-  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw, ScanFace
+  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw, ScanFace, Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ import { resolvePhotoUrl } from '@/lib/photoUrl';
 
 export default function AttendancePage() {
   const { isAdmin, isStudent } = useAuth();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isScanning, setIsScanning] = useState(false);
   const [useManualCode, setUseManualCode] = useState(false);
@@ -300,6 +302,15 @@ export default function AttendancePage() {
           <p className="text-dark-500 mt-1">{isAdmin ? 'Monitor center attendance analytics' : 'Check-in and view your logs'}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Secure Face Attendance button (students only) */}
+          {isStudent && (
+            <button
+              onClick={() => router.push('/dashboard/attendance/face')}
+              className="btn-primary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/20"
+            >
+              <Shield className="w-4 h-4" /> Face Attendance
+            </button>
+          )}
           <Link
             href="/dashboard/attendance/snapshots"
             className="btn-secondary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl border border-dark-200 dark:border-dark-700 hover:border-primary-400 hover:text-primary-600 transition-colors"

@@ -35,6 +35,12 @@ pdfplumber
 tenacity
 resend
 
-# AI & Timzones (Attendance)
+# AI & Timezones (Attendance)
 pytz
 google-generativeai
+
+# AI Face Recognition (ArcFace + Liveness Detection)
+deepface
+tf-keras
+mediapipe
+opencv-python-headless
