@@ -42,6 +42,18 @@ def bytes_to_pil(image_bytes: bytes) -> Image.Image:
 
 def cosine_distance(vec1: List[float], vec2: List[float]) -> float:
     """Compute cosine distance between two embedding vectors."""
+    import ast
+    if isinstance(vec1, str):
+        try:
+            vec1 = ast.literal_eval(vec1)
+        except:
+            pass
+    if isinstance(vec2, str):
+        try:
+            vec2 = ast.literal_eval(vec2)
+        except:
+            pass
+            
     a = np.array(vec1, dtype=np.float64)
     b = np.array(vec2, dtype=np.float64)
     norm_a = np.linalg.norm(a)

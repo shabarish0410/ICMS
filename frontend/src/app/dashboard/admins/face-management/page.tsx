@@ -6,7 +6,7 @@ import {
   Shield, Search, RefreshCw, CheckCircle, XCircle,
   AlertCircle, ChevronLeft, ChevronRight, Filter, Users, Trash2
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'react-hot-toast';
 
 interface StudentFaceStatus {
   id: number;
