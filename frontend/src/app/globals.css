@@ -31,8 +31,8 @@
     --sidebar-border: 226 232 240;
   }
 
-  * {
-    @apply border-white/10 dark:border-white/10;
+  *, *::before, *::after {
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   body {
