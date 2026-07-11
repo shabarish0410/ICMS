@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { usersAPI } from '@/services/api';
@@ -71,6 +71,7 @@ export default function AdminsPage() {
   const qc = useQueryClient();
 
   const [search, setSearch]             = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [menuOpen, setMenuOpen]         = useState<number | null>(null);
   const [showForm, setShowForm]         = useState(false);
   const [editUser, setEditUser]         = useState<AdminUser | null>(null);
@@ -89,14 +90,24 @@ export default function AdminsPage() {
     (r: Role) => r.name !== 'student',
   );
 
+  // ── Debounce the search input ──────────────────────────────────────────────
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
   // ── Fetch admin & super_admin users ───────────────────────────────────────
   const { data: adminData, isLoading: loadingAdmins } = useQuery({
-    queryKey: ['admin-users', search],
-    queryFn: () => usersAPI.list({ role: 'admin', search, size: 100 }),
+    queryKey: ['admin-users', debouncedSearch],
+    queryFn: () => usersAPI.list({ role: 'admin', search: debouncedSearch, size: 100 }),
+    placeholderData: keepPreviousData,
   });
   const { data: superData, isLoading: loadingSuper } = useQuery({
-    queryKey: ['super-admin-users', search],
-    queryFn: () => usersAPI.list({ role: 'super_admin', search, size: 100 }),
+    queryKey: ['super-admin-users', debouncedSearch],
+    queryFn: () => usersAPI.list({ role: 'super_admin', search: debouncedSearch, size: 100 }),
+    placeholderData: keepPreviousData,
   });
 
   const isLoading = loadingAdmins || loadingSuper;
