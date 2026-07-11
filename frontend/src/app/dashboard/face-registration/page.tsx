@@ -5,18 +5,21 @@ import { faceAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import {
   CheckCircle, Camera, RefreshCw, AlertCircle, X, Shield, ArrowRight,
-  RotateCcw, Eye, Upload, Lock, Info, Calendar, Cpu, Trash2
+  RotateCcw, Eye, Lock, Calendar, Cpu, Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useFaceDetection, PoseType } from './useFaceDetection';
+import { FaceOvalOverlay } from './FaceOvalOverlay';
 
 // ── Capture Steps ───────────────────────────────────────────────────────────────
-const CAPTURE_STEPS = [
-  { label: 'Looking Straight', instruction: 'Look directly at the camera', icon: '👀', direction: 'center' },
-  { label: 'Turn Left', instruction: 'Slowly turn your head to the LEFT', icon: '⬅️', direction: 'left' },
-  { label: 'Turn Right', instruction: 'Slowly turn your head to the RIGHT', icon: '➡️', direction: 'right' },
-  { label: 'Look Up', instruction: 'Tilt your head slightly UPWARD', icon: '⬆️', direction: 'up' },
-  { label: 'Look Down', instruction: 'Tilt your head slightly DOWNWARD', icon: '⬇️', direction: 'down' },
+const CAPTURE_STEPS: { pose: PoseType; label: string; icon: string }[] = [
+  { pose: 'straight', label: 'Look Straight', icon: '👀' },
+  { pose: 'left', label: 'Turn Left', icon: '⬅️' },
+  { pose: 'right', label: 'Turn Right', icon: '➡️' },
+  { pose: 'up', label: 'Look Up', icon: '⬆️' },
+  { pose: 'down', label: 'Look Down', icon: '⬇️' },
 ];
 
 type RegistrationStatus = 'checking' | 'not_registered' | 'registered' | 'registering' | 'updating';
@@ -37,16 +40,13 @@ export default function FaceRegistrationPage() {
   const [status, setStatus] = useState<RegistrationStatus>('checking');
   const [faceData, setFaceData] = useState<FaceStatusData | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
-  const [capturing, setCapturing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updatePassword, setUpdatePassword] = useState('');
   const [flashEffect, setFlashEffect] = useState(false);
-  const [captureErrors, setCaptureErrors] = useState<string[]>([]);
 
   // ── Load face status ────────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
@@ -95,66 +95,43 @@ export default function FaceRegistrationPage() {
       streamRef.current = null;
     }
     setCameraOpen(false);
-    setCurrentStep(0);
+    setCurrentStepIndex(0);
     setCapturedImages([]);
-    setCaptureErrors([]);
-    setCountdown(null);
   }, []);
 
-  // ── Capture image ──────────────────────────────────────────────────────────
-  const captureImage = useCallback((): string | null => {
-    if (!videoRef.current || !canvasRef.current) return null;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.9);
-  }, []);
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Auto-capture with countdown ────────────────────────────────────────────
-  const doCapture = useCallback(async () => {
-    if (capturing) return;
-    setCapturing(true);
-
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise((r) => setTimeout(r, 900));
-    }
-    setCountdown(null);
-
-    const dataUrl = captureImage();
-    if (!dataUrl) { setCapturing(false); return; }
-
+  // ── Auto-Capture Callback ───────────────────────────────────────────────────
+  const handlePoseStable = useCallback((dataUrl: string) => {
     setFlashEffect(true);
     setTimeout(() => setFlashEffect(false), 300);
 
-    const newImages = [...capturedImages, dataUrl];
-    setCapturedImages(newImages);
+    setCapturedImages((prev) => {
+      const newImages = [...prev, dataUrl];
+      if (newImages.length === CAPTURE_STEPS.length) {
+        // We have all images! Stop tracking and submit.
+        setTimeout(() => submitRegistration(newImages, status === 'updating', updatePassword), 1000);
+      } else {
+        // Move to next pose
+        setCurrentStepIndex((prevIdx) => prevIdx + 1);
+      }
+      return newImages;
+    });
+  }, [status, updatePassword]);
 
-    if (currentStep < CAPTURE_STEPS.length - 1) {
-      setCurrentStep((s) => s + 1);
-    }
-    setCapturing(false);
-  }, [capturing, captureImage, capturedImages, currentStep]);
+  // ── MediaPipe AI Hook ───────────────────────────────────────────────────────
+  const currentTargetPose = currentStepIndex < CAPTURE_STEPS.length ? CAPTURE_STEPS[currentStepIndex].pose : null;
+  const faceState = useFaceDetection(videoRef, canvasRef, currentTargetPose, handlePoseStable);
 
   // ── Submit registration ────────────────────────────────────────────────────
-  const submitRegistration = useCallback(async (isUpdate = false, password = '') => {
-    if (capturedImages.length < 5) {
-      toast.error('Please capture all 5 face images first.');
-      return;
-    }
+  const submitRegistration = async (images: string[], isUpdate = false, password = '') => {
     setUploading(true);
     try {
       if (isUpdate) {
-        await faceAPI.update(capturedImages, password);
+        await faceAPI.update(images, password);
         toast.success('Face updated successfully!');
       } else {
-        await faceAPI.register(capturedImages);
+        await faceAPI.register(images);
         toast.success('Face registered successfully! You can now use Face Attendance.');
       }
       stopCamera();
@@ -164,14 +141,14 @@ export default function FaceRegistrationPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.detail || 'Registration failed. Please try again.';
       toast.error(msg);
+      // Restart process
+      setCapturedImages([]);
+      setCurrentStepIndex(0);
     } finally {
       setUploading(false);
     }
-  }, [capturedImages, loadStatus, stopCamera]);
+  };
 
-  useEffect(() => () => stopCamera(), [stopCamera]);
-
-  const step = CAPTURE_STEPS[currentStep];
   const allCaptured = capturedImages.length >= CAPTURE_STEPS.length;
 
   return (
@@ -182,11 +159,11 @@ export default function FaceRegistrationPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30">
-              <Shield className="w-6 h-6 text-indigo-400" />
+              <Sparkles className="w-6 h-6 text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Face Registration</h1>
-              <p className="text-slate-400 text-sm">Secure AI-powered identity registration for attendance</p>
+              <h1 className="text-2xl font-bold text-white">AI Face Registration</h1>
+              <p className="text-slate-400 text-sm">Automated, secure, 3D facial enrollment</p>
             </div>
           </div>
         </div>
@@ -299,87 +276,58 @@ export default function FaceRegistrationPage() {
                   <h2 className="font-bold text-amber-300 mb-1">Face Registration Required</h2>
                   <p className="text-amber-400/80 text-sm">
                     You must register your face before you can use Face Attendance.
-                    Your face will be used to verify your identity every time you mark attendance.
                     <strong className="text-amber-300"> Attendance cannot be marked without completing this step.</strong>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Steps Overview */}
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                <Info className="w-4 h-4 text-indigo-400" />
-                What to expect
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                {CAPTURE_STEPS.map((s, i) => (
-                  <div key={s.label} className="text-center p-3 bg-slate-700/50 rounded-2xl">
-                    <div className="text-2xl mb-2">{s.icon}</div>
-                    <p className="text-slate-300 text-xs font-medium">{s.label}</p>
-                  </div>
-                ))}
+            {/* Smart Experience Overview */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 text-center">
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
+                <Sparkles className="w-8 h-8 text-indigo-400" />
               </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-400">
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  <span>Ensure good, even lighting on your face</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  <span>Remove glasses, hats, or face coverings</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  <span>Face the camera directly, fill the oval guide</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  <span>Only one person should be visible in frame</span>
-                </div>
-              </div>
+              <h3 className="text-xl text-white font-semibold mb-2">Automated Smart Enrollment</h3>
+              <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">
+                Our AI will automatically detect your face and capture photos as you follow the on-screen movements. No buttons to press.
+              </p>
+              
+              <button
+                onClick={() => { setStatus('registering'); startCamera(); }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl font-semibold text-lg transition-all shadow-lg shadow-indigo-500/25 group"
+              >
+                <Camera className="w-6 h-6" />
+                Start Auto-Registration
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
-
-            <button
-              onClick={() => { setStatus('registering'); startCamera(); }}
-              className="w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl font-semibold text-lg transition-all shadow-lg shadow-indigo-500/25 group"
-            >
-              <Camera className="w-6 h-6" />
-              Register My Face
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
           </div>
         )}
 
         {/* Camera View */}
         {cameraOpen && (
           <div className="space-y-4">
-            {/* Progress Bar */}
-            <div className="flex items-center justify-between bg-slate-800/60 backdrop-blur rounded-2xl p-4 border border-slate-700/50">
-              <span className="text-slate-300 text-sm font-medium">
-                Image {Math.min(capturedImages.length + 1, CAPTURE_STEPS.length)} of {CAPTURE_STEPS.length}
-              </span>
-              <div className="flex gap-2">
-                {CAPTURE_STEPS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      i < capturedImages.length
-                        ? 'w-6 bg-emerald-400'
-                        : i === capturedImages.length
-                        ? 'w-6 bg-indigo-400 animate-pulse'
-                        : 'w-2 bg-slate-600'
-                    }`}
-                  />
-                ))}
-              </div>
-              <button onClick={stopCamera} className="text-slate-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            
+            {/* Real-time Guidance Banner */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={faceState.guidanceText}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className={`text-center py-3 px-6 rounded-2xl border ${
+                  faceState.guidanceColor === 'emerald' ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' :
+                  faceState.guidanceColor === 'amber' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' :
+                  faceState.guidanceColor === 'red' ? 'bg-red-500/20 border-red-500/30 text-red-300' :
+                  'bg-indigo-500/20 border-indigo-500/30 text-indigo-300'
+                }`}
+              >
+                <p className="text-lg font-semibold">{faceState.guidanceText}</p>
+              </motion.div>
+            </AnimatePresence>
 
             {/* Camera View */}
-            <div className="relative rounded-3xl overflow-hidden bg-black aspect-video max-h-[60vh] mx-auto border-2 border-indigo-500/30">
+            <div className="relative rounded-3xl overflow-hidden bg-black aspect-[3/4] sm:aspect-video mx-auto border border-slate-700/50 shadow-2xl">
               <video
                 ref={videoRef}
                 autoPlay
@@ -389,51 +337,84 @@ export default function FaceRegistrationPage() {
                 style={{ transform: 'scaleX(-1)' }}
               />
 
-              {/* Face Guide Oval */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div
-                  className="border-4 border-indigo-400/70 rounded-full"
-                  style={{ width: '45%', height: '80%', boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
-                />
-              </div>
+              {/* Face Guide Oval with AI overlay */}
+              <FaceOvalOverlay 
+                progress={faceState.stabilityProgress}
+                isLocked={faceState.isStable}
+                isDetecting={faceState.isDetecting && faceState.hasFace}
+                color={faceState.guidanceColor}
+              />
 
               {/* Flash Effect */}
               {flashEffect && (
-                <div className="absolute inset-0 bg-white animate-ping opacity-75 pointer-events-none" />
-              )}
-
-              {/* Countdown */}
-              {countdown !== null && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-24 h-24 rounded-full bg-indigo-600/90 flex items-center justify-center border-4 border-indigo-400">
-                    <span className="text-5xl font-black text-white">{countdown}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Instruction Overlay */}
-              {!allCaptured && !countdown && (
-                <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                  <div className="bg-slate-900/80 backdrop-blur px-6 py-3 rounded-full border border-slate-600/50">
-                    <span className="text-2xl mr-2">{step?.icon}</span>
-                    <span className="text-white text-sm font-medium">{step?.instruction}</span>
-                  </div>
-                </div>
+                <div className="absolute inset-0 bg-white animate-ping opacity-75 pointer-events-none z-50" />
               )}
 
               {/* All Captured Overlay */}
               {allCaptured && (
-                <div className="absolute inset-0 bg-emerald-900/60 flex items-center justify-center">
-                  <div className="text-center">
-                    <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-3" />
-                    <p className="text-white text-xl font-bold">All 5 photos captured!</p>
-                    <p className="text-emerald-300 text-sm mt-1">Ready to register your face</p>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-50"
+                >
+                  <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4">
+                    {uploading ? (
+                      <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-10 h-10 text-emerald-400" />
+                    )}
                   </div>
-                </div>
+                  <p className="text-white text-2xl font-bold mb-2">Registration Complete</p>
+                  <p className="text-emerald-300 text-sm">
+                    {uploading ? "Generating AI embeddings securely..." : "Success!"}
+                  </p>
+                </motion.div>
               )}
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Pose Progress Checklist */}
+            <div className="bg-slate-800/60 backdrop-blur rounded-3xl p-6 border border-slate-700/50">
+              <h4 className="text-slate-400 text-sm font-semibold mb-4 uppercase tracking-wider text-center">Required Poses</h4>
+              <div className="flex justify-center flex-wrap gap-4 sm:gap-8">
+                {CAPTURE_STEPS.map((step, index) => {
+                  const isCompleted = index < currentStepIndex;
+                  const isActive = index === currentStepIndex;
+                  return (
+                    <div 
+                      key={step.pose}
+                      className={`flex flex-col items-center transition-all duration-300 ${
+                        isCompleted ? 'opacity-100 scale-100' :
+                        isActive ? 'opacity-100 scale-110' : 'opacity-40 scale-90'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 border-2 ${
+                        isCompleted ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' :
+                        isActive ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.5)]' :
+                        'bg-slate-800 border-slate-600 text-slate-500'
+                      }`}>
+                        {isCompleted ? <CheckCircle className="w-6 h-6" /> : <span className="text-2xl">{step.icon}</span>}
+                      </div>
+                      <span className={`text-xs font-medium ${isActive ? 'text-indigo-300' : isCompleted ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cancel Button */}
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={stopCamera}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl transition-all"
+              >
+                <X className="w-4 h-4" />
+                Cancel Registration
+              </button>
+            </div>
 
             {/* Camera Error */}
             {cameraError && (
@@ -442,81 +423,6 @@ export default function FaceRegistrationPage() {
                 <p className="text-red-300 text-sm">{cameraError}</p>
               </div>
             )}
-
-            {/* Capture Errors */}
-            {captureErrors.length > 0 && (
-              <div className="bg-orange-900/30 border border-orange-500/30 rounded-2xl p-3">
-                <p className="text-orange-300 text-xs font-semibold mb-1">Validation warnings:</p>
-                {captureErrors.slice(-2).map((e, i) => (
-                  <p key={i} className="text-orange-400/80 text-xs">• {e}</p>
-                ))}
-              </div>
-            )}
-
-            {/* Thumbnails */}
-            {capturedImages.length > 0 && (
-              <div className="flex gap-3 justify-center">
-                {capturedImages.map((img, i) => (
-                  <div key={i} className="relative">
-                    <img
-                      src={img}
-                      alt={`Capture ${i + 1}`}
-                      className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500/60"
-                    />
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
-                ))}
-                {Array.from({ length: Math.max(0, CAPTURE_STEPS.length - capturedImages.length) }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center"
-                  >
-                    <Camera className="w-4 h-4 text-slate-600" />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              {!allCaptured ? (
-                <button
-                  onClick={doCapture}
-                  disabled={capturing || !!countdown}
-                  className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-semibold transition-all shadow-lg shadow-indigo-500/25"
-                >
-                  {countdown ? (
-                    <span>Capturing in {countdown}...</span>
-                  ) : capturing ? (
-                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Capturing...</>
-                  ) : (
-                    <><Camera className="w-5 h-5" /> Capture Photo {capturedImages.length + 1}</>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={() => submitRegistration(status === 'updating', updatePassword)}
-                  disabled={uploading}
-                  className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white rounded-2xl font-semibold transition-all shadow-lg shadow-emerald-500/25"
-                >
-                  {uploading ? (
-                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Registering...</>
-                  ) : (
-                    <><Upload className="w-5 h-5" /> {status === 'updating' ? 'Submit Update' : 'Submit Registration'}</>
-                  )}
-                </button>
-              )}
-
-              <button
-                onClick={() => { setCapturedImages([]); setCurrentStep(0); setCaptureErrors([]); }}
-                className="px-5 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-2xl transition-all"
-                title="Retake all"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-            </div>
           </div>
         )}
 
