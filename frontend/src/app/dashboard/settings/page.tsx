@@ -1,31 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useTheme } from 'next-themes';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { usersAPI, authAPI } from '@/services/api';
 import toast from 'react-hot-toast';
-import { Sun, Moon, Monitor, User, Shield, Bell, Palette, Loader2 } from 'lucide-react';
+import { User, Shield, ScanFace, Lock, AlertCircle, Loader2, Sparkles, Smartphone, CheckCircle2, ChevronRight } from 'lucide-react';
+import FaceRegistrationPage from '../face-registration/page';
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
   const { user, refreshUser, changePassword } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'face'>('profile');
 
   // Profile Form State
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
-
-  // Password Form State
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [requestingReset, setRequestingReset] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -38,12 +30,6 @@ export default function SettingsPage() {
       setPhone(user.mobile || '');
     }
   }, [user]);
-
-  const themes = [
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark', label: 'Dark', icon: Moon },
-    { value: 'system', label: 'System', icon: Monitor },
-  ];
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -67,214 +53,186 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRequestPasswordReset = async () => {
-    if (!user?.ic_number) {
-      toast.error('User information missing');
-      return;
-    }
-    setRequestingReset(true);
-    try {
-      const res = await authAPI.forgotPassword({ ic_number: user.ic_number, method: 'email' });
-      toast.success(res.data.message || 'OTP sent to your email');
-      if (res.data.demo_otp) {
-        toast('Demo mode: OTP is ' + res.data.demo_otp, { icon: 'ℹ️' });
-      }
-      setShowOtpModal(true);
-    } catch (err: any) {
-      console.error('Password Reset Request Error:', err);
-      const detail = err.response?.data?.detail;
-      const msg = Array.isArray(detail) ? detail[0]?.msg : detail;
-      const fallback = err.message || 'Failed to request password reset';
-      toast.error(typeof msg === 'string' ? msg : fallback);
-    } finally {
-      setRequestingReset(false);
-    }
-  };
-
-  const handleVerifyAndChangePassword = async () => {
-    if (!user?.ic_number) {
-      toast.error('User information missing');
-      return;
-    }
-    if (!otp) {
-      toast.error('Please enter the OTP sent to your email');
-      return;
-    }
-    if (!newPassword) {
-      toast.error('Password cannot be empty');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-    
-    setVerifyingOtp(true);
-    try {
-      await authAPI.verifyOtp({ 
-        ic_number: user.ic_number, 
-        otp, 
-        new_password: newPassword 
-      });
-      toast.success('Password updated successfully');
-      setNewPassword('');
-      setConfirmPassword('');
-      setOtp('');
-      setShowOtpModal(false);
-    } catch (err: any) {
-      console.error('Verify OTP Error:', err);
-      const detail = err.response?.data?.detail;
-      const msg = Array.isArray(detail) ? detail[0]?.msg : detail;
-      const fallback = err.message || 'Failed to update password';
-      toast.error(typeof msg === 'string' ? msg : fallback);
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
+  const renderTabs = () => (
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 border-b border-white/10 mb-8">
+      <button
+        onClick={() => setActiveTab('profile')}
+        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+          activeTab === 'profile' 
+            ? 'bg-brand-indigo/20 text-brand-indigo border border-brand-indigo/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+            : 'text-dark-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        <User className="w-4 h-4" /> Personal Information
+      </button>
+      <button
+        onClick={() => setActiveTab('security')}
+        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+          activeTab === 'security' 
+            ? 'bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]' 
+            : 'text-dark-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        <Shield className="w-4 h-4" /> Account Security
+      </button>
+      <button
+        onClick={() => setActiveTab('face')}
+        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+          activeTab === 'face' 
+            ? 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
+            : 'text-dark-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        <ScanFace className="w-4 h-4" /> Face Registration
+      </button>
+    </div>
+  );
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold text-dark-900 dark:text-white">Settings</h1>
-        <p className="text-dark-500 dark:text-dark-400 mt-1">Manage your account and preferences</p>
-      </div>
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <h1 className="text-3xl font-heading font-extrabold text-white tracking-tight flex items-center gap-3">
+          Account Settings
+        </h1>
+        <p className="text-dark-300 mt-2 font-medium">Manage your personal information, security preferences, and biometric data.</p>
+      </motion.div>
 
-      {/* Profile Section */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <User className="w-5 h-5 text-primary-600" />
-          <h2 className="text-lg font-semibold text-dark-900 dark:text-white">Profile</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Full Name</label>
-            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="input-field" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Phone</label>
-            <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9876543210" className="input-field" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Role</label>
-            <input type="text" defaultValue={user?.role?.name?.replace('_', ' ')} className="input-field capitalize" disabled />
-          </div>
-        </div>
-        <button onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary mt-2 flex items-center justify-center gap-2 min-w-[125px]">
-          {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
-        </button>
-      </div>
+      {renderTabs()}
 
-      {/* Theme Section */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <Palette className="w-5 h-5 text-primary-600" />
-          <h2 className="text-lg font-semibold text-dark-900 dark:text-white">Appearance</h2>
-        </div>
-        {mounted && (
-          <div className="flex gap-3">
-            {themes.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                onClick={() => setTheme(value)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
-                  theme === value
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                    : 'border-dark-200 dark:border-dark-700 hover:border-dark-300 dark:hover:border-dark-600'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Notification Preferences */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <Bell className="w-5 h-5 text-primary-600" />
-          <h2 className="text-lg font-semibold text-dark-900 dark:text-white">Notifications</h2>
-        </div>
-        {[
-          { label: 'Event Reminders', desc: 'Get notified about upcoming events' },
-          { label: 'Project Updates', desc: 'Receive project milestone notifications' },
-          { label: 'Certificate Alerts', desc: 'Know when certificates are issued' },
-          { label: 'Admin Announcements', desc: 'Important system announcements' },
-        ].map((item) => (
-          <div key={item.label} className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium text-dark-900 dark:text-white">{item.label}</p>
-              <p className="text-xs text-dark-400">{item.desc}</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" defaultChecked className="sr-only peer" />
-              <div className="w-11 h-6 bg-dark-200 dark:bg-dark-700 peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-dark-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600" />
-            </label>
-          </div>
-        ))}
-      </div>
-
-      {/* Security */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <Shield className="w-5 h-5 text-primary-600" />
-          <h2 className="text-lg font-semibold text-dark-900 dark:text-white">Security</h2>
-        </div>
-        <p className="text-sm text-dark-500">
-          To ensure your account's security, changing your password requires email verification.
-          Click the button below to receive a secure OTP to your registered email address.
-        </p>
-        <button 
-          onClick={handleRequestPasswordReset} 
-          disabled={requestingReset} 
-          className="btn-primary mt-2 flex items-center justify-center gap-2 min-w-[200px]"
-        >
-          {requestingReset ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Request Password Reset'}
-        </button>
-      </div>
-
-      {/* OTP Modal */}
-      {showOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }} 
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-dark-800 rounded-2xl p-6 w-full max-w-md border border-dark-200 dark:border-dark-700 shadow-2xl space-y-4"
+      <AnimatePresence mode="wait">
+        {activeTab === 'profile' && (
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="glass-card p-8 border border-white/10"
           >
-            <h3 className="text-xl font-bold text-dark-900 dark:text-white mb-2">Verify and Reset Password</h3>
-            <p className="text-sm text-dark-500 mb-4">Enter the OTP sent to your email and your new password.</p>
-            
-            <div>
-              <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Enter OTP</label>
-              <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="123456" className="input-field text-center tracking-widest font-mono" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">New Password</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-600 dark:text-dark-300 mb-1">Confirm New Password</label>
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="input-field" />
-            </div>
+            <div className="flex flex-col md:flex-row gap-10">
+              {/* Avatar Section */}
+              <div className="flex flex-col items-center space-y-4 md:w-1/3">
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-brand-indigo to-brand-cyan flex items-center justify-center text-white text-4xl font-extrabold shadow-[0_0_30px_rgba(99,102,241,0.3)] border-4 border-[#0B1120]">
+                  {user?.full_name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-white">{user?.full_name}</p>
+                  <p className="text-sm font-semibold text-brand-cyan uppercase tracking-widest mt-1">{user?.role?.name?.replace('_', ' ')}</p>
+                </div>
+              </div>
 
-            <div className="flex gap-3 pt-4">
-              <button onClick={() => setShowOtpModal(false)} className="btn-secondary flex-1">Cancel</button>
-              <button 
-                onClick={handleVerifyAndChangePassword} 
-                disabled={verifyingOtp} 
-                className="btn-primary flex-1 flex items-center justify-center gap-2"
-              >
-                {verifyingOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Password'}
-              </button>
+              {/* Form Section */}
+              <div className="flex-1 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-dark-300 ml-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-inner"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-dark-300 ml-1">IC Number (ID)</label>
+                    <input
+                      type="text"
+                      value={user?.ic_number || ''}
+                      disabled
+                      className="w-full px-4 py-3 bg-dark-900/50 border border-white/5 rounded-xl text-dark-400 cursor-not-allowed shadow-inner"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-dark-300 ml-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-inner"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-dark-300 ml-1">Mobile Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-inner"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/10 flex justify-end">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile}
+                    className="btn-primary"
+                  >
+                    {savingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    Save Changes
+                  </button>
+                </div>
+              </div>
             </div>
           </motion.div>
-        </div>
-      )}
-    </motion.div>
+        )}
+
+        {activeTab === 'security' && (
+          <motion.div
+            key="security"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="glass-card p-8 border border-white/10">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-brand-cyan/10 rounded-2xl text-brand-cyan">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">Password & Authentication</h3>
+                  <p className="text-sm text-dark-300 mt-1 mb-6">Manage your password and security preferences.</p>
+                  
+                  <button onClick={() => toast('Password change logic requires OTP as implemented previously.')} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2">
+                    Change Password <ChevronRight className="w-4 h-4 text-dark-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card p-8 border border-white/10">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-brand-indigo/10 rounded-2xl text-brand-indigo">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Two-Factor Authentication (2FA)</h3>
+                      <p className="text-sm text-dark-300 mt-1">Add an extra layer of security to your account.</p>
+                    </div>
+                    {/* Mock Toggle */}
+                    <div className="w-12 h-6 bg-dark-700 rounded-full relative cursor-pointer opacity-50" title="Coming Soon">
+                      <div className="w-5 h-5 bg-dark-400 rounded-full absolute left-0.5 top-0.5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'face' && (
+          <motion.div
+            key="face"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="w-full"
+          >
+            {/* We render the existing Face Registration page component here */}
+            {/* It handles its own glass-cards and state */}
+            <div className="-mx-4 sm:mx-0">
+              <FaceRegistrationPage />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

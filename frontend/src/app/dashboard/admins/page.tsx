@@ -243,17 +243,19 @@ export default function AdminsPage() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Premium Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
         {[
-          { label: 'Total Admins', value: admins.length, color: 'text-primary-500' },
-          { label: 'Active', value: admins.filter((a) => a.is_active).length, color: 'text-emerald-500' },
-          { label: 'Inactive', value: admins.filter((a) => !a.is_active).length, color: 'text-red-500' },
-          { label: 'Super Admins', value: admins.filter((a) => a.role?.name === 'super_admin').length, color: 'text-amber-500' },
+          { label: 'Total Admins', value: admins.length, color: 'text-brand-indigo', border: 'border-t-brand-indigo', bg: 'bg-brand-indigo/10' },
+          { label: 'Active', value: admins.filter((a) => a.is_active).length, color: 'text-brand-emerald', border: 'border-t-brand-emerald', bg: 'bg-brand-emerald/10' },
+          { label: 'Inactive', value: admins.filter((a) => !a.is_active).length, color: 'text-brand-red', border: 'border-t-brand-red', bg: 'bg-brand-red/10' },
+          { label: 'Super Admins', value: admins.filter((a) => a.role?.name === 'super_admin').length, color: 'text-brand-amber', border: 'border-t-brand-amber', bg: 'bg-brand-amber/10' },
         ].map((s) => (
-          <div key={s.label} className="bg-white dark:bg-dark-800 rounded-2xl p-4 border border-dark-200 dark:border-dark-700 shadow-sm">
-            <p className="text-xs font-semibold text-dark-500">{s.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+          <div key={s.label} className={`stat-card border-t-[3px] ${s.border}`}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest">{s.label}</p>
+            </div>
+            <p className={`text-5xl font-heading font-extrabold mt-2 tracking-tighter drop-shadow-md ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>

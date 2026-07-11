@@ -365,86 +365,91 @@ export default function AttendancePage() {
         </motion.div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Premium Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {isStudent ? (
           <>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Total Log Days</p>
-              <p className="text-3xl font-bold text-dark-900 dark:text-white mt-1.5">{s?.total_days || 0}</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="stat-card">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Total Days</span>
+                <div className="p-2.5 rounded-xl bg-white/5"><Calendar className="w-5 h-5 text-dark-300" /></div>
+              </div>
+              <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{s?.total_days || 0}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Present Days</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1.5">{s?.present || 0}</p>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card border-t-[3px] border-t-brand-emerald">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Present</span>
+                <div className="p-2.5 rounded-xl bg-brand-emerald/10"><UserCheck className="w-5 h-5 text-brand-emerald" /></div>
+              </div>
+              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tighter drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">{s?.present || 0}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Attendance Rate</p>
-              <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 mt-1.5">{s?.percentage || 0}%</p>
-              <div className="w-full bg-dark-100 dark:bg-dark-750 rounded-full h-1.5 mt-3">
-                <div className="bg-primary-500 h-1.5 rounded-full" style={{ width: `${s?.percentage || 0}%` }} />
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="stat-card border-t-[3px] border-t-brand-indigo">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Attendance Rate</span>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                {/* Circular Percentage */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path className="text-white/10" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                    <path className="text-brand-indigo" strokeDasharray={`${s?.percentage || 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                  </svg>
+                  <span className="absolute text-sm font-bold text-white">{s?.percentage || 0}%</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Target: 75%</p>
+                  <p className="text-xs text-dark-400">{(s?.percentage || 0) >= 75 ? 'On track' : 'Action needed'}</p>
+                </div>
               </div>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm flex flex-col justify-between"
-            >
-              <p className="text-sm font-semibold text-dark-500 mb-2">Today's Check-in</p>
+
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="stat-card">
+              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Today's Status</p>
               {s?.today_marked ? (
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-semibold py-1.5">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Checked In</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-emerald/10 border border-brand-emerald/20 rounded-xl">
+                  <CheckCircle className="w-6 h-6 text-brand-emerald" />
+                  <div>
+                    <p className="text-sm font-bold text-brand-emerald">Checked In</p>
+                    <p className="text-[10px] text-dark-300">Face Verified</p>
+                  </div>
                 </div>
               ) : faceRegistered === false ? (
-                <Link
-                  href="/dashboard/face-registration"
-                  className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-xs bg-amber-500 hover:bg-amber-400"
-                >
-                  <Shield className="w-4 h-4" /> Register Face First
+                <Link href="/dashboard/face-registration" className="flex items-center gap-2 p-3 bg-brand-amber/10 border border-brand-amber/20 rounded-xl hover:bg-brand-amber/20 transition-colors">
+                  <Shield className="w-6 h-6 text-brand-amber" />
+                  <div>
+                    <p className="text-sm font-bold text-brand-amber">Registration Required</p>
+                  </div>
                 </Link>
               ) : (
-                <button 
-                  onClick={() => startCamera()} 
-                  disabled={markMutation.isPending}
-                  className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-xs"
-                >
-                  <Camera className="w-4 h-4" /> Start Face Scan
+                <button onClick={() => startCamera()} disabled={markMutation.isPending} className="w-full flex items-center justify-center gap-2 p-3 bg-brand-indigo/10 border border-brand-indigo/20 rounded-xl hover:bg-brand-indigo/20 transition-colors">
+                  <Camera className="w-5 h-5 text-brand-indigo" />
+                  <span className="text-sm font-bold text-brand-indigo">Start Scan</span>
                 </button>
               )}
             </motion.div>
           </>
         ) : (
           <>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Total Enrolled</p>
-              <p className="text-3xl font-bold text-dark-900 dark:text-white mt-1.5">{s?.total_students || 0}</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="stat-card">
+              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Total Enrolled</p>
+              <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{s?.total_students || 0}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-dark-500">Present Today</p>
-                <UserCheck className="w-4 h-4 text-green-500" />
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card border-t-[3px] border-t-brand-emerald">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-bold text-dark-400 uppercase tracking-widest">Present Today</p>
+                <div className="p-2.5 rounded-xl bg-brand-emerald/10"><UserCheck className="w-5 h-5 text-brand-emerald" /></div>
               </div>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1.5">{s?.present_today || 0}</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tighter">{s?.present_today || 0}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Absent Today</p>
-              <p className="text-3xl font-bold text-red-500 mt-1.5">{s?.absent_today || 0}</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="stat-card border-t-[3px] border-t-brand-red">
+              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Absent Today</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-red tracking-tighter">{s?.absent_today || 0}</p>
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              className="bg-white dark:bg-dark-800 rounded-2xl p-5 border border-dark-200 dark:border-dark-700 shadow-sm"
-            >
-              <p className="text-sm font-semibold text-dark-500">Attendance Rate</p>
-              <p className="text-3xl font-bold text-primary-600 dark:text-primary-405 mt-1.5">{s?.attendance_percentage || 0}%</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="stat-card border-t-[3px] border-t-brand-indigo">
+              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Attendance Rate</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-indigo tracking-tighter">{s?.attendance_percentage || 0}%</p>
             </motion.div>
           </>
         )}
@@ -671,30 +676,33 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* History Table */}
-      <div className="bg-white dark:bg-dark-800 rounded-2xl border border-dark-200 dark:border-dark-700 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-dark-200 dark:border-dark-700 bg-dark-50/50 dark:bg-dark-800/50 flex justify-between items-center">
-          <h3 className="font-semibold text-dark-900 dark:text-white">Attendance Logs</h3>
-          <span className="text-xs text-dark-400 font-medium">{records.length} records</span>
+      {/* Premium History Table */}
+      <div className="glass-card overflow-hidden">
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+          <h3 className="font-heading font-bold text-white text-lg flex items-center gap-3">
+            <div className="p-2 bg-brand-cyan/20 rounded-lg"><Clock className="w-5 h-5 text-brand-cyan" /></div>
+            Attendance Logs
+          </h3>
+          <span className="text-xs text-dark-300 font-bold uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">{records.length} records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b border-dark-200 dark:border-dark-700 bg-dark-50/50 dark:bg-dark-850/50">
-                <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Date</th>
-                {isAdmin && <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Student</th>}
-                <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Status</th>
-                <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Check-in Time</th>
-                <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Method</th>
-                <th className="text-left px-5 py-3 text-xs font-bold text-dark-500 uppercase tracking-wider">Snapshot</th>
+              <tr className="border-b border-white/10 bg-black/20">
+                <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Date</th>
+                {isAdmin && <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Student</th>}
+                <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Status</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Check-in Time</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Method</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-dark-400 uppercase tracking-widest">Snapshot</th>
               </tr>
             </thead>
             <tbody>
               {records.map((r: any) => (
-                <tr key={r.id} className="border-b border-dark-100 dark:border-dark-800 hover:bg-dark-50/80 dark:hover:bg-dark-850/80 transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-medium text-dark-800 dark:text-dark-200">{new Date(r.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</td>
-                  {isAdmin && <td className="px-5 py-3.5 text-sm font-semibold text-dark-900 dark:text-white">{r.student?.user?.full_name || '—'}</td>}
-                  <td className="px-5 py-3.5">
+                <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                  <td className="px-6 py-4 text-sm font-semibold text-white">{new Date(r.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</td>
+                  {isAdmin && <td className="px-6 py-4 text-sm font-bold text-white">{r.student?.user?.full_name || '—'}</td>}
+                  <td className="px-6 py-4">
                     {isAdmin ? (
                       <select
                         value={r.status}
@@ -707,53 +715,60 @@ export default function AttendancePage() {
                           });
                         }}
                         disabled={adminMarkMutation.isPending}
-                        className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border border-transparent focus:ring-1 focus:ring-primary-500 bg-transparent cursor-pointer font-sans focus:outline-none ${
-                          r.status === 'PRESENT' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          r.status === 'LATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-transparent focus:ring-1 focus:ring-brand-cyan bg-transparent cursor-pointer focus:outline-none transition-colors ${
+                          r.status === 'PRESENT' ? 'bg-brand-emerald/10 text-brand-emerald hover:bg-brand-emerald/20' :
+                          r.status === 'LATE' ? 'bg-brand-amber/10 text-brand-amber hover:bg-brand-amber/20' :
+                          'bg-brand-red/10 text-brand-red hover:bg-brand-red/20'
                         }`}
                       >
-                        <option value="PRESENT" className="bg-white dark:bg-dark-800 text-green-700 dark:text-green-400">Present</option>
-                        <option value="LATE" className="bg-white dark:bg-dark-800 text-amber-700 dark:text-amber-400">Present but Late</option>
-                        <option value="ABSENT" className="bg-white dark:bg-dark-800 text-red-700 dark:text-red-400">Absent</option>
+                        <option value="PRESENT" className="bg-dark-900 text-brand-emerald">Present</option>
+                        <option value="LATE" className="bg-dark-900 text-brand-amber">Present but Late</option>
+                        <option value="ABSENT" className="bg-dark-900 text-brand-red">Absent</option>
                       </select>
                     ) : (
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                        r.status === 'PRESENT' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                        r.status === 'LATE' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
+                        r.status === 'PRESENT' ? 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20' :
+                        r.status === 'LATE' ? 'bg-brand-amber/10 text-brand-amber border border-brand-amber/20' :
+                        'bg-brand-red/10 text-brand-red border border-brand-red/20'
                       }`}>{r.status === 'LATE' ? 'Present but Late' : r.status}</span>
                     )}
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-dark-500 font-mono">{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '—'}</td>
-                  <td className="px-5 py-3.5 text-sm text-dark-500 capitalize">{r.method === 'face' ? '📷 Face Biometric' : '⌨️ Manual Entry'}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-6 py-4 text-sm text-dark-400 font-mono">{r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : '—'}</td>
+                  <td className="px-6 py-4 text-sm font-semibold capitalize text-dark-300 flex items-center gap-2">
+                    {r.method === 'face' ? <><ScanFace className="w-4 h-4 text-brand-indigo" /> Biometric</> : <><Key className="w-4 h-4 text-dark-500" /> Manual Pin</>}
+                  </td>
+                  <td className="px-6 py-4">
                     {resolvePhotoUrl(r.photo_url) ? (
                       <Link
                         href="/dashboard/attendance/snapshots"
                         className="block group"
                         title="View in Snapshots"
                       >
-                        <img
-                          src={resolvePhotoUrl(r.photo_url)!}
-                          alt="Attendance snapshot"
-                          className="w-10 h-10 rounded-lg object-cover border-2 border-dark-200 dark:border-dark-700 group-hover:border-primary-500 transition-all group-hover:scale-110 shadow-sm"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
+                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 group-hover:border-brand-cyan transition-all shadow-lg group-hover:scale-110">
+                          <img
+                            src={resolvePhotoUrl(r.photo_url)!}
+                            alt="Attendance snapshot"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
                       </Link>
                     ) : (
-                      <span className="text-xs text-dark-400 italic">No capture</span>
+                      <span className="text-xs text-dark-500 italic flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> No capture</span>
                     )}
                   </td>
                 </tr>
               ))}
               {records.length === 0 && (
                 <tr>
-                  <td colSpan={isAdmin ? 6 : 5} className="px-5 py-16 text-center text-dark-400">
-                    <Clock className="w-12 h-12 mx-auto mb-3 opacity-25" />
-                    <p className="text-sm">No attendance records found for this period.</p>
+                  <td colSpan={isAdmin ? 6 : 5} className="px-6 py-20 text-center text-dark-400">
+                    <div className="w-16 h-16 mx-auto bg-white/5 rounded-3xl flex items-center justify-center mb-4 border border-white/10 shadow-inner">
+                      <Clock className="w-8 h-8 text-dark-500" />
+                    </div>
+                    <p className="text-sm font-semibold text-white">No attendance records found</p>
+                    <p className="text-xs text-dark-400 mt-1">There are no records for this period.</p>
                   </td>
                 </tr>
               )}

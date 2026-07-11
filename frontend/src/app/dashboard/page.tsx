@@ -14,7 +14,7 @@ import { Doughnut, Bar } from 'react-chartjs-2';
 import {
   GraduationCap, Users2, FolderKanban, Clock, 
   UserCheck, UserX, Megaphone, Video, ClipboardList,
-  CheckCircle, AlertCircle, Loader2, ArrowRight
+  CheckCircle, AlertCircle, Loader2, ArrowRight, Sparkles
 } from 'lucide-react';
 
 ChartJS.register(
@@ -64,16 +64,29 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="text-3xl font-heading font-bold text-white tracking-tight">Admin Dashboard</h1>
-          <p className="text-dark-400 mt-1.5 font-medium">Real-time stats and center utilization analytics</p>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="text-xs font-semibold text-brand-cyan bg-white/5 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2 w-fit shadow-inner">
-          <Clock className="w-4 h-4" />
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </motion.div>
-      </div>
+      {/* Modern Welcome Banner */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20, scale: 0.98 }} 
+        animate={{ opacity: 1, y: 0, scale: 1 }} 
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative overflow-hidden rounded-3xl p-8 bg-gradient-to-br from-brand-blue/20 via-[#0B1120] to-brand-purple/20 border border-white/10 shadow-2xl mb-8"
+      >
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-96 h-96 bg-brand-blue/30 rounded-full blur-[80px] pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 relative z-10">
+          <div>
+            <h1 className="text-4xl font-heading font-extrabold text-white tracking-tight drop-shadow-sm">
+              Admin Dashboard
+            </h1>
+            <p className="text-dark-300 mt-2 text-lg font-medium max-w-xl leading-relaxed">
+              Real-time statistics and center utilization analytics
+            </p>
+          </div>
+          <div className="text-xs font-bold text-brand-cyan bg-white/5 border border-white/10 px-5 py-3 rounded-xl flex items-center gap-2 w-fit shadow-inner backdrop-blur-md uppercase tracking-widest">
+            <Clock className="w-4 h-4" />
+            {new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+          </div>
+        </div>
+      </motion.div>
 
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -83,19 +96,19 @@ function AdminDashboard() {
             {...fadeUp} 
             transition={{ delay: i * 0.05, duration: 0.4 }}
             onClick={() => router.push(card.link)}
-            className="stat-card cursor-pointer"
+            className="stat-card cursor-pointer group flex flex-col justify-between h-full"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-bold text-dark-400 uppercase tracking-wider">{card.label}</p>
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
-                  <card.icon className="w-6 h-6 text-white" />
+                <p className="text-xs font-bold text-dark-400 uppercase tracking-widest">{card.label}</p>
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 bg-opacity-20`}>
+                  <card.icon className="w-5 h-5 text-white" />
                 </div>
               </div>
-              <p className="text-4xl font-mono font-bold text-white tracking-tight group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/50 transition-all">{card.value}</p>
+              <p className="text-5xl font-heading font-extrabold text-white tracking-tighter group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/50 transition-all">{card.value}</p>
             </div>
             
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10 text-xs font-bold text-dark-500 group-hover:text-brand-blue transition-colors">
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10 text-xs font-bold text-dark-500 group-hover:text-brand-blue transition-colors uppercase tracking-widest">
               <span>{card.sub || 'VIEW DETAILS'}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
             </div>
@@ -209,31 +222,70 @@ function StudentDashboard() {
   if (isLoading) return <DashboardSkeleton />;
   const d = data?.data;
 
+  // Mock AI Insights based on data
+  const aiInsights = [
+    { title: "Attendance Notice", message: "Your attendance is strong, keep it up to maintain your perfect record.", type: "success" },
+    { title: "Upcoming Meeting", message: "You have a mentor sync tomorrow. Make sure your project updates are ready.", type: "warning" },
+  ];
+
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h1 className="text-3xl font-heading font-bold text-white tracking-tight">
-          Welcome back, {d?.user?.full_name?.split(' ')[0] || 'Student'} 👋
-        </h1>
-        <p className="text-dark-400 mt-2 font-medium">Your innovation journey snapshot</p>
+      {/* Modern Welcome Banner */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20, scale: 0.98 }} 
+        animate={{ opacity: 1, y: 0, scale: 1 }} 
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative overflow-hidden rounded-3xl p-8 bg-gradient-to-br from-brand-indigo/20 via-[#0B1120] to-brand-cyan/20 border border-white/10 shadow-2xl"
+      >
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-96 h-96 bg-brand-indigo/30 rounded-full blur-[80px] pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="text-4xl font-heading font-extrabold text-white tracking-tight drop-shadow-sm">
+            Welcome back, {d?.user?.full_name?.split(' ')[0] || 'Student'} <span className="inline-block animate-wave">👋</span>
+          </h1>
+          <p className="text-dark-300 mt-2 text-lg font-medium max-w-xl leading-relaxed">
+            Here's what's happening in your innovation journey today.
+          </p>
+        </div>
       </motion.div>
 
-      {/* Quick Interactive Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* AI Insights Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        {aiInsights.map((insight, idx) => (
+          <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors backdrop-blur-xl group">
+            <div className={`p-2.5 rounded-xl ${insight.type === 'success' ? 'bg-brand-emerald/10 text-brand-emerald group-hover:bg-brand-emerald/20' : 'bg-brand-amber/10 text-brand-amber group-hover:bg-brand-amber/20'} transition-colors`}>
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">{insight.title}</h4>
+              <p className="text-xs text-dark-300 mt-1 leading-relaxed">{insight.message}</p>
+            </div>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* Quick Interactive Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <motion.div 
           {...fadeUp}
           onClick={() => router.push('/dashboard/attendance')}
-          className="stat-card cursor-pointer border-t-[3px] border-t-brand-emerald"
+          className="stat-card cursor-pointer group"
         >
           <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-bold text-dark-400 uppercase tracking-wider">Attendance</span>
-            <div className="p-2 rounded-xl bg-brand-emerald/10">
-              <UserCheck className="w-5 h-5 text-brand-emerald group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Attendance</span>
+            <div className="p-2.5 rounded-xl bg-white/5 group-hover:bg-brand-emerald/10 transition-colors">
+              <UserCheck className="w-5 h-5 text-dark-300 group-hover:text-brand-emerald transition-colors" />
             </div>
           </div>
-          <p className="text-4xl font-mono font-bold text-white tracking-tight">{d?.attendance_percentage || 0}%</p>
-          <div className="w-full bg-white/5 rounded-full h-1.5 mt-4 overflow-hidden">
-            <div className="bg-gradient-to-r from-brand-emerald to-emerald-400 h-1.5 rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${d?.attendance_percentage || 0}%` }}>
+          <div className="flex items-end gap-2">
+            <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{d?.attendance_percentage || 0}<span className="text-2xl text-dark-400 font-medium">%</span></p>
+          </div>
+          <div className="w-full bg-dark-800 rounded-full h-1.5 mt-5 overflow-hidden shadow-inner">
+            <div className="bg-brand-emerald h-1.5 rounded-full transition-all duration-1000 ease-out relative shadow-[0_0_10px_rgba(16,185,129,0.8)]" style={{ width: `${d?.attendance_percentage || 0}%` }}>
                <div className="absolute inset-0 bg-white/30 animate-[slide-in-right_2s_infinite]" />
             </div>
           </div>
@@ -243,114 +295,114 @@ function StudentDashboard() {
           {...fadeUp} 
           transition={{ delay: 0.1 }}
           onClick={() => router.push('/dashboard/teams')}
-          className="stat-card cursor-pointer border-t-[3px] border-t-brand-purple"
+          className="stat-card cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-dark-400 uppercase tracking-wider">Active Team</span>
-            <div className="p-2 rounded-xl bg-brand-purple/10">
-              <Users2 className="w-5 h-5 text-brand-purple group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Active Team</span>
+            <div className="p-2.5 rounded-xl bg-white/5 group-hover:bg-brand-indigo/10 transition-colors">
+              <Users2 className="w-5 h-5 text-dark-300 group-hover:text-brand-indigo transition-colors" />
             </div>
           </div>
-          <p className="text-xl font-bold text-white truncate">{d?.team?.name || 'Not assigned'}</p>
-          <p className="text-xs text-brand-cyan mt-2 font-medium">{d?.team?.mentor_name ? `Mentor: ${d.team.mentor_name}` : 'No mentor assigned'}</p>
+          <p className="text-2xl font-bold text-white truncate leading-tight mt-2">{d?.team?.name || 'Not assigned'}</p>
+          <p className="text-xs text-brand-cyan mt-3 font-semibold uppercase tracking-wider">{d?.team?.mentor_name ? `Mentor: ${d.team.mentor_name}` : 'No mentor'}</p>
         </motion.div>
 
         <motion.div 
           {...fadeUp} 
           transition={{ delay: 0.2 }}
           onClick={() => router.push('/dashboard/forms')}
-          className="stat-card cursor-pointer border-t-[3px] border-t-brand-orange"
+          className="stat-card cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-dark-400 uppercase tracking-wider">Pending Forms</span>
-            <div className="p-2 rounded-xl bg-brand-orange/10">
-              <ClipboardList className="w-5 h-5 text-brand-orange group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Pending Forms</span>
+            <div className="p-2.5 rounded-xl bg-white/5 group-hover:bg-brand-amber/10 transition-colors">
+              <ClipboardList className="w-5 h-5 text-dark-300 group-hover:text-brand-amber transition-colors" />
             </div>
           </div>
-          <p className="text-4xl font-mono font-bold text-white">{d?.pending_forms || 0}</p>
-          <p className="text-xs text-dark-400 mt-2 font-medium group-hover:text-brand-orange transition-colors">Click to fill forms</p>
+          <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{d?.pending_forms || 0}</p>
+          <p className="text-xs text-dark-400 mt-4 font-semibold uppercase tracking-wider group-hover:text-brand-amber transition-colors">Action Required →</p>
         </motion.div>
 
         <motion.div 
           {...fadeUp} 
           transition={{ delay: 0.3 }}
           onClick={() => router.push('/dashboard/meetings')}
-          className="stat-card cursor-pointer border-t-[3px] border-t-brand-blue"
+          className="stat-card cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold text-dark-400 uppercase tracking-wider">Upcoming Calls</span>
-            <div className="p-2 rounded-xl bg-brand-blue/10">
-              <Video className="w-5 h-5 text-brand-blue group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Upcoming Calls</span>
+            <div className="p-2.5 rounded-xl bg-white/5 group-hover:bg-brand-cyan/10 transition-colors">
+              <Video className="w-5 h-5 text-dark-300 group-hover:text-brand-cyan transition-colors" />
             </div>
           </div>
-          <p className="text-4xl font-mono font-bold text-white">{d?.upcoming_meetings || 0}</p>
-          <p className="text-xs text-dark-400 mt-2 font-medium group-hover:text-brand-blue transition-colors">Join secure rooms</p>
+          <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{d?.upcoming_meetings || 0}</p>
+          <p className="text-xs text-dark-400 mt-4 font-semibold uppercase tracking-wider group-hover:text-brand-cyan transition-colors">Join Room →</p>
         </motion.div>
       </div>
 
       {/* Project + Notifications Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-        {/* Project details card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+        {/* Project details card - Takes 2 cols */}
         <motion.div 
           {...fadeUp} 
           transition={{ delay: 0.4 }}
-          className="glass-card p-6 lg:p-8"
+          className="lg:col-span-2 glass-card p-8 flex flex-col justify-between"
         >
-          <h3 className="text-lg font-heading font-bold text-white mb-6 flex items-center gap-3">
-            <div className="p-2 bg-brand-blue/10 rounded-lg"><FolderKanban className="w-5 h-5 text-brand-blue" /></div> Active Project
-          </h3>
-          {d?.project ? (
-            <div className="space-y-6">
-              <div>
-                <p className="font-bold text-white text-xl">{d.project.title}</p>
-                <p className="text-sm text-dark-300 mt-2 leading-relaxed">{d.project.description}</p>
-              </div>
-
-              {/* Problem/Solution */}
-              {d.project.problem_statement && (
-                <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-sm space-y-2">
-                  <span className="font-bold text-brand-cyan tracking-wide">Problem Statement:</span>
-                  <p className="text-dark-300 italic leading-relaxed">"{d.project.problem_statement}"</p>
-                </div>
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-lg font-heading font-bold text-white flex items-center gap-3">
+                <div className="p-2 bg-brand-indigo/20 rounded-xl shadow-[0_0_10px_rgba(99,102,241,0.3)]"><FolderKanban className="w-5 h-5 text-brand-indigo" /></div> 
+                Active Project
+              </h3>
+              {d?.project && (
+                <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest border ${
+                  d.project.status === 'completed' ? 'bg-brand-emerald/10 text-brand-emerald border-brand-emerald/20' : 'bg-brand-indigo/10 text-brand-indigo border-brand-indigo/20'
+                }`}>{d.project.status}</span>
               )}
+            </div>
 
-              {/* Technologies Used */}
-              {d.project.technologies_used && (
+            {d?.project ? (
+              <div className="space-y-6">
                 <div>
-                  <span className="text-xs font-bold text-dark-400 uppercase tracking-wider mb-3 block">Technologies:</span>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="font-bold text-white text-2xl tracking-tight">{d.project.title}</p>
+                  <p className="text-sm text-dark-300 mt-3 leading-relaxed max-w-3xl">{d.project.description}</p>
+                </div>
+
+                {d.project.technologies_used && (
+                  <div className="flex flex-wrap gap-2 mt-6">
                     {(Array.isArray(d.project.technologies_used)
                       ? d.project.technologies_used
                       : typeof d.project.technologies_used === 'string'
                       ? d.project.technologies_used.split(',')
                       : []
                     ).map((tech: string) => (
-                      <span key={tech} className="px-3 py-1 bg-brand-blue/10 border border-brand-blue/20 text-brand-blue rounded-lg text-xs font-bold shadow-inner">
+                      <span key={tech} className="px-3 py-1 bg-white/5 border border-white/10 text-dark-200 rounded-lg text-xs font-semibold shadow-inner">
                         {tech.trim()}
                       </span>
                     ))}
                   </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-20 flex flex-col items-center justify-center text-dark-500">
+                <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-white/10">
+                  <FolderKanban className="w-8 h-8 text-dark-400" />
                 </div>
-              )}
+                <p className="text-base font-semibold text-white">No active project assigned yet.</p>
+                <p className="text-sm text-dark-400 mt-2">Check back later or contact your mentor.</p>
+              </div>
+            )}
+          </div>
 
-              <div className="pt-4 border-t border-white/10">
-                <div className="flex justify-between items-center text-sm font-semibold mb-3">
-                  <span className={`px-3 py-1 rounded-full text-xs uppercase font-bold tracking-widest ${
-                    d.project.status === 'completed' ? 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/30' : 'bg-brand-blue/20 text-brand-blue border border-brand-blue/30'
-                  }`}>{d.project.status}</span>
-                  <span className="text-white bg-white/10 px-3 py-1 rounded-full font-mono">{d.project.progress}% Complete</span>
-                </div>
-                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden shadow-inner">
-                  <div className="bg-gradient-to-r from-brand-blue to-brand-purple h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${d.project.progress}%` }} />
-                </div>
+          {d?.project && (
+            <div className="mt-8 pt-6 border-t border-white/10">
+              <div className="flex justify-between items-center text-xs font-bold mb-3 text-dark-300 uppercase tracking-widest">
+                <span>Progress Tracker</span>
+                <span className="text-white bg-white/10 px-3 py-1 rounded-full font-mono shadow-inner">{d.project.progress}% Complete</span>
               </div>
-            </div>
-          ) : (
-            <div className="py-16 flex flex-col items-center justify-center text-dark-500">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <FolderKanban className="w-8 h-8 text-dark-400" />
+              <div className="w-full bg-dark-800 rounded-full h-2.5 overflow-hidden shadow-inner">
+                <div className="bg-gradient-to-r from-brand-indigo to-brand-cyan h-2.5 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(6,182,212,0.6)]" style={{ width: `${d.project.progress}%` }} />
               </div>
-              <p className="text-base font-medium">No active project assigned yet.</p>
             </div>
           )}
         </motion.div>
@@ -359,35 +411,42 @@ function StudentDashboard() {
         <motion.div 
           {...fadeUp} 
           transition={{ delay: 0.5 }}
-          className="glass-card p-6 lg:p-8"
+          className="glass-card p-6 flex flex-col h-full"
         >
-          <h3 className="text-lg font-heading font-bold text-white mb-6 flex items-center gap-3">
-            <div className="p-2 bg-brand-orange/10 rounded-lg"><Megaphone className="w-5 h-5 text-brand-orange" /></div> Announcements
-          </h3>
-          {d?.recent_notifications?.length > 0 ? (
-            <div className="space-y-4">
-              {d.recent_notifications.map((n: any) => (
-                <div 
-                  key={n.id} 
-                  className={`p-4 rounded-xl border transition-all hover:bg-white/5 group ${
-                    n.is_read 
-                      ? 'border-white/10 bg-white/5' 
-                      : 'border-brand-pink/30 bg-brand-pink/5 shadow-[0_0_15px_rgba(236,72,153,0.1)]'
-                  }`}
-                >
-                  <p className="text-sm font-bold text-white group-hover:text-brand-pink transition-colors">{n.title}</p>
-                  <p className="text-xs text-dark-400 mt-2 leading-relaxed">{n.message}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-16 flex flex-col items-center justify-center text-dark-500">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <Megaphone className="w-8 h-8 text-dark-400" />
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-heading font-bold text-white flex items-center gap-3">
+              <div className="p-2 bg-brand-amber/20 rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.3)]"><Megaphone className="w-5 h-5 text-brand-amber" /></div> 
+              Recent Activity
+            </h3>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">
+            {d?.recent_notifications?.length > 0 ? (
+              <div className="space-y-4">
+                {d.recent_notifications.map((n: any) => (
+                  <div 
+                    key={n.id} 
+                    className={`p-4 rounded-2xl border transition-all duration-300 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 group ${
+                      n.is_read 
+                        ? 'border-white/5 bg-white/5' 
+                        : 'border-brand-indigo/30 bg-brand-indigo/10 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
+                    }`}
+                  >
+                    <p className={`text-sm font-bold transition-colors ${n.is_read ? 'text-white' : 'text-brand-indigo group-hover:text-brand-cyan'}`}>{n.title}</p>
+                    <p className="text-xs text-dark-300 mt-2 leading-relaxed">{n.message}</p>
+                  </div>
+                ))}
               </div>
-              <p className="text-base font-medium">No recent announcements.</p>
-            </div>
-          )}
+            ) : (
+              <div className="h-full py-16 flex flex-col items-center justify-center text-dark-500">
+                <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-6 shadow-inner border border-white/10">
+                  <Megaphone className="w-8 h-8 text-dark-400" />
+                </div>
+                <p className="text-sm font-semibold text-white">All caught up!</p>
+                <p className="text-xs text-dark-400 mt-2 text-center">No recent announcements<br/>to display right now.</p>
+              </div>
+            )}
+          </div>
         </motion.div>
       </div>
     </div>

@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsAPI } from '@/services/api';
+import Link from 'next/link';
 import {
-  Search, Bell, Sun, Moon, ChevronDown, User, Settings, LogOut, Menu,
+  Search, Bell, Sun, Moon, ChevronDown, User, Settings, LogOut, Menu, Sparkles, Clock, Calendar
 } from 'lucide-react';
 
 export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) {
@@ -18,16 +19,22 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearInterval(timer);
+    };
   }, []);
 
   const { data: unreadData } = useQuery({
@@ -52,41 +59,77 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
     ? user.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : '??';
 
+  const timeString = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateString = currentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+
   return (
     <header className={`sticky top-0 z-30 h-20 flex items-center justify-between gap-4 px-6 transition-all duration-300 ${
-      scrolled ? 'bg-white/70 dark:bg-[#0f172a]/70 backdrop-blur-2xl shadow-lg border-b border-white/10' : 'bg-transparent border-b border-transparent'
+      scrolled ? 'bg-[#0B1120]/80 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.5)] border-b border-white/5' : 'bg-transparent border-b border-transparent'
     }`}>
       {/* Left: Mobile menu + Search */}
       <div className="flex items-center gap-4 flex-1">
-        <button onClick={onMenuToggle} className="lg:hidden btn-ghost p-2 hover:bg-white/10 rounded-xl">
+        <button onClick={onMenuToggle} className="lg:hidden p-2 text-dark-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
           <Menu className="w-6 h-6" />
         </button>
-        <div className="relative w-full max-w-md hidden sm:block">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400 dark:text-dark-500" />
+        
+        <div className="relative w-full max-w-md hidden sm:block group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search className="w-4 h-4 text-dark-400 group-focus-within:text-brand-indigo transition-colors" />
+          </div>
           <input
             type="text"
             placeholder="Search students, projects, events..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 text-sm bg-white/50 dark:bg-dark-900/50 backdrop-blur-md border border-dark-200/50 dark:border-white/10 rounded-2xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 focus:border-transparent transition-all duration-300 shadow-sm hover:bg-white/80 dark:hover:bg-dark-800/80"
-            id="global-search"
+            className="w-full pl-11 pr-12 py-2.5 text-sm bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-white placeholder-dark-400 focus:outline-none focus:ring-1 focus:ring-brand-indigo/50 focus:border-brand-indigo/50 focus:bg-white/10 transition-all duration-300 shadow-sm"
           />
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <kbd className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/10 text-dark-400 border border-white/5">
+              /
+            </kbd>
+          </div>
         </div>
       </div>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-3">
-        {/* Theme toggle */}
+        {/* Date & Time (Hidden on small screens) */}
+        <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/5 rounded-2xl mr-2">
+          <div className="flex items-center gap-1.5 text-xs text-dark-300 font-medium border-r border-white/10 pr-3">
+            <Calendar className="w-3.5 h-3.5 text-brand-cyan" />
+            {dateString}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-dark-300 font-medium">
+            <Clock className="w-3.5 h-3.5 text-brand-indigo" />
+            {timeString}
+          </div>
+        </div>
+
+        {/* AI Assistant Shortcut */}
+        <button
+          className="hidden md:flex items-center justify-center p-2.5 rounded-xl bg-brand-indigo/10 hover:bg-brand-indigo/20 border border-brand-indigo/20 shadow-sm transition-all group"
+          title="AI Assistant"
+        >
+          <Sparkles className="w-5 h-5 text-brand-indigo group-hover:drop-shadow-[0_0_8px_rgba(99,102,241,0.8)] transition-all" />
+        </button>
+
+        {/* Settings Shortcut */}
+        <Link href="/dashboard/settings"
+          className="hidden sm:flex items-center justify-center p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 shadow-sm transition-all text-dark-400 hover:text-white"
+          title="Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </Link>
+
+        {/* Theme toggle (Hidden but kept logic in case user wants it back) */}
         {mounted && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2.5 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 backdrop-blur-md border border-dark-200/50 dark:border-white/10 shadow-sm transition-all"
-            id="theme-toggle"
+            className="hidden p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 shadow-sm transition-all text-dark-400 hover:text-white"
+            title="Toggle Theme"
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5 text-brand-orange drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" /> : <Moon className="w-5 h-5 text-brand-indigo" />}
-          </motion.button>
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
         )}
 
         {/* Notifications */}
@@ -95,12 +138,11 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2.5 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 backdrop-blur-md border border-dark-200/50 dark:border-white/10 shadow-sm transition-all relative"
-            id="notification-bell"
+            className="relative p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 shadow-sm transition-all text-dark-400 hover:text-white"
           >
-            <Bell className="w-5 h-5 text-dark-600 dark:text-dark-300" />
+            <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-brand-pink to-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg shadow-brand-pink/40 border-2 border-white dark:border-dark-900">
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-brand-red to-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg shadow-brand-red/40 border-2 border-[#0B1120]">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -113,13 +155,13 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="absolute right-0 mt-3 w-80 glass-card p-0 shadow-2xl overflow-hidden rounded-2xl border border-white/20 origin-top-right"
+                className="absolute right-0 mt-3 w-80 bg-[#0F172A]/95 backdrop-blur-3xl shadow-2xl overflow-hidden rounded-3xl border border-white/10 origin-top-right z-50"
               >
-                <div className="p-4 border-b border-dark-100 dark:border-white/10 bg-dark-50/50 dark:bg-white/5 flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-dark-900 dark:text-white">Notifications</h3>
-                  {unreadCount > 0 && <span className="badge badge-blue">{unreadCount} New</span>}
+                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
+                  <h3 className="text-sm font-bold text-white">Notifications</h3>
+                  {unreadCount > 0 && <span className="px-2 py-0.5 rounded-full bg-brand-cyan/20 text-brand-cyan text-[10px] font-bold border border-brand-cyan/20">{unreadCount} New</span>}
                 </div>
-                <div className="p-4 max-h-64 overflow-y-auto">
+                <div className="p-4 max-h-64 overflow-y-auto scrollbar-hide">
                   {unreadCount === 0 ? (
                     <div className="flex flex-col items-center justify-center py-6 text-dark-400">
                       <Bell className="w-8 h-8 mb-2 opacity-50" />
@@ -131,9 +173,9 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
                     </p>
                   )}
                 </div>
-                <a href="/dashboard/notifications" className="block text-center text-xs font-semibold text-brand-blue py-3 border-t border-dark-100 dark:border-white/10 hover:bg-dark-50 dark:hover:bg-white/5 transition-colors">
+                <Link href="/dashboard/notifications" className="block text-center text-xs font-semibold text-brand-cyan py-4 border-t border-white/5 hover:bg-white/5 transition-colors">
                   View All Notifications
-                </a>
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>
@@ -145,17 +187,16 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowProfile(!showProfile)}
-            className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-full bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-dark-200/50 dark:border-white/10 backdrop-blur-md shadow-sm transition-all"
-            id="profile-dropdown"
+            className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 shadow-sm transition-all"
           >
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-white text-sm font-bold shadow-inner">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-indigo to-brand-cyan flex items-center justify-center text-white text-sm font-bold shadow-inner border border-white/20">
               {initials}
             </div>
             <div className="hidden md:block text-left">
-              <p className="text-sm font-semibold text-dark-900 dark:text-white leading-tight">
+              <p className="text-sm font-semibold text-white leading-tight">
                 {user?.full_name || 'User'}
               </p>
-              <p className="text-xs text-brand-cyan font-medium capitalize">
+              <p className="text-[10px] text-brand-cyan font-semibold uppercase tracking-wider">
                 {user?.role?.name?.replace('_', ' ') || 'Loading...'}
               </p>
             </div>
@@ -169,26 +210,26 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="absolute right-0 mt-3 w-64 glass-card py-2 shadow-2xl rounded-2xl border border-white/20 origin-top-right overflow-hidden"
+                className="absolute right-0 mt-3 w-64 bg-[#0F172A]/95 backdrop-blur-3xl shadow-2xl rounded-3xl border border-white/10 origin-top-right overflow-hidden z-50"
               >
-                <div className="px-5 py-4 border-b border-dark-100 dark:border-white/10 bg-gradient-to-br from-brand-blue/5 to-transparent">
-                  <p className="text-base font-bold text-dark-900 dark:text-white">{user?.full_name}</p>
+                <div className="px-5 py-5 border-b border-white/5 bg-gradient-to-br from-brand-indigo/10 to-transparent">
+                  <p className="text-base font-bold text-white">{user?.full_name}</p>
                   <p className="text-xs text-dark-400 mt-1">{user?.email}</p>
                 </div>
                 <div className="py-2">
-                  <a href="/dashboard/settings" className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-dark-700 dark:text-dark-200 hover:text-brand-blue hover:bg-dark-50 dark:hover:bg-white/5 transition-colors group">
-                    <User className="w-4 h-4 text-dark-400 group-hover:text-brand-blue transition-colors" /> Profile Profile
-                  </a>
-                  <a href="/dashboard/settings" className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-dark-700 dark:text-dark-200 hover:text-brand-blue hover:bg-dark-50 dark:hover:bg-white/5 transition-colors group">
-                    <Settings className="w-4 h-4 text-dark-400 group-hover:text-brand-blue transition-colors" /> Account Settings
-                  </a>
+                  <Link href="/dashboard/settings" className="flex items-center gap-3 px-5 py-3 text-sm font-medium text-dark-300 hover:text-white hover:bg-white/5 transition-colors group">
+                    <User className="w-[18px] h-[18px] text-dark-400 group-hover:text-brand-cyan transition-colors" /> Profile settings
+                  </Link>
+                  <Link href="/dashboard/settings?tab=security" className="flex items-center gap-3 px-5 py-3 text-sm font-medium text-dark-300 hover:text-white hover:bg-white/5 transition-colors group">
+                    <Settings className="w-[18px] h-[18px] text-dark-400 group-hover:text-brand-cyan transition-colors" /> Account security
+                  </Link>
                 </div>
-                <div className="border-t border-dark-100 dark:border-white/10 p-2">
+                <div className="border-t border-white/5 p-2">
                   <button
                     onClick={logout}
-                    className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-500 hover:text-white hover:bg-gradient-to-r hover:from-red-500 hover:to-brand-pink rounded-xl w-full text-left transition-all duration-300 group shadow-sm hover:shadow-red-500/25"
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-brand-red hover:text-white hover:bg-brand-red/20 rounded-2xl w-full text-left transition-all duration-300 group"
                   >
-                    <LogOut className="w-4 h-4 group-hover:text-white transition-colors" /> Sign Out
+                    <LogOut className="w-[18px] h-[18px] group-hover:text-white transition-colors" /> Sign out
                   </button>
                 </div>
               </motion.div>
