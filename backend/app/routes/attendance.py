@@ -19,6 +19,7 @@ from app.services.face_service import (
 )
 from app.utils.actions import log_admin_action, broadcast_notification
 import math
+from app.services.google_drive import upload_attendance_image
 
 logger = logging.getLogger("icms.attendance")
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
@@ -213,14 +214,12 @@ def face_attendance(
         try:
             import uuid
             photo_filename = f"{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
-            supabase.storage.from_("attendance-photos").upload(
-                photo_filename,
+            _, photo_url = upload_attendance_image(
                 img_bytes,
-                file_options={"content-type": "image/jpeg"}
+                photo_filename
             )
-            photo_url = supabase.storage.from_("attendance-photos").get_public_url(photo_filename)
         except Exception as upload_err:
-            logger.warning(f"Photo upload failed (non-blocking): {upload_err}")
+            logger.warning(f"Google Drive upload failed: {upload_err}")
             photo_url = None
 
     # ── STEP 8: Uniform detection using reference images ──────────────────────
