@@ -90,8 +90,8 @@ export default function AdminFaceManagementPage() {
   const departments = [...new Set(students.map((s) => s.department))].filter(Boolean).sort();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <>
+    <div className="space-y-6">
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -100,13 +100,13 @@ export default function AdminFaceManagementPage() {
               <Shield className="w-6 h-6 text-indigo-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Face Registration Management</h1>
-              <p className="text-slate-400 text-sm">Monitor and manage student face registrations</p>
+              <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-900 dark:text-white">Face Registration Management</h1>
+              <p className="text-dark-500 dark:text-dark-400 text-sm">Monitor and manage student face registrations</p>
             </div>
           </div>
           <button
             onClick={loadData}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-all text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:hover:bg-dark-600 text-dark-600 dark:text-dark-300 rounded-xl transition-all text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -115,52 +115,52 @@ export default function AdminFaceManagementPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/20 rounded-xl">
-              <Users className="w-6 h-6 text-indigo-400" />
+          <div className="glass-card border border-dark-200 dark:border-dark-700 rounded-2xl p-5 flex items-center gap-4">
+            <div className="p-3 bg-brand-indigo/10 rounded-xl">
+              <Users className="w-6 h-6 text-brand-indigo" />
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Total Students</p>
-              <p className="text-white text-2xl font-bold">{total}</p>
+              <p className="text-dark-500 dark:text-dark-400 text-sm">Total Students</p>
+              <p className="text-dark-900 dark:text-dark-900 dark:text-white text-2xl font-bold">{total}</p>
             </div>
           </div>
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/20 rounded-xl">
-              <CheckCircle className="w-6 h-6 text-emerald-400" />
+          <div className="glass-card border border-dark-200 dark:border-dark-700 rounded-2xl p-5 flex items-center gap-4">
+            <div className="p-3 bg-brand-emerald/10 rounded-xl">
+              <CheckCircle className="w-6 h-6 text-brand-emerald" />
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Face Registered</p>
-              <p className="text-emerald-400 text-2xl font-bold">{registeredCount}</p>
+              <p className="text-dark-500 dark:text-dark-400 text-sm">Face Registered</p>
+              <p className="text-brand-emerald text-2xl font-bold">{registeredCount}</p>
             </div>
           </div>
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 flex items-center gap-4">
-            <div className="p-3 bg-amber-500/20 rounded-xl">
-              <AlertCircle className="w-6 h-6 text-amber-400" />
+          <div className="glass-card border border-dark-200 dark:border-dark-700 rounded-2xl p-5 flex items-center gap-4">
+            <div className="p-3 bg-brand-amber/10 rounded-xl">
+              <AlertCircle className="w-6 h-6 text-brand-amber" />
             </div>
             <div>
-              <p className="text-slate-400 text-sm">Not Registered</p>
-              <p className="text-amber-400 text-2xl font-bold">{notRegisteredCount}</p>
+              <p className="text-dark-500 dark:text-dark-400 text-sm">Not Registered</p>
+              <p className="text-brand-amber text-2xl font-bold">{notRegisteredCount}</p>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 flex flex-col md:flex-row gap-3">
+        <div className="glass-card border border-dark-200 dark:border-dark-700 border  rounded-2xl p-4 flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500 dark:text-dark-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, IC number, department..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 text-sm focus:outline-none focus:border-indigo-500/50"
+              className="w-full pl-10 pr-4 py-2.5 bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700/50 rounded-xl text-dark-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:border-indigo-500/50"
             />
           </div>
 
           <select
             value={filterDept}
             onChange={(e) => { setFilterDept(e.target.value); setPage(1); }}
-            className="px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500/50"
+            className="px-4 py-2.5 bg-dark-50 dark:bg-dark-800 border border-dark-200 dark:border-dark-700/50 rounded-xl text-dark-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500/50"
           >
             <option value="">All Departments</option>
             {departments.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -173,8 +173,8 @@ export default function AdminFaceManagementPage() {
                 onClick={() => setFilterStatus(f)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                   filterStatus === f
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50'
+                    ? 'bg-indigo-600 text-dark-900 dark:text-white'
+                    : 'bg-dark-50 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:text-dark-900 dark:text-white border border-dark-200 dark:border-dark-700/50'
                 }`}
               >
                 {f === 'all' ? 'All' : f === 'registered' ? '✓ Registered' : '✗ Not Registered'}
@@ -184,13 +184,13 @@ export default function AdminFaceManagementPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="glass-card border border-dark-200 dark:border-dark-700 border  rounded-2xl overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
+            <div className="text-center py-16 text-dark-500 dark:text-dark-400">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No students found</p>
             </div>
@@ -198,29 +198,29 @@ export default function AdminFaceManagementPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-700/50">
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Student</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">IC Number</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Department</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Face Status</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Registered On</th>
-                    <th className="text-left px-6 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Actions</th>
+                  <tr className="border-b ">
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">Student</th>
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">IC Number</th>
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">Department</th>
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">Face Status</th>
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">Registered On</th>
+                    <th className="text-left px-6 py-4 text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/30">
                   {filtered.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-700/20 transition-colors">
+                    <tr key={student.id} className="hover:bg-dark-100 dark:bg-dark-700/20 transition-colors">
                       <td className="px-6 py-4">
                         <div>
-                          <p className="text-white font-medium text-sm">{student.user.full_name}</p>
-                          <p className="text-slate-400 text-xs">{student.user.email}</p>
+                          <p className="text-dark-900 dark:text-white font-medium text-sm">{student.user.full_name}</p>
+                          <p className="text-dark-500 dark:text-dark-400 text-xs">{student.user.email}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-slate-300 font-mono text-sm">{student.user.ic_number}</span>
+                        <span className="text-dark-600 dark:text-dark-300 font-mono text-sm">{student.user.ic_number}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-slate-300 text-sm">{student.department}</span>
+                        <span className="text-dark-600 dark:text-dark-300 text-sm">{student.department}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`flex items-center gap-1.5 w-fit px-3 py-1 rounded-full text-xs font-semibold ${
@@ -236,7 +236,7 @@ export default function AdminFaceManagementPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-slate-400 text-sm">
+                        <span className="text-dark-500 dark:text-dark-400 text-sm">
                           {student.face_registered_at
                             ? new Date(student.face_registered_at).toLocaleDateString('en-IN')
                             : '—'}
@@ -262,7 +262,7 @@ export default function AdminFaceManagementPage() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between text-slate-400 text-sm">
+        <div className="flex items-center justify-between text-dark-500 dark:text-dark-400 text-sm">
           <span>
             Showing {filtered.length} of {total} students
           </span>
@@ -270,35 +270,34 @@ export default function AdminFaceManagementPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-2 hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-all"
+              className="p-2 hover:bg-dark-100 dark:bg-dark-700 rounded-xl disabled:opacity-30 transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-3 py-1.5 bg-slate-700/50 rounded-xl text-white">Page {page}</span>
+            <span className="px-3 py-1.5 bg-dark-50 dark:bg-dark-800 rounded-xl text-dark-900 dark:text-white">Page {page}</span>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={students.length < size}
-              className="p-2 hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-all"
+              className="p-2 hover:bg-dark-100 dark:bg-dark-700 rounded-xl disabled:opacity-30 transition-all"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </div>
 
       {/* Confirm Reset Modal */}
       {confirmReset && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-3xl p-6 max-w-md w-full">
             <div className="flex items-start gap-3 mb-4">
               <div className="p-2 bg-red-500/20 rounded-xl">
                 <AlertCircle className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold mb-1">Reset Face Registration</h3>
-                <p className="text-slate-400 text-sm">
+                <h3 className="text-dark-900 dark:text-white font-bold mb-1">Reset Face Registration</h3>
+                <p className="text-dark-500 dark:text-dark-400 text-sm">
                   Are you sure you want to reset the face registration for{' '}
-                  <strong className="text-white">{confirmReset.user.full_name}</strong>?
+                  <strong className="text-dark-900 dark:text-white">{confirmReset.user.full_name}</strong>?
                   They will need to re-register their face to use Face Attendance.
                 </p>
               </div>
@@ -306,14 +305,14 @@ export default function AdminFaceManagementPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmReset(null)}
-                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-all text-sm"
+                className="flex-1 py-3 bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:bg-dark-600 text-dark-600 dark:text-dark-300 rounded-xl transition-all text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleReset(confirmReset)}
                 disabled={resetting === confirmReset.id}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl transition-all text-sm font-semibold"
+                className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-dark-900 dark:text-white rounded-xl transition-all text-sm font-semibold"
               >
                 {resetting === confirmReset.id ? 'Resetting...' : 'Reset Face'}
               </button>
@@ -322,5 +321,6 @@ export default function AdminFaceManagementPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

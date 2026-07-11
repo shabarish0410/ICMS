@@ -316,7 +316,7 @@ export default function AttendancePage() {
           {isStudent && (
             <button
               onClick={() => router.push('/dashboard/attendance/face')}
-              className="btn-primary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/20"
+              className="flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl bg-brand-indigo hover:bg-brand-indigo/90 text-white transition-colors"
             >
               <Shield className="w-4 h-4" /> Face Attendance
             </button>
@@ -343,21 +343,21 @@ export default function AttendancePage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-5 bg-gradient-to-r from-amber-900/40 to-orange-900/30 border border-amber-500/40 rounded-2xl flex items-center gap-4 shadow-lg shadow-amber-900/20"
+          className="mb-6 p-5 bg-brand-amber/10 border border-brand-amber/20 rounded-2xl flex items-center gap-4"
         >
-          <div className="p-3 bg-amber-500/20 rounded-2xl flex-shrink-0">
-            <Shield className="w-6 h-6 text-amber-400" />
+          <div className="p-3 bg-brand-amber/10 rounded-2xl flex-shrink-0">
+            <Shield className="w-6 h-6 text-brand-amber" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-amber-300 font-bold text-base">Face Not Registered</p>
-            <p className="text-amber-400/80 text-sm mt-0.5">
+            <p className="text-brand-amber font-bold text-base">Face Not Registered</p>
+            <p className="text-dark-600 dark:text-dark-400 text-sm mt-0.5">
               You must register your face before you can mark attendance.
               Face registration is a one-time setup that takes about 1 minute.
             </p>
           </div>
           <Link
             href="/dashboard/face-registration"
-            className="flex-shrink-0 flex items-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-amber-500/30"
+            className="flex-shrink-0 flex items-center gap-2 px-5 py-3 bg-brand-amber hover:bg-brand-amber/90 text-white text-sm font-bold rounded-xl transition-colors"
           >
             <Camera className="w-4 h-4" />
             Register Face
@@ -371,18 +371,18 @@ export default function AttendancePage() {
           <>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="stat-card">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Total Days</span>
-                <div className="p-2.5 rounded-xl bg-white/5"><Calendar className="w-5 h-5 text-dark-300" /></div>
+                <span className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest">Total Days</span>
+                <div className="p-2.5 rounded-xl bg-dark-50 dark:bg-white/5"><Calendar className="w-5 h-5 text-dark-400" /></div>
               </div>
-              <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{s?.total_days || 0}</p>
+              <p className="text-5xl font-heading font-extrabold text-dark-900 dark:text-white tracking-tight">{s?.total_days || 0}</p>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card border-t-[3px] border-t-brand-emerald">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold text-dark-400 uppercase tracking-widest">Present</span>
+                <span className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest">Present</span>
                 <div className="p-2.5 rounded-xl bg-brand-emerald/10"><UserCheck className="w-5 h-5 text-brand-emerald" /></div>
               </div>
-              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tighter drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">{s?.present || 0}</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tight">{s?.present || 0}</p>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="stat-card border-t-[3px] border-t-brand-indigo">
@@ -433,23 +433,23 @@ export default function AttendancePage() {
         ) : (
           <>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="stat-card">
-              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Total Enrolled</p>
-              <p className="text-5xl font-heading font-extrabold text-white tracking-tighter">{s?.total_students || 0}</p>
+              <p className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest mb-4">Total Enrolled</p>
+              <p className="text-5xl font-heading font-extrabold text-dark-900 dark:text-white tracking-tight">{s?.total_students || 0}</p>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card border-t-[3px] border-t-brand-emerald">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-bold text-dark-400 uppercase tracking-widest">Present Today</p>
+                <p className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest">Present Today</p>
                 <div className="p-2.5 rounded-xl bg-brand-emerald/10"><UserCheck className="w-5 h-5 text-brand-emerald" /></div>
               </div>
-              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tighter">{s?.present_today || 0}</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-emerald tracking-tight">{s?.present_today || 0}</p>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="stat-card border-t-[3px] border-t-brand-red">
-              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Absent Today</p>
-              <p className="text-5xl font-heading font-extrabold text-brand-red tracking-tighter">{s?.absent_today || 0}</p>
+              <p className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest mb-4">Absent Today</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-red tracking-tight">{s?.absent_today || 0}</p>
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="stat-card border-t-[3px] border-t-brand-indigo">
-              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest mb-4">Attendance Rate</p>
-              <p className="text-5xl font-heading font-extrabold text-brand-indigo tracking-tighter">{s?.attendance_percentage || 0}%</p>
+              <p className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest mb-4">Attendance Rate</p>
+              <p className="text-5xl font-heading font-extrabold text-brand-indigo tracking-tight">{s?.attendance_percentage || 0}%</p>
             </motion.div>
           </>
         )}

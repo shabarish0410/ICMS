@@ -81,12 +81,12 @@ function ImageUploadSlot({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-semibold text-dark-500 dark:text-dark-400 uppercase tracking-wide">{label}</label>
       <div
         onClick={() => !uploading && !disabled && inputRef.current?.click()}
         className={`relative aspect-square rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden
-          ${value ? 'border-emerald-500/40 bg-emerald-900/10' : 'border-slate-600 hover:border-indigo-500/60 bg-slate-800/40'}
-          ${disabled || uploading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-slate-700/30'}`}
+          ${value ? 'border-emerald-500/40 bg-emerald-900/10' : 'border-dark-200 dark:border-dark-700 hover:border-indigo-500/60 bg-white dark:bg-dark-800/40'}
+          ${disabled || uploading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-dark-50 dark:bg-dark-800'}`}
       >
         {uploading ? (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -96,16 +96,16 @@ function ImageUploadSlot({
           <>
             <img src={value} alt={label} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <p className="text-white text-xs font-semibold">Click to replace</p>
+              <p className="text-dark-900 dark:text-white text-xs font-semibold">Click to replace</p>
             </div>
             <div className="absolute top-1.5 right-1.5 bg-emerald-500 rounded-full p-0.5">
-              <CheckCircle className="w-3 h-3 text-white" />
+              <CheckCircle className="w-3 h-3 text-dark-900 dark:text-white" />
             </div>
           </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <Upload className="w-6 h-6 text-slate-500" />
-            <span className="text-xs text-slate-500">Upload</span>
+            <Upload className="w-6 h-6 text-dark-400" />
+            <span className="text-xs text-dark-400">Upload</span>
           </div>
         )}
         <input
@@ -128,11 +128,11 @@ function DetectionBadge({ label, value }: { label: string; value: string }) {
     <div className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs
       ${isMatch ? 'bg-emerald-900/30 border-emerald-500/30 text-emerald-300' :
         isMismatch ? 'bg-red-900/30 border-red-500/30 text-red-300' :
-        'bg-slate-700/50 border-slate-600/50 text-slate-400'}`}
+        'bg-dark-50 dark:bg-dark-800 border-dark-200 dark:border-dark-700/50 text-dark-500 dark:text-dark-400'}`}
     >
       <span className="font-medium capitalize">{label}</span>
       <span className={`font-bold uppercase text-[10px] px-2 py-0.5 rounded-full
-        ${isMatch ? 'bg-emerald-500/20' : isMismatch ? 'bg-red-500/20' : 'bg-slate-600/50'}`}
+        ${isMatch ? 'bg-emerald-500/20' : isMismatch ? 'bg-red-500/20' : 'bg-dark-100 dark:bg-dark-700'}`}
       >
         {value.replace(/_/g, ' ')}
       </span>
@@ -155,18 +155,18 @@ function UniformCard({ uniform, onEdit, onDelete, onToggle }: {
       layout
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`bg-slate-800/60 border rounded-3xl overflow-hidden transition-all
-        ${uniform.is_active ? 'border-slate-700/50' : 'border-slate-700/20 opacity-60'}`}
+      className={`glass-card border rounded-3xl overflow-hidden transition-all
+        ${uniform.is_active ? 'border-dark-200 dark:border-dark-700' : 'border-dark-200 dark:border-dark-800 opacity-60'}`}
     >
       {/* Image Strip */}
       <div className="grid grid-cols-4 gap-0 h-28">
         {imgs.slice(0, 4).map((url, i) => (
-          <div key={i} className="relative overflow-hidden bg-slate-900">
+          <div key={i} className="relative overflow-hidden bg-dark-50 dark:bg-dark-900">
             <img src={url} alt="" className="w-full h-full object-cover" />
           </div>
         ))}
         {Array.from({ length: Math.max(0, 4 - imgs.length) }).map((_, i) => (
-          <div key={`empty-${i}`} className="bg-slate-900 flex items-center justify-center">
+          <div key={`empty-${i}`} className="bg-dark-50 dark:bg-dark-900 flex items-center justify-center">
             <ImageIcon className="w-5 h-5 text-slate-700" />
           </div>
         ))}
@@ -176,28 +176,28 @@ function UniformCard({ uniform, onEdit, onDelete, onToggle }: {
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <p className="text-white font-semibold text-sm">
+            <p className="text-dark-900 dark:text-white font-semibold text-sm">
               {uniform.label || `${uniform.department.toUpperCase()} Uniform`}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <span className={`text-xs px-2 py-0.5 rounded-full bg-${deptColor}-500/15 text-${deptColor}-300 border border-${deptColor}-500/20 font-medium`}>
                 {uniform.department === 'all' ? 'All Depts' : uniform.department}
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-dark-100 dark:bg-dark-700 text-dark-500 dark:text-dark-400">
                 {GENDER_LABELS[uniform.gender]}
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-dark-100 dark:bg-dark-700 text-dark-500 dark:text-dark-400">
                 {SEASON_LABELS[uniform.season]}
               </span>
             </div>
           </div>
-          <span className={`text-xs px-2 py-1 rounded-full font-semibold ${uniform.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-600/40 text-slate-500'}`}>
+          <span className={`text-xs px-2 py-1 rounded-full font-semibold ${uniform.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-dark-100 dark:bg-dark-700 text-dark-400'}`}>
             {uniform.is_active ? 'Active' : 'Inactive'}
           </span>
         </div>
 
         <div className="flex gap-2">
-          <button onClick={onEdit} className="flex-1 flex items-center justify-center gap-1 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-colors">
+          <button onClick={onEdit} className="flex-1 flex items-center justify-center gap-1 py-2 text-xs bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:bg-dark-600 text-dark-600 dark:text-dark-300 rounded-xl transition-colors">
             <Edit2 className="w-3.5 h-3.5" /> Edit
           </button>
           <button onClick={onToggle} className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs rounded-xl transition-colors
@@ -337,13 +337,13 @@ export default function UniformManagementPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-dark-900 dark:text-white flex items-center gap-3">
             <div className="p-2.5 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
               <Shirt className="w-6 h-6 text-indigo-400" />
             </div>
             Uniform Management
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-dark-500 dark:text-dark-400 text-sm mt-1">
             Upload official uniform reference images for AI detection during face attendance.
           </p>
         </div>
@@ -357,7 +357,7 @@ export default function UniformManagementPage() {
           </button>
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl transition-all text-sm font-semibold shadow-lg shadow-indigo-500/25"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-dark-900 dark:text-white rounded-xl transition-all text-sm font-semibold shadow-lg shadow-indigo-500/25"
           >
             <Plus className="w-4 h-4" />
             Add Uniform
@@ -382,21 +382,21 @@ export default function UniformManagementPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-slate-400 text-sm font-medium">Filter by department:</span>
+        <span className="text-dark-500 dark:text-dark-400 text-sm font-medium">Filter by department:</span>
         {['', ...DEPARTMENTS.filter(d => d !== 'all')].map((dept) => (
           <button
             key={dept || 'All'}
             onClick={() => setFilterDept(dept)}
             className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               filterDept === dept
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30'
-                : 'bg-slate-700/60 text-slate-400 hover:text-white hover:bg-slate-700'
+                ? 'bg-indigo-600 text-dark-900 dark:text-white shadow-md shadow-indigo-500/30'
+                : 'bg-dark-50 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:text-dark-900 dark:text-white hover:bg-dark-100 dark:bg-dark-700'
             }`}
           >
             {dept || 'All'}
           </button>
         ))}
-        <span className="text-slate-600 text-xs ml-2">
+        <span className="text-dark-400 text-xs ml-2">
           {uniforms.length} uniform{uniforms.length !== 1 ? 's' : ''} found
         </span>
       </div>
@@ -430,14 +430,14 @@ export default function UniformManagementPage() {
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="bg-slate-900 border border-slate-700/60 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-dark-50 dark:bg-dark-900 border border-dark-200 dark:border-dark-700 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-white font-bold text-xl">{editingId ? 'Edit Uniform' : 'Add New Uniform'}</h2>
-                  <p className="text-slate-400 text-sm">Upload reference images for AI uniform detection</p>
+                  <h2 className="text-dark-900 dark:text-white font-bold text-xl">{editingId ? 'Edit Uniform' : 'Add New Uniform'}</h2>
+                  <p className="text-dark-500 dark:text-dark-400 text-sm">Upload reference images for AI uniform detection</p>
                 </div>
-                <button onClick={resetForm} className="p-2 text-slate-400 hover:text-white transition-colors">
+                <button onClick={resetForm} className="p-2 text-dark-500 dark:text-dark-400 hover:text-dark-900 dark:text-white transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -450,11 +450,11 @@ export default function UniformManagementPage() {
                   { label: 'Season', key: 'season', options: SEASONS },
                 ].map(({ label, key, options }) => (
                   <div key={key}>
-                    <label className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">{label}</label>
+                    <label className="text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">{label}</label>
                     <select
                       value={(form as any)[key]}
                       onChange={(e) => setForm(f => ({ ...f, [key]: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2.5 bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl text-dark-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500"
                     >
                       {options.map(o => (
                         <option key={o} value={o}>
@@ -467,19 +467,19 @@ export default function UniformManagementPage() {
               </div>
 
               <div className="mb-6">
-                <label className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">Label (optional)</label>
+                <label className="text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">Label (optional)</label>
                 <input
                   type="text"
                   value={form.label}
                   onChange={(e) => setForm(f => ({ ...f, label: e.target.value }))}
                   placeholder="e.g. CSE Male Summer Uniform 2024"
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl text-dark-900 dark:text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               {/* Image Uploads */}
               <div className="mb-6">
-                <label className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-3 block">
+                <label className="text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wide mb-3 block">
                   Reference Images — upload at least Front or Logo
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -491,27 +491,27 @@ export default function UniformManagementPage() {
               </div>
 
               {/* Active Toggle */}
-              <div className="flex items-center gap-3 mb-6 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-6 p-3 glass-card rounded-xl border border-dark-200 dark:border-dark-700">
                 <button
                   onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${form.is_active ? 'bg-indigo-600' : 'bg-slate-600'}`}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${form.is_active ? 'bg-indigo-600' : 'bg-dark-200 dark:bg-dark-600'}`}
                 >
                   <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all shadow ${form.is_active ? 'left-6' : 'left-0.5'}`} />
                 </button>
-                <span className="text-slate-300 text-sm font-medium">
+                <span className="text-dark-600 dark:text-dark-300 text-sm font-medium">
                   {form.is_active ? 'Active — will be used for detection' : 'Inactive — skipped during detection'}
                 </span>
               </div>
 
               {/* Submit */}
               <div className="flex gap-3">
-                <button onClick={resetForm} className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-colors">
+                <button onClick={resetForm} className="flex-1 py-3 bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:bg-dark-600 text-dark-600 dark:text-dark-300 rounded-xl transition-colors">
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white rounded-xl transition-all font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-dark-900 dark:text-white rounded-xl transition-all font-semibold flex items-center justify-center gap-2"
                 >
                   {(createMutation.isPending || updateMutation.isPending) ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
@@ -533,31 +533,31 @@ export default function UniformManagementPage() {
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
-              className="bg-slate-900 border border-slate-700/60 rounded-3xl p-6 w-full max-w-lg"
+              className="bg-dark-50 dark:bg-dark-900 border border-dark-200 dark:border-dark-700 rounded-3xl p-6 w-full max-w-lg"
             >
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h2 className="text-white font-bold text-xl flex items-center gap-2">
+                  <h2 className="text-dark-900 dark:text-white font-bold text-xl flex items-center gap-2">
                     <TestTube className="w-5 h-5 text-violet-400" />
                     Test Uniform Detection
                   </h2>
-                  <p className="text-slate-400 text-xs mt-0.5">Capture or upload a photo to test the AI against registered uniforms</p>
+                  <p className="text-dark-500 dark:text-dark-400 text-xs mt-0.5">Capture or upload a photo to test the AI against registered uniforms</p>
                 </div>
                 <button onClick={() => { setShowTestModal(false); setTestResult(null); setTestImage(null); setTestCameraOpen(false); streamRef.current?.getTracks().forEach(t => t.stop()); }}
-                  className="p-2 text-slate-400 hover:text-white">
+                  className="p-2 text-dark-500 dark:text-dark-400 hover:text-dark-900 dark:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Department Select */}
               <div className="mb-4">
-                <label className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">
+                <label className="text-dark-500 dark:text-dark-400 text-xs font-semibold uppercase tracking-wide mb-1.5 block">
                   Test against department uniforms
                 </label>
                 <select
                   value={testDept}
                   onChange={(e) => setTestDept(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-violet-500"
+                  className="w-full px-3 py-2.5 bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-xl text-dark-900 dark:text-white text-sm focus:outline-none focus:border-violet-500"
                 >
                   <option value="all">All Departments</option>
                   {DEPARTMENTS.filter(d => d !== 'all').map(d => <option key={d} value={d}>{d}</option>)}
@@ -566,25 +566,25 @@ export default function UniformManagementPage() {
 
               {/* Camera / Image Preview */}
               {testCameraOpen ? (
-                <div className="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border border-slate-700">
+                <div className="relative rounded-2xl overflow-hidden bg-black aspect-video mb-4 border border-dark-200 dark:border-dark-700">
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
                   <button onClick={captureTestImage}
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-full font-semibold text-sm shadow-lg">
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-500 text-dark-900 dark:text-white rounded-full font-semibold text-sm shadow-lg">
                     <Camera className="w-4 h-4" /> Capture
                   </button>
                 </div>
               ) : testImage ? (
-                <div className="relative rounded-2xl overflow-hidden bg-slate-800 aspect-video mb-4 border border-slate-700">
+                <div className="relative rounded-2xl overflow-hidden bg-white dark:bg-dark-800 aspect-video mb-4 border border-dark-200 dark:border-dark-700">
                   <img src={testImage} alt="Test" className="w-full h-full object-contain" />
                   <button onClick={() => { setTestImage(null); setTestResult(null); }}
-                    className="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-red-900/80 text-white rounded-full transition-colors">
+                    className="absolute top-2 right-2 p-1.5 bg-dark-50 dark:bg-dark-900/80 hover:bg-red-900/80 text-dark-900 dark:text-white rounded-full transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-slate-800/60 border border-dashed border-slate-600 aspect-video flex flex-col items-center justify-center gap-3 mb-4">
-                  <Camera className="w-10 h-10 text-slate-600" />
-                  <p className="text-slate-500 text-sm">No image captured yet</p>
+                <div className="rounded-2xl glass-card border border-dashed border-dark-200 dark:border-dark-700 aspect-video flex flex-col items-center justify-center gap-3 mb-4">
+                  <Camera className="w-10 h-10 text-dark-400" />
+                  <p className="text-dark-400 text-sm">No image captured yet</p>
                 </div>
               )}
               <canvas ref={canvasRef} className="hidden" />
@@ -604,7 +604,7 @@ export default function UniformManagementPage() {
                       <p className={`font-bold text-sm ${testResult.valid ? 'text-emerald-300' : 'text-red-300'}`}>
                         {testResult.valid ? '✅ PASS' : '❌ FAIL'} — {testResult.confidence}% confidence
                       </p>
-                      <p className="text-xs text-slate-400">{testResult.reason}</p>
+                      <p className="text-xs text-dark-500 dark:text-dark-400">{testResult.reason}</p>
                     </div>
                   </div>
                   {testResult.details && (
@@ -621,7 +621,7 @@ export default function UniformManagementPage() {
               <div className="flex gap-3">
                 {!testCameraOpen && !testImage && (
                   <button onClick={openTestCamera}
-                    className="flex-1 py-3 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-colors text-sm font-semibold">
+                    className="flex-1 py-3 flex items-center justify-center gap-2 bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:bg-dark-600 text-dark-600 dark:text-dark-300 rounded-xl transition-colors text-sm font-semibold">
                     <Camera className="w-4 h-4" /> Open Camera
                   </button>
                 )}
@@ -629,7 +629,7 @@ export default function UniformManagementPage() {
                   <button
                     onClick={runTest}
                     disabled={testLoading}
-                    className="flex-1 py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl font-semibold transition-all text-sm"
+                    className="flex-1 py-3 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-dark-900 dark:text-white rounded-xl font-semibold transition-all text-sm"
                   >
                     {testLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</> : <><Zap className="w-4 h-4" /> Run Test</>}
                   </button>

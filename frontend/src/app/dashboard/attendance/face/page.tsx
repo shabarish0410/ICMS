@@ -271,7 +271,7 @@ export default function FaceAttendancePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all"
+            className="p-2 hover:bg-dark-100 dark:bg-dark-700 rounded-xl text-dark-500 dark:text-dark-400 hover:text-white transition-all"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -281,7 +281,7 @@ export default function FaceAttendancePage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white">Face Attendance</h1>
-              <p className="text-slate-400 text-sm">Secure biometric attendance verification</p>
+              <p className="text-dark-500 dark:text-dark-400 text-sm">Secure biometric attendance verification</p>
             </div>
           </div>
         </div>
@@ -326,15 +326,15 @@ export default function FaceAttendancePage() {
 
         {/* Checking State */}
         {state === 'checking_registration' && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-8 text-center">
+          <div className="glass-card border border-dark-200 dark:border-dark-700 border border-dark-200 dark:border-dark-700 rounded-3xl p-8 text-center">
             <Loader2 className="w-10 h-10 text-violet-400 animate-spin mx-auto mb-3" />
-            <p className="text-slate-300">Checking face registration...</p>
+            <p className="text-dark-600 dark:text-dark-300">Checking face registration...</p>
           </div>
         )}
 
         {/* Ready State */}
         {state === 'ready' && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-8 text-center space-y-4">
+          <div className="glass-card border border-dark-200 dark:border-dark-700 border border-dark-200 dark:border-dark-700 rounded-3xl p-8 text-center space-y-4">
             <div className="grid grid-cols-3 gap-4 mb-6">
               {[
                 { icon: Eye, label: 'Liveness Check', desc: 'Anti-spoofing active', color: 'violet' },
@@ -344,11 +344,11 @@ export default function FaceAttendancePage() {
                 <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-2xl p-3 text-center`}>
                   <Icon className={`w-5 h-5 text-${color}-400 mx-auto mb-1`} />
                   <p className={`text-${color}-300 text-xs font-semibold`}>{label}</p>
-                  <p className="text-slate-400 text-xs">{desc}</p>
+                  <p className="text-dark-500 dark:text-dark-400 text-xs">{desc}</p>
                 </div>
               ))}
             </div>
-            <p className="text-slate-400 text-sm">
+            <p className="text-dark-500 dark:text-dark-400 text-sm">
               Follow the on-screen prompts. The system will ask you to blink and turn your head to verify you're live.
             </p>
             <button
@@ -375,7 +375,7 @@ export default function FaceAttendancePage() {
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                       : i === livenessStep && state === 'liveness'
                       ? 'bg-violet-500/30 text-violet-300 border border-violet-500/50 animate-pulse'
-                      : 'bg-slate-700/50 text-slate-500 border border-slate-700'
+                      : 'bg-dark-50 dark:bg-dark-800 text-dark-400 border border-dark-200 dark:border-dark-700'
                   }`}
                 >
                   <span>{step.icon}</span>
@@ -422,7 +422,7 @@ export default function FaceAttendancePage() {
               {/* Liveness prompt */}
               {state === 'liveness' && livenessStep < LIVENESS_STEPS.length && (
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                  <div className="bg-slate-900/80 backdrop-blur px-6 py-3 rounded-full border border-violet-500/40">
+                  <div className="bg-dark-50 dark:bg-dark-900/80 backdrop-blur px-6 py-3 rounded-full border border-violet-500/40">
                     <span className="text-2xl mr-2">{LIVENESS_STEPS[livenessStep].icon}</span>
                     <span className="text-white text-sm font-medium">{LIVENESS_STEPS[livenessStep].label}</span>
                   </div>
@@ -439,7 +439,7 @@ export default function FaceAttendancePage() {
 
             <canvas ref={canvasRef} className="hidden" />
 
-            <p className="text-center text-slate-400 text-sm">
+            <p className="text-center text-dark-500 dark:text-dark-400 text-sm">
               {state === 'liveness' ? 'Follow the prompts — the system is verifying you are live' : 'Final capture in progress...'}
             </p>
           </div>
@@ -447,7 +447,7 @@ export default function FaceAttendancePage() {
 
         {/* Processing State */}
         {state === 'processing' && (
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6 space-y-3">
+          <div className="glass-card border border-dark-200 dark:border-dark-700 border border-dark-200 dark:border-dark-700 rounded-3xl p-6 space-y-3">
             <div className="flex items-center gap-3 mb-4">
               <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
               <p className="text-white font-semibold">Verifying identity...</p>
@@ -471,10 +471,10 @@ export default function FaceAttendancePage() {
                     ) : s.status === 'fail' ? (
                       <XCircle className="w-5 h-5 text-red-400" />
                     ) : (
-                      <div className="w-4 h-4 rounded-full border-2 border-slate-600 mx-auto mt-0.5" />
+                      <div className="w-4 h-4 rounded-full border-2 border-dark-200 dark:border-dark-700 mx-auto mt-0.5" />
                     )}
                   </div>
-                  <span className={s.status === 'pass' ? 'text-emerald-300' : s.status === 'fail' ? 'text-red-300' : 'text-slate-500'}>
+                  <span className={s.status === 'pass' ? 'text-emerald-300' : s.status === 'fail' ? 'text-red-300' : 'text-dark-400'}>
                     {s.label}
                   </span>
                 </div>
@@ -497,7 +497,7 @@ export default function FaceAttendancePage() {
             }`}>
               Status: {result.status}
             </div>
-            <p className="text-slate-400 text-sm">
+            <p className="text-dark-500 dark:text-dark-400 text-sm">
               {new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })} •{' '}
               {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </p>
@@ -550,7 +550,7 @@ export default function FaceAttendancePage() {
                   setLivenessFrames([]);
                   setLivenessStep(0);
                 }}
-                className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-all"
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-dark-100 dark:bg-dark-700 hover:bg-dark-200 dark:bg-dark-600 text-white rounded-xl transition-all"
               >
                 <RefreshCw className="w-4 h-4" /> Try Again
               </button>

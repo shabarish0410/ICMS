@@ -199,29 +199,29 @@ export default function AdminsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
         <Link
           href="/dashboard/admins/face-management"
-          className="flex items-center gap-3 p-4 bg-violet-500/10 border border-violet-500/20 rounded-2xl hover:bg-violet-500/15 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl hover:bg-brand-cyan/20 transition-colors group"
         >
-          <div className="p-2.5 bg-violet-500/20 rounded-xl">
-            <Shield className="w-5 h-5 text-violet-400" />
+          <div className="p-2.5 bg-brand-cyan/10 rounded-xl">
+            <Shield className="w-5 h-5 text-brand-cyan" />
           </div>
           <div className="flex-1">
-            <p className="text-violet-300 font-semibold text-sm">Face Registration Dashboard</p>
-            <p className="text-violet-400/60 text-xs mt-0.5">Monitor all students' face registration status</p>
+            <p className="text-brand-cyan font-semibold text-sm">Face Registration Dashboard</p>
+            <p className="text-dark-600 dark:text-dark-400 text-xs mt-0.5">Monitor all students' face registration status</p>
           </div>
-          <ArrowRight className="w-4 h-4 text-violet-500 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight className="w-4 h-4 text-brand-cyan group-hover:translate-x-1 transition-transform" />
         </Link>
         <Link
           href="/dashboard/admins/uniform-management"
-          className="flex items-center gap-3 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl hover:bg-indigo-500/15 transition-colors group"
+          className="flex items-center gap-3 p-4 bg-brand-indigo/10 border border-brand-indigo/20 rounded-2xl hover:bg-brand-indigo/20 transition-colors group"
         >
-          <div className="p-2.5 bg-indigo-500/20 rounded-xl">
-            <Shirt className="w-5 h-5 text-indigo-400" />
+          <div className="p-2.5 bg-brand-indigo/10 rounded-xl">
+            <Shirt className="w-5 h-5 text-brand-indigo" />
           </div>
           <div className="flex-1">
-            <p className="text-indigo-300 font-semibold text-sm">Uniform Management</p>
-            <p className="text-indigo-400/60 text-xs mt-0.5">Upload reference uniform images for AI detection</p>
+            <p className="text-brand-indigo font-semibold text-sm">Uniform Management</p>
+            <p className="text-dark-600 dark:text-dark-400 text-xs mt-0.5">Upload reference uniform images for AI detection</p>
           </div>
-          <ArrowRight className="w-4 h-4 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight className="w-4 h-4 text-brand-indigo group-hover:translate-x-1 transition-transform" />
         </Link>
       </div>
 
@@ -246,16 +246,16 @@ export default function AdminsPage() {
       {/* Premium Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
         {[
-          { label: 'Total Admins', value: admins.length, color: 'text-brand-indigo', border: 'border-t-brand-indigo', bg: 'bg-brand-indigo/10' },
+          { label: 'Total Admins', value: admins.length, color: 'text-dark-900 dark:text-white', border: 'border-t-brand-indigo', bg: 'bg-brand-indigo/10' },
           { label: 'Active', value: admins.filter((a) => a.is_active).length, color: 'text-brand-emerald', border: 'border-t-brand-emerald', bg: 'bg-brand-emerald/10' },
           { label: 'Inactive', value: admins.filter((a) => !a.is_active).length, color: 'text-brand-red', border: 'border-t-brand-red', bg: 'bg-brand-red/10' },
           { label: 'Super Admins', value: admins.filter((a) => a.role?.name === 'super_admin').length, color: 'text-brand-amber', border: 'border-t-brand-amber', bg: 'bg-brand-amber/10' },
         ].map((s) => (
           <div key={s.label} className={`stat-card border-t-[3px] ${s.border}`}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-dark-400 uppercase tracking-widest">{s.label}</p>
+              <p className="text-xs font-bold text-dark-500 dark:text-dark-400 uppercase tracking-widest">{s.label}</p>
             </div>
-            <p className={`text-5xl font-heading font-extrabold mt-2 tracking-tighter drop-shadow-md ${s.color}`}>{s.value}</p>
+            <p className={`text-5xl font-heading font-extrabold mt-2 tracking-tight ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -301,12 +301,12 @@ export default function AdminsPage() {
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-violet-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-brand-indigo/10 flex items-center justify-center text-brand-indigo text-sm font-bold flex-shrink-0 border border-brand-indigo/20">
                           {u.full_name.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-dark-900 dark:text-white">{u.full_name}</p>
-                          <p className="text-xs text-dark-400 truncate max-w-[180px]">{u.email}</p>
+                          <p className="text-xs text-dark-500 dark:text-dark-400 truncate max-w-[180px]">{u.email}</p>
                         </div>
                       </div>
                     </td>
