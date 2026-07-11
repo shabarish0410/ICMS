@@ -126,8 +126,8 @@
 
   .badge-blue { @apply bg-brand-blue/10 text-brand-blue border-brand-blue/20; }
   .badge-green { @apply bg-brand-emerald/10 text-brand-emerald border-brand-emerald/20; }
-  .badge-yellow, .badge-warning { @apply bg-brand-orange/10 text-brand-orange border-brand-orange/20; }
-  .badge-red, .badge-danger { @apply bg-brand-pink/10 text-brand-pink border-brand-pink/20; }
+  .badge-yellow, .badge-warning { @apply bg-brand-amber/10 text-brand-amber border-brand-amber/20; }
+  .badge-red, .badge-danger { @apply bg-brand-red/10 text-brand-red border-brand-red/20; }
   .badge-purple { @apply bg-brand-purple/10 text-brand-purple border-brand-purple/20; }
   .badge-cyan { @apply bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20; }
   .badge-gray { @apply bg-white/5 text-dark-300 border-white/10; }
