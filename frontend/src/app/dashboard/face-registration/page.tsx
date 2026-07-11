@@ -75,10 +75,6 @@ export default function FaceRegistrationPage() {
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setCameraOpen(true);
     } catch (err: any) {
       setCameraError(
@@ -88,6 +84,14 @@ export default function FaceRegistrationPage() {
       );
     }
   }, []);
+
+  // Attach stream to video element when it mounts
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(console.error);
+    }
+  }, [cameraOpen]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
