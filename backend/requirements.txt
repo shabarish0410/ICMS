@@ -37,7 +37,7 @@ resend
 
 # AI & Timezones (Attendance)
 pytz
-google-generativeai
+google-genai>=1.0.0
 
 # AI Face Recognition (ArcFace + Liveness Detection)
 deepface

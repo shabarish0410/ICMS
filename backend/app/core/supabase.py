@@ -15,15 +15,18 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise RuntimeError(
-        "Supabase configuration is missing. Ensure backend/.env contains SUPABASE_URL and SUPABASE_SERVICE_KEY."
+    print("WARNING: Supabase configuration is missing. Ensure backend/.env contains SUPABASE_URL and SUPABASE_SERVICE_KEY.")
+    supabase = None
+else:
+    # The backend MUST use the Service Role Key to bypass RLS and perform admin operations
+    supabase = create_client(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_KEY
     )
 
-# The backend MUST use the Service Role Key to bypass RLS and perform admin operations
-supabase = create_client(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY
-)
-
 def get_supabase():
+    if supabase is None:
+        raise RuntimeError("Supabase client is not initialized because environment variables are missing.")
     return supabase
+
+

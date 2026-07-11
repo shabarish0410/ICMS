@@ -24,14 +24,14 @@ async def lifespan(app: FastAPI):
     from app.core.supabase import get_supabase
     try:
         sb = get_supabase()
-        print("✅ Connected to Supabase REST client.")
+        logger.info("Connected to Supabase REST client.")
         
         # Ensure the attendance-photos bucket exists and is public
         try:
             buckets = sb.storage.list_buckets()
             bucket_names = [b.name for b in buckets]
             if "attendance-photos" not in bucket_names:
-                print("⚠️ Bucket 'attendance-photos' not found. Creating it now via REST...")
+                logger.info("Bucket 'attendance-photos' not found. Creating it now via REST...")
                 import httpx
                 headers = {
                     "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
@@ -45,14 +45,14 @@ async def lifespan(app: FastAPI):
                 bucket_url = f"{settings.SUPABASE_URL}/storage/v1/bucket"
                 resp = httpx.post(bucket_url, json=payload, headers=headers, timeout=10.0)
                 if resp.status_code in [200, 201]:
-                    print("✅ Bucket created successfully!")
+                    logger.info("Bucket created successfully!")
                 else:
-                    print(f"⚠️ Failed to create bucket via REST: {resp.text}")
+                    logger.warning(f"Failed to create bucket via REST: {resp.text}")
         except Exception as bucket_err:
-            print(f"⚠️ Could not verify/create bucket: {bucket_err}")
+            logger.warning(f"Could not verify/create bucket: {bucket_err}")
             
     except Exception as e:
-        print(f"⚠️ Supabase connection issue: {e}")
+        logger.warning(f"Supabase connection issue: {e}")
     yield
     # Shutdown
 
