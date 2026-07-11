@@ -4,46 +4,46 @@
 
 @layer base {
   :root {
-    --background: 11 17 32; /* #0B1120 Deep Navy */
-    --foreground: 255 255 255;
-    --card: 15 23 42; /* #0F172A */
-    --card-border: 255 255 255 0.05; /* rgba(255,255,255,0.05) */
-    --muted: 30 41 59;
-    --muted-foreground: 148 163 184; /* #94A3B8 */
-    --primary: 99 102 241; /* #6366F1 Indigo */
+    --background: 248 250 252; /* #F8FAFC Soft Off-White */
+    --foreground: 15 23 42;    /* #0F172A Deep Navy Text */
+    --card: 255 255 255;       /* #FFFFFF */
+    --card-border: 226 232 240; /* #E2E8F0 */
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --primary: 99 102 241;     /* #6366F1 Indigo */
     --primary-foreground: 255 255 255;
-    --accent: 6 182 212; /* #06B6D4 Cyan */
-    --sidebar: 11 17 32;
-    --sidebar-border: 255 255 255 0.05;
+    --accent: 6 182 212;       /* #06B6D4 Cyan */
   }
 
-  .light {
-    --background: 11 17 32; /* Force Deep Navy */
+  .dark {
+    --background: 15 23 42; /* #0F172A Deep Navy */
     --foreground: 255 255 255;
-    --card: 15 23 42;
+    --card: 30 41 59;       /* #1E293B */
     --card-border: 255 255 255 0.05;
     --muted: 30 41 59;
     --muted-foreground: 148 163 184;
     --primary: 99 102 241;
     --primary-foreground: 255 255 255;
     --accent: 6 182 212;
-    --sidebar: 11 17 32;
-    --sidebar-border: 255 255 255 0.05;
   }
 
   *, *::before, *::after {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .dark *, .dark *::before, .dark *::after {
     border-color: rgba(255, 255, 255, 0.08);
   }
 
   body {
-    @apply bg-[#0B1120] text-white font-sans antialiased selection:bg-brand-indigo/30 selection:text-white transition-colors duration-300;
+    @apply bg-slate-50 text-dark-900 dark:bg-[#0F172A] dark:text-white font-sans antialiased selection:bg-brand-indigo/30 selection:text-brand-indigo dark:selection:text-white transition-colors duration-300;
   }
 }
 
 @layer components {
   /* Cards */
   .glass-card {
-    @apply bg-white/5 dark:bg-white/5 backdrop-blur-xl border border-white/10 dark:border-white/10 rounded-[20px] shadow-sm;
+    @apply bg-white dark:bg-white/5 backdrop-blur-xl border border-dark-200 dark:border-white/10 rounded-[20px] shadow-sm;
   }
 
   /* stat-card: 'group' cannot be used with @apply — add class="group" in HTML instead */
