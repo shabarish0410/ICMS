@@ -44,3 +44,8 @@ deepface
 tf-keras
 mediapipe
 opencv-python-headless
+
+# Google Drive API
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
