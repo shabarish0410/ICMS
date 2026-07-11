@@ -13,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-SERVICE_ACCOUNT_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "credentials",
-    "service-account.json",
-)
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[2]   # backend/
+SERVICE_ACCOUNT_FILE = BASE_DIR / "credentials" / "service-account.json"
+
+print("Google credentials path:", SERVICE_ACCOUNT_FILE)
+print("File exists:", SERVICE_ACCOUNT_FILE.exists())
 
 # Replace this with your Google Drive folder ID
 FOLDER_ID = "1iIe2I0XwY6_w7JMN_Dg_DaDDkY1jqPza"
@@ -43,7 +45,8 @@ try:
     else:
         logger.warning("Google Drive credentials not found. Drive uploads will be disabled.")
 except Exception as e:
-    logger.error(f"Failed to initialize Google Drive service: {e}")
+    import traceback
+    logger.exception("Failed to initialize Google Drive service")
 
 
 def upload_attendance_image(img_bytes, filename):

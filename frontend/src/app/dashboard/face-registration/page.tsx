@@ -429,7 +429,7 @@ export default function FaceRegistrationPage() {
         {/* Update Password Modal */}
         {showUpdateModal && (
           <div className="fixed inset-0 bg-dark-900/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-[#1E293B] border border-dark-200 dark:border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl">
+            <div className="bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl">
               <h3 className="text-dark-900 dark:text-white font-bold text-xl mb-2">Update Face Registration</h3>
               <p className="text-dark-500 dark:text-dark-400 text-sm mb-6 leading-relaxed">
                 For security, confirm your password before re-capturing your face photos.

@@ -64,7 +64,7 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
   return (
     <header className={`sticky top-0 z-30 h-20 flex items-center justify-between gap-4 px-6 transition-all duration-300 ${
-      scrolled ? 'bg-white/90 dark:bg-[#0B1120]/80 backdrop-blur-xl shadow-md border-b border-dark-100 dark:border-white/5' : 'bg-transparent border-b border-transparent'
+      scrolled ? 'bg-white/90 dark:bg-dark-950/80 backdrop-blur-xl shadow-md border-b border-dark-100 dark:border-white/5' : 'bg-transparent border-b border-transparent'
     }`}>
       {/* Left: Mobile menu + Search */}
       <div className="flex items-center gap-4 flex-1">
@@ -147,7 +147,7 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="absolute right-0 mt-3 w-80 bg-white dark:bg-[#0F172A]/95 backdrop-blur-3xl shadow-2xl overflow-hidden rounded-3xl border border-dark-100 dark:border-white/10 origin-top-right z-50"
+                className="absolute right-0 mt-3 w-80 bg-white dark:bg-dark-950/95 backdrop-blur-3xl shadow-2xl overflow-hidden rounded-3xl border border-dark-100 dark:border-white/10 origin-top-right z-50"
               >
                 <div className="p-4 border-b border-dark-100 dark:border-white/5 flex justify-between items-center bg-dark-50 dark:bg-white/5">
                   <h3 className="text-sm font-bold text-dark-900 dark:text-white">Notifications</h3>
@@ -202,7 +202,7 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
-                className="absolute right-0 mt-3 w-64 bg-white dark:bg-[#0F172A]/95 backdrop-blur-3xl shadow-2xl rounded-3xl border border-dark-100 dark:border-white/10 origin-top-right overflow-hidden z-50"
+                className="absolute right-0 mt-3 w-64 bg-white dark:bg-dark-950/95 backdrop-blur-3xl shadow-2xl rounded-3xl border border-dark-100 dark:border-white/10 origin-top-right overflow-hidden z-50"
               >
                 <div className="px-5 py-5 border-b border-dark-100 dark:border-white/5 bg-gradient-to-br from-brand-indigo/5 dark:from-brand-indigo/10 to-transparent">
                   <p className="text-base font-bold text-dark-900 dark:text-white">{user?.full_name}</p>

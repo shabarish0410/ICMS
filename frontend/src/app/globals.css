@@ -36,14 +36,14 @@
   }
 
   body {
-    @apply bg-slate-50 text-dark-900 dark:bg-[#0F172A] dark:text-white font-sans antialiased selection:bg-brand-indigo/30 selection:text-brand-indigo dark:selection:text-white transition-colors duration-300;
+    @apply bg-slate-50 text-dark-900 dark:bg-dark-950 dark:text-white font-sans antialiased selection:bg-brand-indigo/30 selection:text-brand-indigo dark:selection:text-white transition-colors duration-200;
   }
 }
 
 @layer components {
   /* Cards */
   .glass-card {
-    @apply bg-white dark:bg-white/5 backdrop-blur-xl border border-dark-200 dark:border-white/10 rounded-[20px] shadow-sm;
+    @apply bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/[0.08] rounded-[20px] shadow-sm;
   }
 
   /* stat-card: 'group' cannot be used with @apply — add class="group" in HTML instead */
@@ -172,7 +172,7 @@
     top: 0.5rem;
     z-index: 10;
     transform-origin: left;
-    background-color: #0F172A;
+    background-color: transparent;
     padding-left: 0.5rem;
     padding-right: 0.5rem;
     left: 0.5rem;

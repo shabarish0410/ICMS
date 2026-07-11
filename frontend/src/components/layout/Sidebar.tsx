@@ -54,7 +54,7 @@ export default function Sidebar() {
       initial={false}
       animate={{ width: collapsed ? 80 : 260 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-white dark:bg-[#0B1120]/95 backdrop-blur-2xl border-r border-dark-200 dark:border-white/5 shadow-xl shadow-brand-indigo/5 dark:shadow-2xl"
+      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-white dark:bg-dark-950/95 backdrop-blur-2xl border-r border-dark-200 dark:border-white/5 shadow-xl shadow-brand-indigo/5 dark:shadow-2xl"
     >
       {/* Premium Glowing Logo */}
       <div className="h-24 flex items-center gap-3 px-6 shrink-0 relative overflow-hidden">
@@ -134,7 +134,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer Area */}
-      <div className="p-3 space-y-1 relative z-10 bg-gradient-to-t from-white via-white dark:from-[#0B1120] dark:via-[#0B1120] to-transparent pt-8">
+      <div className="p-3 space-y-1 relative z-10 bg-gradient-to-t from-white via-white dark:from-dark-950 dark:via-dark-950 to-transparent pt-8">
         {/* Settings Link */}
         <Link href="/dashboard/settings">
           <motion.div

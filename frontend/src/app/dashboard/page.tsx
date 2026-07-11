@@ -72,7 +72,7 @@ function AdminDashboard() {
         initial={{ opacity: 0, y: -10 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="rounded-[24px] p-8 bg-white dark:bg-[#1E293B] border border-dark-200 dark:border-white/5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+        className="rounded-[24px] p-8 bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6"
       >
         <div>
           <h1 className="text-3xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
@@ -83,7 +83,7 @@ function AdminDashboard() {
           </p>
         </div>
         <div className="flex gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-dark-50 dark:bg-[#0F172A] border border-dark-100 dark:border-white/5 text-sm font-medium text-dark-600 dark:text-dark-300">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-dark-50 dark:bg-dark-950 border border-dark-100 dark:border-white/5 text-sm font-medium text-dark-600 dark:text-dark-300">
               <Server className="w-4 h-4 text-brand-emerald" />
               All systems operational
             </div>
@@ -237,7 +237,7 @@ function StudentDashboard() {
         initial={{ opacity: 0, y: -10 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="rounded-[24px] p-8 bg-white dark:bg-[#1E293B] border border-dark-200 dark:border-white/5 shadow-sm"
+        className="rounded-[24px] p-8 bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/5 shadow-sm"
       >
         <h1 className="text-3xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
           Welcome back, {d?.user?.full_name?.split(' ')[0] || 'Student'} 👋
