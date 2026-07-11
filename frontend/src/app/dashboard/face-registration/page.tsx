@@ -2,27 +2,40 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { faceAPI } from '@/services/api';
-import { CheckCircle, Camera, RefreshCw, AlertCircle, X, Shield, ArrowRight, RotateCcw, Eye, Upload, Lock } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import {
+  CheckCircle, Camera, RefreshCw, AlertCircle, X, Shield, ArrowRight,
+  RotateCcw, Eye, Upload, Lock, Info, Calendar, Cpu, Trash2
+} from 'lucide-react';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 
-// ── Capture Steps ──────────────────────────────────────────────────────────────
+// ── Capture Steps ───────────────────────────────────────────────────────────────
 const CAPTURE_STEPS = [
   { label: 'Looking Straight', instruction: 'Look directly at the camera', icon: '👀', direction: 'center' },
-  { label: 'Looking Left', instruction: 'Slowly turn your head to the LEFT', icon: '⬅️', direction: 'left' },
-  { label: 'Looking Right', instruction: 'Slowly turn your head to the RIGHT', icon: '➡️', direction: 'right' },
-  { label: 'Looking Up', instruction: 'Tilt your head slightly UPWARD', icon: '⬆️', direction: 'up' },
-  { label: 'Looking Down', instruction: 'Tilt your head slightly DOWNWARD', icon: '⬇️', direction: 'down' },
+  { label: 'Turn Left', instruction: 'Slowly turn your head to the LEFT', icon: '⬅️', direction: 'left' },
+  { label: 'Turn Right', instruction: 'Slowly turn your head to the RIGHT', icon: '➡️', direction: 'right' },
+  { label: 'Look Up', instruction: 'Tilt your head slightly UPWARD', icon: '⬆️', direction: 'up' },
+  { label: 'Look Down', instruction: 'Tilt your head slightly DOWNWARD', icon: '⬇️', direction: 'down' },
 ];
 
 type RegistrationStatus = 'checking' | 'not_registered' | 'registered' | 'registering' | 'updating';
 
+interface FaceStatusData {
+  face_registered: boolean;
+  registered_at: string | null;
+  model_version?: string;
+  updated_at?: string;
+}
+
 export default function FaceRegistrationPage() {
+  const { isAdmin } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const [status, setStatus] = useState<RegistrationStatus>('checking');
-  const [registeredAt, setRegisteredAt] = useState<string | null>(null);
+  const [faceData, setFaceData] = useState<FaceStatusData | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
@@ -33,15 +46,16 @@ export default function FaceRegistrationPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updatePassword, setUpdatePassword] = useState('');
   const [flashEffect, setFlashEffect] = useState(false);
+  const [captureErrors, setCaptureErrors] = useState<string[]>([]);
 
-  // ── Load face status ──────────────────────────────────────────────────────
+  // ── Load face status ────────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
     try {
       const res = await faceAPI.myStatus();
       const data = res.data;
+      setFaceData(data);
       if (data.face_registered) {
         setStatus('registered');
-        setRegisteredAt(data.registered_at);
       } else {
         setStatus('not_registered');
       }
@@ -50,11 +64,9 @@ export default function FaceRegistrationPage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
+  useEffect(() => { loadStatus(); }, [loadStatus]);
 
-  // ── Camera ────────────────────────────────────────────────────────────────
+  // ── Camera ─────────────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     setCameraError(null);
     try {
@@ -85,10 +97,11 @@ export default function FaceRegistrationPage() {
     setCameraOpen(false);
     setCurrentStep(0);
     setCapturedImages([]);
+    setCaptureErrors([]);
     setCountdown(null);
   }, []);
 
-  // ── Capture image ─────────────────────────────────────────────────────────
+  // ── Capture image ──────────────────────────────────────────────────────────
   const captureImage = useCallback((): string | null => {
     if (!videoRef.current || !canvasRef.current) return null;
     const video = videoRef.current;
@@ -97,19 +110,17 @@ export default function FaceRegistrationPage() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    // Mirror the image (front camera)
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
     return canvas.toDataURL('image/jpeg', 0.9);
   }, []);
 
-  // ── Auto-capture with countdown ───────────────────────────────────────────
+  // ── Auto-capture with countdown ────────────────────────────────────────────
   const doCapture = useCallback(async () => {
     if (capturing) return;
     setCapturing(true);
 
-    // 3-second countdown
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
       await new Promise((r) => setTimeout(r, 900));
@@ -117,27 +128,21 @@ export default function FaceRegistrationPage() {
     setCountdown(null);
 
     const dataUrl = captureImage();
-    if (!dataUrl) {
-      setCapturing(false);
-      return;
-    }
+    if (!dataUrl) { setCapturing(false); return; }
 
-    // Flash effect
     setFlashEffect(true);
     setTimeout(() => setFlashEffect(false), 300);
 
     const newImages = [...capturedImages, dataUrl];
     setCapturedImages(newImages);
 
-    // Move to next step
     if (currentStep < CAPTURE_STEPS.length - 1) {
       setCurrentStep((s) => s + 1);
     }
-
     setCapturing(false);
   }, [capturing, captureImage, capturedImages, currentStep]);
 
-  // ── Submit registration ───────────────────────────────────────────────────
+  // ── Submit registration ────────────────────────────────────────────────────
   const submitRegistration = useCallback(async (isUpdate = false, password = '') => {
     if (capturedImages.length < 5) {
       toast.error('Please capture all 5 face images first.');
@@ -164,17 +169,16 @@ export default function FaceRegistrationPage() {
     }
   }, [capturedImages, loadStatus, stopCamera]);
 
-  // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── UI ────────────────────────────────────────────────────────────────────
   const step = CAPTURE_STEPS[currentStep];
   const allCaptured = capturedImages.length >= CAPTURE_STEPS.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-4 md:p-8">
-      {/* Header */}
       <div className="max-w-4xl mx-auto">
+
+        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30">
@@ -182,12 +186,12 @@ export default function FaceRegistrationPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Face Registration</h1>
-              <p className="text-slate-400 text-sm">Register your face for secure attendance verification</p>
+              <p className="text-slate-400 text-sm">Secure AI-powered identity registration for attendance</p>
             </div>
           </div>
         </div>
 
-        {/* Status Card */}
+        {/* Loading */}
         {status === 'checking' && (
           <div className="bg-slate-800/50 rounded-3xl border border-slate-700/50 p-8 text-center">
             <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -195,34 +199,66 @@ export default function FaceRegistrationPage() {
           </div>
         )}
 
+        {/* Registered Status */}
         {status === 'registered' && !cameraOpen && (
           <div className="space-y-6">
-            {/* Registered Banner */}
+            {/* Status Banner */}
             <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/30 rounded-3xl p-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-4">
                 <div className="p-4 bg-emerald-500/20 rounded-2xl">
                   <CheckCircle className="w-8 h-8 text-emerald-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-emerald-300">Face Registered ✓</h2>
+                  <h2 className="text-xl font-bold text-emerald-300">Face Registered ✅</h2>
                   <p className="text-emerald-400/70 text-sm mt-1">
-                    Your face is registered and ready for attendance verification.
+                    Your face is registered and ready for secure attendance verification.
                   </p>
-                  {registeredAt && (
-                    <p className="text-slate-400 text-xs mt-1">
-                      Registered on {new Date(registeredAt).toLocaleDateString('en-IN', { dateStyle: 'long' })}
-                    </p>
-                  )}
                 </div>
+              </div>
+
+              {/* Registration Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                {[
+                  {
+                    icon: Calendar,
+                    label: 'Registered On',
+                    value: faceData?.registered_at
+                      ? new Date(faceData.registered_at).toLocaleDateString('en-IN', { dateStyle: 'long' })
+                      : '—',
+                    color: 'emerald',
+                  },
+                  {
+                    icon: Cpu,
+                    label: 'Model Used',
+                    value: faceData?.model_version || 'ArcFace',
+                    color: 'indigo',
+                  },
+                  {
+                    icon: RefreshCw,
+                    label: 'Last Updated',
+                    value: faceData?.updated_at
+                      ? new Date(faceData.updated_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })
+                      : faceData?.registered_at
+                        ? new Date(faceData.registered_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })
+                        : '—',
+                    color: 'cyan',
+                  },
+                ].map(({ icon: Icon, label, value, color }) => (
+                  <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-2xl p-4`}>
+                    <Icon className={`w-4 h-4 text-${color}-400 mb-2`} />
+                    <p className={`text-${color}-300 font-semibold text-xs uppercase tracking-wide`}>{label}</p>
+                    <p className="text-white text-sm mt-1 font-medium">{value}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Security info cards */}
+            {/* Security Info */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { icon: Shield, label: 'ArcFace AI', desc: 'Production-grade face recognition model', color: 'indigo' },
+                { icon: Shield, label: 'ArcFace AI', desc: 'Production-grade facial recognition model', color: 'indigo' },
                 { icon: Eye, label: 'Liveness Check', desc: 'Anti-spoofing — detects real faces only', color: 'violet' },
-                { icon: Lock, label: 'Encrypted', desc: 'Only mathematical embeddings stored', color: 'cyan' },
+                { icon: Lock, label: 'Privacy Safe', desc: 'Only math embeddings stored, never raw images', color: 'cyan' },
               ].map(({ icon: Icon, label, desc, color }) => (
                 <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-2xl p-4`}>
                   <Icon className={`w-5 h-5 text-${color}-400 mb-2`} />
@@ -232,17 +268,27 @@ export default function FaceRegistrationPage() {
               ))}
             </div>
 
-            {/* Update Face button */}
-            <button
-              onClick={() => setShowUpdateModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-2xl transition-all border border-slate-600 text-sm"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Update Face Registration
-            </button>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setShowUpdateModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-2xl transition-all border border-slate-600 text-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Update Face Registration
+              </button>
+              <Link
+                href="/dashboard/attendance"
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl transition-all text-sm font-semibold"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Go to Attendance
+              </Link>
+            </div>
           </div>
         )}
 
+        {/* Not Registered */}
         {status === 'not_registered' && !cameraOpen && (
           <div className="space-y-6">
             {/* Warning */}
@@ -252,16 +298,20 @@ export default function FaceRegistrationPage() {
                 <div>
                   <h2 className="font-bold text-amber-300 mb-1">Face Registration Required</h2>
                   <p className="text-amber-400/80 text-sm">
-                    Face registration is required before using Face Attendance.
+                    You must register your face before you can use Face Attendance.
                     Your face will be used to verify your identity every time you mark attendance.
+                    <strong className="text-amber-300"> Attendance cannot be marked without completing this step.</strong>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Steps overview */}
+            {/* Steps Overview */}
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-6">
-              <h3 className="text-white font-semibold mb-4">What to expect</h3>
+              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <Info className="w-4 h-4 text-indigo-400" />
+                What to expect
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 {CAPTURE_STEPS.map((s, i) => (
                   <div key={s.label} className="text-center p-3 bg-slate-700/50 rounded-2xl">
@@ -270,9 +320,24 @@ export default function FaceRegistrationPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-slate-400 text-xs mt-4 text-center">
-                You'll capture 5 photos in different poses. Ensure good lighting and remove glasses.
-              </p>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-400">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span>Ensure good, even lighting on your face</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span>Remove glasses, hats, or face coverings</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span>Face the camera directly, fill the oval guide</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span>Only one person should be visible in frame</span>
+                </div>
+              </div>
             </div>
 
             <button
@@ -280,7 +345,7 @@ export default function FaceRegistrationPage() {
               className="w-full flex items-center justify-center gap-3 px-8 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-2xl font-semibold text-lg transition-all shadow-lg shadow-indigo-500/25 group"
             >
               <Camera className="w-6 h-6" />
-              Register Face
+              Register My Face
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
@@ -289,10 +354,10 @@ export default function FaceRegistrationPage() {
         {/* Camera View */}
         {cameraOpen && (
           <div className="space-y-4">
-            {/* Progress */}
+            {/* Progress Bar */}
             <div className="flex items-center justify-between bg-slate-800/60 backdrop-blur rounded-2xl p-4 border border-slate-700/50">
               <span className="text-slate-300 text-sm font-medium">
-                Face {Math.min(capturedImages.length + 1, CAPTURE_STEPS.length)} of {CAPTURE_STEPS.length}
+                Image {Math.min(capturedImages.length + 1, CAPTURE_STEPS.length)} of {CAPTURE_STEPS.length}
               </span>
               <div className="flex gap-2">
                 {CAPTURE_STEPS.map((_, i) => (
@@ -308,12 +373,12 @@ export default function FaceRegistrationPage() {
                   />
                 ))}
               </div>
-              <button onClick={stopCamera} className="text-slate-400 hover:text-white">
+              <button onClick={stopCamera} className="text-slate-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Camera + Overlay */}
+            {/* Camera View */}
             <div className="relative rounded-3xl overflow-hidden bg-black aspect-video max-h-[60vh] mx-auto border-2 border-indigo-500/30">
               <video
                 ref={videoRef}
@@ -324,7 +389,7 @@ export default function FaceRegistrationPage() {
                 style={{ transform: 'scaleX(-1)' }}
               />
 
-              {/* Face guide oval */}
+              {/* Face Guide Oval */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div
                   className="border-4 border-indigo-400/70 rounded-full"
@@ -332,7 +397,7 @@ export default function FaceRegistrationPage() {
                 />
               </div>
 
-              {/* Flash effect */}
+              {/* Flash Effect */}
               {flashEffect && (
                 <div className="absolute inset-0 bg-white animate-ping opacity-75 pointer-events-none" />
               )}
@@ -346,7 +411,7 @@ export default function FaceRegistrationPage() {
                 </div>
               )}
 
-              {/* Instruction overlay */}
+              {/* Instruction Overlay */}
               {!allCaptured && !countdown && (
                 <div className="absolute bottom-4 left-0 right-0 flex justify-center">
                   <div className="bg-slate-900/80 backdrop-blur px-6 py-3 rounded-full border border-slate-600/50">
@@ -356,13 +421,13 @@ export default function FaceRegistrationPage() {
                 </div>
               )}
 
-              {/* All captured overlay */}
+              {/* All Captured Overlay */}
               {allCaptured && (
                 <div className="absolute inset-0 bg-emerald-900/60 flex items-center justify-center">
                   <div className="text-center">
                     <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-3" />
                     <p className="text-white text-xl font-bold">All 5 photos captured!</p>
-                    <p className="text-emerald-300 text-sm mt-1">Ready to register</p>
+                    <p className="text-emerald-300 text-sm mt-1">Ready to register your face</p>
                   </div>
                 </div>
               )}
@@ -370,11 +435,21 @@ export default function FaceRegistrationPage() {
 
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Camera error */}
+            {/* Camera Error */}
             {cameraError && (
               <div className="bg-red-900/40 border border-red-500/40 rounded-2xl p-4 flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
                 <p className="text-red-300 text-sm">{cameraError}</p>
+              </div>
+            )}
+
+            {/* Capture Errors */}
+            {captureErrors.length > 0 && (
+              <div className="bg-orange-900/30 border border-orange-500/30 rounded-2xl p-3">
+                <p className="text-orange-300 text-xs font-semibold mb-1">Validation warnings:</p>
+                {captureErrors.slice(-2).map((e, i) => (
+                  <p key={i} className="text-orange-400/80 text-xs">• {e}</p>
+                ))}
               </div>
             )}
 
@@ -393,7 +468,6 @@ export default function FaceRegistrationPage() {
                     </div>
                   </div>
                 ))}
-                {/* Empty slots */}
                 {Array.from({ length: Math.max(0, CAPTURE_STEPS.length - capturedImages.length) }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
@@ -405,7 +479,7 @@ export default function FaceRegistrationPage() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action Buttons */}
             <div className="flex gap-3">
               {!allCaptured ? (
                 <button
@@ -430,16 +504,13 @@ export default function FaceRegistrationPage() {
                   {uploading ? (
                     <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Registering...</>
                   ) : (
-                    <><Upload className="w-5 h-5" /> Submit Registration</>
+                    <><Upload className="w-5 h-5" /> {status === 'updating' ? 'Submit Update' : 'Submit Registration'}</>
                   )}
                 </button>
               )}
 
               <button
-                onClick={() => {
-                  setCapturedImages([]);
-                  setCurrentStep(0);
-                }}
+                onClick={() => { setCapturedImages([]); setCurrentStep(0); setCaptureErrors([]); }}
                 className="px-5 py-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-2xl transition-all"
                 title="Retake all"
               >
@@ -449,13 +520,13 @@ export default function FaceRegistrationPage() {
           </div>
         )}
 
-        {/* Update Modal */}
+        {/* Update Password Modal */}
         {showUpdateModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-md w-full">
               <h3 className="text-white font-bold text-lg mb-2">Update Face Registration</h3>
               <p className="text-slate-400 text-sm mb-4">
-                You'll need to re-capture your face photos and confirm your password.
+                For security, confirm your password before re-capturing your face photos.
               </p>
               <label className="block text-slate-300 text-sm mb-2">Confirm Password</label>
               <input
@@ -464,6 +535,7 @@ export default function FaceRegistrationPage() {
                 onChange={(e) => setUpdatePassword(e.target.value)}
                 placeholder="Enter your password"
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 mb-4 focus:outline-none focus:border-indigo-500"
+                onKeyDown={(e) => { if (e.key === 'Enter' && updatePassword) { setShowUpdateModal(false); setStatus('updating'); startCamera(); }}}
               />
               <div className="flex gap-3">
                 <button
@@ -479,7 +551,7 @@ export default function FaceRegistrationPage() {
                     setStatus('updating');
                     startCamera();
                   }}
-                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all"
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all font-semibold"
                 >
                   Continue
                 </button>

@@ -262,6 +262,10 @@ class Attendance(Base):
     liveness_verified = Column(Boolean, default=False)
     dress_verified = Column(Boolean, default=False)
     attendance_method = Column(String(50), default="manual")  # manual, face
+    # ── Uniform Verification Fields ───────────────────────────────────────────
+    uniform_verified = Column(Boolean, default=False)
+    uniform_confidence = Column(Float, nullable=True)
+    uniform_details = Column(JSON, nullable=True)  # e.g. {logo, collar, color, id_card}
 
     student = relationship("Student", back_populates="attendances")
 
@@ -395,3 +399,25 @@ class AttendanceLog(Base):
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     student = relationship("Student")
+
+
+# ─── Institutional Uniforms ────────────────────────────────────────────────────
+
+class Uniform(Base):
+    __tablename__ = "uniforms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    department = Column(String(100), default="all")       # 'all' or specific dept
+    gender = Column(String(20), default="all")             # all, male, female
+    season = Column(String(20), default="all")             # all, summer, winter
+    label = Column(String(255))                            # Human-readable label
+    front_image_url = Column(String(500), nullable=True)
+    back_image_url = Column(String(500), nullable=True)
+    side_image_url = Column(String(500), nullable=True)
+    logo_image_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+

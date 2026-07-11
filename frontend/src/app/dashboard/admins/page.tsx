@@ -8,8 +8,9 @@ import { usersAPI } from '@/services/api';
 import {
   Shield, UserPlus, Search, MoreVertical, CheckCircle,
   XCircle, Edit2, Trash2, X, Loader2, Eye, EyeOff,
-  Mail, Phone, CreditCard, Lock, RefreshCw, Crown, Users,
+  Mail, Phone, CreditCard, Lock, RefreshCw, Crown, Users, Shirt, ArrowRight
 } from 'lucide-react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 interface AdminUser {
@@ -193,6 +194,36 @@ export default function AdminsPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
+        <Link
+          href="/dashboard/admins/face-management"
+          className="flex items-center gap-3 p-4 bg-violet-500/10 border border-violet-500/20 rounded-2xl hover:bg-violet-500/15 transition-colors group"
+        >
+          <div className="p-2.5 bg-violet-500/20 rounded-xl">
+            <Shield className="w-5 h-5 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-violet-300 font-semibold text-sm">Face Registration Dashboard</p>
+            <p className="text-violet-400/60 text-xs mt-0.5">Monitor all students' face registration status</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-violet-500 group-hover:translate-x-1 transition-transform" />
+        </Link>
+        <Link
+          href="/dashboard/admins/uniform-management"
+          className="flex items-center gap-3 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl hover:bg-indigo-500/15 transition-colors group"
+        >
+          <div className="p-2.5 bg-indigo-500/20 rounded-xl">
+            <Shirt className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-indigo-300 font-semibold text-sm">Uniform Management</p>
+            <p className="text-indigo-400/60 text-xs mt-0.5">Upload reference uniform images for AI detection</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

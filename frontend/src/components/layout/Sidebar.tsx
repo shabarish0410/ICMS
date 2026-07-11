@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, GraduationCap, Users2, FolderKanban, Calendar,
   Bell, Settings, ClipboardList, FileText, Clock, Megaphone,
-  Video, ChevronLeft, ChevronRight, Cpu, LogOut, Sparkles, UserCheck, ScanFace, Shield,
+  Video, ChevronLeft, ChevronRight, Cpu, LogOut, Sparkles, UserCheck, ScanFace, Shield, Shirt,
 } from 'lucide-react';
 
 const adminMenu = [
@@ -25,6 +25,8 @@ const adminMenu = [
   { label: 'Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { label: 'Admins', href: '/dashboard/admins', icon: Shield },
+  { label: 'Face Management', href: '/dashboard/admins/face-management', icon: Cpu },
+  { label: 'Uniform Mgmt', href: '/dashboard/admins/uniform-management', icon: Shirt },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
@@ -33,6 +35,7 @@ const studentMenu = [
   { label: 'My Project', href: '/dashboard/projects', icon: FolderKanban },
   { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },
   { label: 'Attendance', href: '/dashboard/attendance', icon: UserCheck },
+  { label: 'Face Registration', href: '/dashboard/face-registration', icon: Shield },
   { label: 'Snapshots', href: '/dashboard/attendance/snapshots', icon: ScanFace },
   { label: 'Weekly Reports', href: '/dashboard/weekly-reports', icon: FileText },
   { label: 'Meetings', href: '/dashboard/meetings', icon: Video },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -20,7 +20,12 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -48,8 +53,16 @@ export default function LoginPage() {
     }
   };
 
-  // Particles generator
-  const particles = Array.from({ length: 15 });
+  // Pre-compute stable particle configs (runs once on client, never on server)
+  const particles = useMemo(() =>
+    Array.from({ length: 15 }, () => ({
+      x: Math.random() * 700,
+      y: Math.random() * 800,
+      animY: Math.random() * -100 - 50,
+      animX: Math.random() * 100 - 50,
+      duration: Math.random() * 5 + 5,
+    }))
+  , []);
 
   return (
     <div className="min-h-screen flex bg-dark-900 overflow-hidden font-sans">
@@ -59,22 +72,19 @@ export default function LoginPage() {
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-blue/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" />
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-brand-purple/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
         
-        {/* Floating Particles */}
-        {particles.map((_, i) => (
+        {/* Floating Particles — client-only to avoid SSR hydration mismatch */}
+        {mounted && particles.map((p, i) => (
           <motion.div
             key={i}
             className="absolute w-2 h-2 rounded-full bg-white/20 blur-[1px]"
-            initial={{
-              x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth / 2 : 500),
-              y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
-            }}
+            initial={{ x: p.x, y: p.y }}
             animate={{
-              y: [null, Math.random() * -100 - 50],
-              x: [null, Math.random() * 100 - 50],
+              y: [null, p.animY],
+              x: [null, p.animX],
               opacity: [0.2, 0.8, 0],
             }}
             transition={{
-              duration: Math.random() * 5 + 5,
+              duration: p.duration,
               repeat: Infinity,
               ease: "linear"
             }}

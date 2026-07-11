@@ -9,7 +9,7 @@ from app.schemas import (
     AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut,
     PaginatedResponse, FaceMarkAttendanceRequest
 )
-from app.services.ai_service import verify_dress_code
+from app.services.ai_service import verify_dress_code, verify_uniform_with_reference
 from app.services.face_service import (
     decode_base64_image,
     validate_face_image,
@@ -29,7 +29,10 @@ def mark_attendance(
     req: AttendanceMarkRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Mark attendance for today. Student marks their own attendance."""
+    """
+    Mark attendance for today. Student marks their own attendance.
+    Requires face registration — students without a registered face cannot mark attendance.
+    """
     role_info = current_user.get("role")
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
     
@@ -47,30 +50,35 @@ def mark_attendance(
     today = date.today().isoformat()
     supabase = get_supabase()
 
+    # ── GATE: Face registration required ─────────────────────────────────────
+    student_res = supabase.table("students").select("id, face_registered, department").eq("id", student_id).execute()
+    if not student_res.data:
+        raise HTTPException(status_code=404, detail="Student profile not found.")
+    if not student_res.data[0].get("face_registered"):
+        raise HTTPException(
+            status_code=400,
+            detail="Face registration required. Please register your face in Profile → Face Registration before marking attendance."
+        )
+
+    # ── Duplicate check ───────────────────────────────────────────────────────
     existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
     if existing.data:
         raise HTTPException(status_code=409, detail="Attendance has already been recorded for today.")
 
-    # Time Window Logic (IST)
+    # ── Time Window Logic (IST) ───────────────────────────────────────────────
     ist_tz = pytz.timezone("Asia/Kolkata")
     now_ist = datetime.now(timezone.utc).astimezone(ist_tz)
     time_str = now_ist.strftime("%H:%M")
     
     if time_str < "14:30":
-        raise HTTPException(status_code=400, detail="Attendance is not open yet.")
+        raise HTTPException(status_code=400, detail="Attendance is not open yet. Opens at 2:30 PM.")
+    if time_str > "15:00":
+        raise HTTPException(status_code=400, detail="Attendance window has closed. It closed at 3:00 PM.")
         
     final_status = "PRESENT"
     if "14:46" <= time_str <= "15:00":
         final_status = "LATE"
-    elif time_str > "15:00":
-        final_status = "ABSENT"
         
-    # AI Dress Code Logic
-    if req.method == "face" and req.photo_url:
-        is_valid_dress = verify_dress_code(req.photo_url)
-        if not is_valid_dress:
-            raise HTTPException(status_code=400, detail="Invalid Dresscode: You must wear the official uniform to check in.")
-
     new_att = {
         "student_id": student_id,
         "date": today,
@@ -198,15 +206,14 @@ def face_attendance(
     _log_att(supabase, student_id, "face_match", "PASS",
              f"Match! distance={comparison['distance']}, confidence={comparison['confidence']}%")
 
-    # ── STEP 7: Save photo & verify dress code ────────────────────────────────
+    # ── STEP 7: Upload photo ───────────────────────────────────────────────────
     photo_url = req.photo_url  # If client pre-uploaded
 
-    # Upload the attendance photo to Supabase Storage
     if not photo_url:
         try:
             import uuid
             photo_filename = f"{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
-            upload_res = supabase.storage.from_("attendance-photos").upload(
+            supabase.storage.from_("attendance-photos").upload(
                 photo_filename,
                 img_bytes,
                 file_options={"content-type": "image/jpeg"}
@@ -216,19 +223,32 @@ def face_attendance(
             logger.warning(f"Photo upload failed (non-blocking): {upload_err}")
             photo_url = None
 
-    # Dress code check
-    dress_verified = True
-    if photo_url:
-        dress_verified = verify_dress_code(photo_url)
-        if not dress_verified:
-            _log_att(supabase, student_id, "dress_code", "FAIL", "Dress code violation detected")
-            raise HTTPException(
-                status_code=400,
-                detail="Dress code verification failed. You must wear the official college uniform."
-            )
-    _log_att(supabase, student_id, "dress_code", "PASS", "Dress code verified")
+    # ── STEP 8: Uniform detection using reference images ──────────────────────
+    # Fetch student's department for department-specific uniform lookup
+    student_info_res = supabase.table("students").select("department").eq("id", student_id).execute()
+    student_department = student_info_res.data[0].get("department") if student_info_res.data else None
 
-    # ── STEP 8: Attendance time window ────────────────────────────────────────
+    # Run uniform detection directly on raw image bytes (no URL needed)
+    uniform_result = verify_uniform_with_reference(img_bytes, department=student_department)
+    uniform_verified = uniform_result["valid"]
+    uniform_confidence = uniform_result["confidence"]
+    uniform_details = uniform_result.get("details", {})
+
+    if not uniform_verified:
+        _log_att(
+            supabase, student_id, "uniform_check", "FAIL",
+            f"Uniform mismatch: {uniform_result['reason']} (confidence={uniform_confidence}%)"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Uniform verification failed: {uniform_result['reason']} (Confidence: {uniform_confidence}%)"
+        )
+    _log_att(
+        supabase, student_id, "uniform_check", "PASS",
+        f"Uniform verified: confidence={uniform_confidence}% reason={uniform_result['reason']}"
+    )
+
+    # ── STEP 9: Attendance time window ────────────────────────────────────────
     ist_tz = pytz.timezone("Asia/Kolkata")
     now_ist = datetime.now(timezone.utc).astimezone(ist_tz)
     time_str = now_ist.strftime("%H:%M")
@@ -248,14 +268,14 @@ def face_attendance(
 
     _log_att(supabase, student_id, "time_window", "PASS", f"Time {time_str} → status={final_status}")
 
-    # ── STEP 9: Duplicate check ───────────────────────────────────────────────
+    # ── STEP 10: Duplicate check ──────────────────────────────────────────────
     existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
     if existing.data:
         _log_att(supabase, student_id, "duplicate_check", "FAIL", f"Already marked for {today}")
         raise HTTPException(status_code=409, detail="Attendance has already been recorded for today.")
     _log_att(supabase, student_id, "duplicate_check", "PASS", "No duplicate found")
 
-    # ── STEP 10: Save attendance ──────────────────────────────────────────────
+    # ── STEP 11: Save attendance ──────────────────────────────────────────────
     new_att = {
         "student_id": student_id,
         "date": today,
@@ -265,7 +285,10 @@ def face_attendance(
         "photo_url": photo_url,
         "face_verified": True,
         "liveness_verified": True,
-        "dress_verified": dress_verified,
+        "dress_verified": uniform_verified,
+        "uniform_verified": uniform_verified,
+        "uniform_confidence": uniform_confidence,
+        "uniform_details": uniform_details,
         "attendance_method": "face",
     }
 
@@ -274,7 +297,7 @@ def face_attendance(
     final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
 
     _log_att(supabase, student_id, "attendance_saved", "PASS",
-             f"Attendance ID={att_id} saved. Status={final_status}")
+             f"Attendance ID={att_id} saved. Status={final_status} uniform_confidence={uniform_confidence}%")
 
     return final_res.data[0]
 

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
-import { attendanceAPI, uploadsAPI, studentsAPI } from '@/services/api';
+import { attendanceAPI, uploadsAPI, studentsAPI, faceAPI } from '@/services/api';
 import { useRouter } from 'next/navigation';
 import { 
   UserCheck, Camera, CheckCircle, Clock, Calendar, 
@@ -21,6 +21,7 @@ export default function AttendancePage() {
   const [isScanning, setIsScanning] = useState(false);
   const [useManualCode, setUseManualCode] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [faceRegistered, setFaceRegistered] = useState<boolean | null>(null);
   
   // Camera selection and manual capture states
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -44,6 +45,15 @@ export default function AttendancePage() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Check face registration status for students
+  useEffect(() => {
+    if (isStudent) {
+      faceAPI.myStatus()
+        .then((res) => setFaceRegistered(Boolean(res.data?.face_registered)))
+        .catch(() => setFaceRegistered(null));
+    }
+  }, [isStudent]);
 
   // Fetch Attendance stats & history
   const { data: stats } = useQuery({ queryKey: ['attendance-stats'], queryFn: () => attendanceAPI.stats() });
@@ -328,6 +338,33 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      {/* ── Face Registration Gate ─────────────────────────────────────────── */}
+      {isStudent && faceRegistered === false && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-5 bg-gradient-to-r from-amber-900/40 to-orange-900/30 border border-amber-500/40 rounded-2xl flex items-center gap-4 shadow-lg shadow-amber-900/20"
+        >
+          <div className="p-3 bg-amber-500/20 rounded-2xl flex-shrink-0">
+            <Shield className="w-6 h-6 text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-amber-300 font-bold text-base">Face Not Registered</p>
+            <p className="text-amber-400/80 text-sm mt-0.5">
+              You must register your face before you can mark attendance.
+              Face registration is a one-time setup that takes about 1 minute.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/face-registration"
+            className="flex-shrink-0 flex items-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-amber-500/30"
+          >
+            <Camera className="w-4 h-4" />
+            Register Face
+          </Link>
+        </motion.div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {isStudent ? (
@@ -362,6 +399,13 @@ export default function AttendancePage() {
                   <CheckCircle className="w-5 h-5" />
                   <span>Checked In</span>
                 </div>
+              ) : faceRegistered === false ? (
+                <Link
+                  href="/dashboard/face-registration"
+                  className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-xs bg-amber-500 hover:bg-amber-400"
+                >
+                  <Shield className="w-4 h-4" /> Register Face First
+                </Link>
               ) : (
                 <button 
                   onClick={() => startCamera()} 

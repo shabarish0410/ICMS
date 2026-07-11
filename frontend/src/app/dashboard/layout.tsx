@@ -8,17 +8,19 @@ import TopNav from '@/components/layout/TopNav';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { faceAPI } from '@/services/api';
 import { 
   LayoutDashboard, UserCheck, FolderKanban, Calendar, Menu, X, 
   GraduationCap, Users2, ClipboardList, FileText, Megaphone, Video, 
-  Bell, Settings, LogOut, Cpu, Sparkles, Shield
+  Bell, Settings, LogOut, Cpu, Sparkles, Shield, AlertTriangle
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user, isAdmin, logout } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin, isStudent, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [faceRegistered, setFaceRegistered] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -35,6 +37,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     }
   }, [isLoading, user, router]);
+
+  // Check face registration status for students
+  useEffect(() => {
+    if (!isLoading && user && isStudent) {
+      faceAPI.myStatus()
+        .then((res) => setFaceRegistered(Boolean(res.data?.face_registered)))
+        .catch(() => setFaceRegistered(null));
+    }
+  }, [isLoading, user, isStudent]);
 
   // Handle drawer close when pathname changes
   useEffect(() => {
@@ -84,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const drawerItems = [
     ...(isAdmin ? [{ label: 'Students', href: '/dashboard/students', icon: GraduationCap }] : []),
     ...(isAdmin ? [{ label: 'Face Management', href: '/dashboard/admins/face-management', icon: Shield }] : []),
+    ...(isAdmin ? [{ label: 'Uniform Management', href: '/dashboard/admins/uniform-management', icon: Cpu }] : []),
     { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
     { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },
     { label: 'Weekly Reports', href: '/dashboard/weekly-reports', icon: FileText },
@@ -108,6 +120,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Container */}
       <div className="lg:pl-[280px] flex-1 flex flex-col transition-all duration-300 relative z-10">
         <TopNav onMenuToggle={() => setIsDrawerOpen(true)} />
+
+        {/* Face Registration Warning Banner */}
+        {isStudent && faceRegistered === false && pathname !== '/dashboard/face-registration' && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 md:mx-8 mt-4 p-4 bg-amber-900/40 border border-amber-500/40 rounded-2xl flex items-center gap-4 shadow-lg shadow-amber-900/20"
+          >
+            <div className="p-2 bg-amber-500/20 rounded-xl flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-300 font-semibold text-sm">Face Registration Required</p>
+              <p className="text-amber-400/70 text-xs mt-0.5">
+                You must register your face before marking attendance.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/face-registration"
+              className="flex-shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-xl transition-colors"
+            >
+              Register Now
+            </Link>
+          </motion.div>
+        )}
+
         <motion.main 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

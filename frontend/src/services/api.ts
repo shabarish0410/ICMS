@@ -403,4 +403,47 @@ export const faceAttendanceAPI = {
     api.post('/attendance/face', data),
 };
 
+// ─── Uniforms API ─────────────────────────────────────────────────────────────
+export const uniformsAPI = {
+  /** List all uniforms (admin only) */
+  list: (params?: Record<string, any>) => api.get('/uniforms', { params }),
+
+  /** Get active uniforms for detection */
+  active: () => api.get('/uniforms/active'),
+
+  /** Create new uniform entry */
+  create: (data: {
+    department: string;
+    gender: string;
+    season: string;
+    label?: string;
+    front_image_url?: string;
+    back_image_url?: string;
+    side_image_url?: string;
+    logo_image_url?: string;
+    is_active?: boolean;
+  }) => api.post('/uniforms', data),
+
+  /** Update a uniform entry */
+  update: (id: number, data: Record<string, any>) => api.put(`/uniforms/${id}`, data),
+
+  /** Delete a uniform entry */
+  delete: (id: number) => api.delete(`/uniforms/${id}`),
+
+  /** Upload a uniform reference image — returns { url } */
+  uploadImage: (file: File, imageType: 'front' | 'back' | 'side' | 'logo') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('image_type', imageType);
+    return api.post('/uniforms/upload-image', formData, {
+      headers: { 'Content-Type': undefined },
+    });
+  },
+
+  /** Test uniform detection against a base64 image (admin) */
+  testDetection: (imageBase64: string, department?: string) =>
+    api.post('/uniforms/test', { image_base64: imageBase64, department: department || 'all' }),
+};
+
 export default api;
+

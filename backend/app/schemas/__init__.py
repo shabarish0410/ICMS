@@ -53,6 +53,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     is_profile_completed: bool = False
     must_change_password: bool = False
+    face_registered: Optional[bool] = None   # None = not applicable (admin); False = must register
 
 
 class RefreshRequest(BaseModel):
@@ -707,3 +708,55 @@ class StudentDashboardData(BaseModel):
     pending_forms: int = 0
     upcoming_meetings: int = 0
     recent_notifications: List[NotificationOut] = []
+
+
+# ─── Uniform Schemas ─────────────────────────────────────────────────────────
+
+class UniformCreate(BaseModel):
+    department: str = "all"
+    gender: str = "all"       # all | male | female
+    season: str = "all"       # all | summer | winter
+    label: Optional[str] = None
+    front_image_url: Optional[str] = None
+    back_image_url: Optional[str] = None
+    side_image_url: Optional[str] = None
+    logo_image_url: Optional[str] = None
+    is_active: bool = True
+
+
+class UniformUpdate(BaseModel):
+    department: Optional[str] = None
+    gender: Optional[str] = None
+    season: Optional[str] = None
+    label: Optional[str] = None
+    front_image_url: Optional[str] = None
+    back_image_url: Optional[str] = None
+    side_image_url: Optional[str] = None
+    logo_image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class UniformOut(BaseModel):
+    id: int
+    department: str
+    gender: str
+    season: str
+    label: Optional[str] = None
+    front_image_url: Optional[str] = None
+    back_image_url: Optional[str] = None
+    side_image_url: Optional[str] = None
+    logo_image_url: Optional[str] = None
+    is_active: bool
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class UniformDetectionResult(BaseModel):
+    valid: bool
+    confidence: float
+    reason: str
+    details: Optional[dict] = None   # logo, collar, color, id_card, pattern
+
