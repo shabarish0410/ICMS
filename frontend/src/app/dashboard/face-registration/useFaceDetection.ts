@@ -224,7 +224,7 @@ export function useFaceDetection(
           hasFace: true,
           isCentered,
           isGoodSize,
-          hasBlinked: false,
+          hasBlinked,
           readyForBurst: burstRequestedRef.current,
           guidanceText,
           guidanceColor,
