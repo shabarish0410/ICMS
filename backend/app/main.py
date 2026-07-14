@@ -7,6 +7,9 @@ import os
 import logging
 import traceback
 
+# Force TensorFlow/DeepFace to run on CPU only to prevent cuInit (CUDA) crashes on Render
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
