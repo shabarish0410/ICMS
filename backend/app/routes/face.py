@@ -60,7 +60,7 @@ def _log_validation(supabase, student_id: int, step: str, result: str, message: 
 
 @router.post("/register", status_code=201)
 def register_face(
-    req: "FaceRegisterRequest",
+    req: FaceRegisterRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -136,8 +136,7 @@ def register_face(
             "face_registered": True,
             "face_registered_at": now_iso,
             "face_embedding": embedding,
-            "face_image_url": face_image_url,
-            "face_drive_file_id": drive_file_id
+            "face_image_url": face_image_url
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
@@ -229,7 +228,7 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
 
 @router.put("/update", status_code=200)
 def update_face(
-    req: "FaceUpdateRequest",
+    req: FaceUpdateRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -297,8 +296,7 @@ def update_face(
             "face_registered": True,
             "face_registered_at": now_iso,
             "face_embedding": embedding,
-            "face_image_url": face_image_url,
-            "face_drive_file_id": drive_file_id
+            "face_image_url": face_image_url
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
