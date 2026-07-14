@@ -179,7 +179,7 @@ def get_face_status(
             raise HTTPException(status_code=403, detail="Access denied")
 
     supabase = get_supabase()
-    res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
+    res = supabase.table("students").select("id, face_registered, face_registered_at, face_image_url").eq("id", student_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
@@ -187,7 +187,8 @@ def get_face_status(
     return {
         "student_id": student_id,
         "face_registered": bool(student.get("face_registered", False)),
-        "registered_at": student.get("face_registered_at")
+        "registered_at": student.get("face_registered_at"),
+        "face_image_url": student.get("face_image_url")
     }
 
 
@@ -205,7 +206,7 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
 
         student_id = _get_student_id(current_user)
         supabase = get_supabase()
-        res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
+        res = supabase.table("students").select("id, face_registered, face_registered_at, face_image_url").eq("id", student_id).execute()
         
         if not res.data:
             raise HTTPException(status_code=404, detail="Student not found")
@@ -214,7 +215,8 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
         return {
             "student_id": student_id,
             "face_registered": bool(student.get("face_registered", False)),
-            "registered_at": student.get("face_registered_at")
+            "registered_at": student.get("face_registered_at"),
+            "face_image_url": student.get("face_image_url")
         }
     except HTTPException:
         raise
