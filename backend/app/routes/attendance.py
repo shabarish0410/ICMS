@@ -145,7 +145,7 @@ def face_attendance(
     supabase = get_supabase()
 
     # ── STEP 1: Check face registration ──────────────────────────────────────
-    student_res = supabase.table("students").select("id, face_register").eq("id", student_id).execute()
+    student_res = supabase.table("students").select("id, face_register, face_embedding").eq("id", student_id).execute()
     if not student_res.data or not student_res.data[0].get("face_register"):
         _log_att(supabase, student_id, "face_register_check", "FAIL", "Face not registered")
         raise HTTPException(
@@ -188,11 +188,10 @@ def face_attendance(
     _log_att(supabase, student_id, "embedding_generate", "PASS", "Embedding generated")
 
     # ── STEP 5: Load ONLY this student's registered embedding ─────────────────
-    face_res = supabase.table("student_faces").select("face_embedding").eq("student_id", student_id).execute()
-    if not face_res.data:
+    registered_embedding = student_res.data[0].get("face_embedding")
+    if not registered_embedding:
         _log_att(supabase, student_id, "embedding_load", "FAIL", "No embedding found in database")
         raise HTTPException(status_code=400, detail="Face embedding not found. Please re-register your face.")
-    registered_embedding = face_res.data[0]["face_embedding"]
     _log_att(supabase, student_id, "embedding_load", "PASS", "Registered embedding loaded")
 
     # ── STEP 6: Compare embeddings ────────────────────────────────────────────
@@ -209,12 +208,13 @@ def face_attendance(
 
     # ── STEP 7: Upload photo ───────────────────────────────────────────────────
     photo_url = req.photo_url  # If client pre-uploaded
+    drive_file_id = None
 
     if not photo_url:
         try:
             import uuid
             photo_filename = f"att_{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
-            photo_url = upload_image_to_drive(
+            drive_file_id, photo_url = upload_image_to_drive(
                 img_bytes,
                 photo_filename
             )
@@ -282,6 +282,7 @@ def face_attendance(
         "method": "face",
         "status": final_status,
         "photo_url": photo_url,
+        "drive_file_id": drive_file_id,
         "face_verified": True,
         "liveness_verified": True,
         "dress_verified": uniform_verified,

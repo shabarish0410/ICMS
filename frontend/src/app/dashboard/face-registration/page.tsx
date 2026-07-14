@@ -144,76 +144,53 @@ export default function FaceRegistrationPage() {
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Burst Capture Logic ─────────────────────────────────────────────────────
-  const handleBurstCaptureRequest = useCallback(async () => {
+  // ── Capture Logic ──────────────────────────────────────────────────────────
+  const handleCaptureRequest = useCallback(async () => {
     if (isBursting || allCaptured) return;
     setIsBursting(true);
-    setBurstCount(0);
 
     const video = videoRef.current;
-    if (!video) return;
-
-    const capturedImages: string[] = [];
-    let count = 0;
-    const totalAttempts = 5;
-
-    // Capture frames as fast as possible (0.5s burst)
-    const captureLoop = async () => {
-      if (count >= totalAttempts) {
-        setAllCaptured(true);
+    if (!video) {
         setIsBursting(false);
-        // If all frames were rejected, retry burst automatically
-        if (capturedImages.length === 0) {
-          toast.error("Poor lighting or blur detected. Retrying...");
-          setAllCaptured(false);
-          setIsBursting(false);
-          setBurstCount(0);
-          return;
-        }
-        submitRegistration(capturedImages, status === 'updating', updatePassword);
         return;
-      }
+    }
 
-      const captureCanvas = document.createElement('canvas');
-      captureCanvas.width = video.videoWidth;
-      captureCanvas.height = video.videoHeight;
-      const captureCtx = captureCanvas.getContext('2d');
-      if (captureCtx) {
-        captureCtx.translate(captureCanvas.width, 0);
-        captureCtx.scale(-1, 1);
-        captureCtx.drawImage(video, 0, 0);
-        
-        // Asynchronous scoring
-        const isGoodQuality = await scoreImageQuality(captureCanvas);
-        if (isGoodQuality) {
-          // Compress immediately (0.7 quality saves significant bandwidth)
-          const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.7);
-          capturedImages.push(dataUrl);
-        }
-      }
-      count++;
-      setBurstCount(count);
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = video.videoWidth;
+    captureCanvas.height = video.videoHeight;
+    const captureCtx = captureCanvas.getContext('2d');
+    
+    if (captureCtx) {
+      captureCtx.translate(captureCanvas.width, 0);
+      captureCtx.scale(-1, 1);
+      captureCtx.drawImage(video, 0, 0);
       
-      // Delay to spread out the 5 frames across ~0.5 seconds (100ms interval)
-      setTimeout(captureLoop, 100);
-    };
-
-    captureLoop();
-
+      const isGoodQuality = await scoreImageQuality(captureCanvas);
+      if (isGoodQuality) {
+        const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.8);
+        setAllCaptured(true);
+        submitRegistration(dataUrl, status === 'updating', updatePassword);
+      } else {
+        toast.error("Poor lighting or blur detected. Please try again.");
+        setIsBursting(false);
+      }
+    } else {
+      setIsBursting(false);
+    }
   }, [isBursting, allCaptured, status, updatePassword]);
 
   // ── MediaPipe AI Hook ───────────────────────────────────────────────────────
-  const faceState = useFaceDetection(videoRef, canvasRef, handleBurstCaptureRequest);
+  const faceState = useFaceDetection(videoRef, canvasRef, handleCaptureRequest);
 
   // ── Submit registration ────────────────────────────────────────────────────
-  const submitRegistration = async (images: string[], isUpdate = false, password = '') => {
+  const submitRegistration = async (imageBase64: string, isUpdate = false, password = '') => {
     setUploading(true);
     try {
       if (isUpdate) {
-        await faceAPI.update(images, password);
+        await faceAPI.update(imageBase64, password);
         toast.success('Face updated successfully!');
       } else {
-        await faceAPI.register(images);
+        await faceAPI.register(imageBase64);
         toast.success('Face registered successfully! You can now use Face Attendance.');
       }
       stopCamera();

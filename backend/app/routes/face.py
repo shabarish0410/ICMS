@@ -64,9 +64,10 @@ def register_face(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Register student face. Accepts 5-10 base64 images.
-    Generates ArcFace embeddings and stores the averaged embedding.
+    Register student face. Accepts a single high-quality base64 image.
+    Generates ArcFace embeddings and stores them in the students table.
     """
+    import uuid
     role_info = current_user.get("role")
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
     if role_name != "student":
@@ -74,110 +75,62 @@ def register_face(
 
     student_id = _get_student_id(current_user)
     supabase = get_supabase()
+    request_id = uuid.uuid4().hex[:8]
 
-    images = req.images_base64
-    if len(images) < 1 or len(images) > 10:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Please provide between 1 and 10 images. You provided {len(images)}."
-        )
+    logger.info(f"[Req {request_id}] Starting face registration for student {student_id}")
 
-    # Validate and generate embeddings for each image
-    embeddings = []
-    errors = []
-    best_img_bytes = None
-    
-    for i, img_b64 in enumerate(images):
-        try:
-            img_bytes = decode_base64_image(img_b64)
-        except ValueError as e:
-            errors.append(f"Image {i + 1}: {str(e)}")
-            continue
+    # 1. Decode image
+    try:
+        img_bytes = decode_base64_image(req.image_base64)
+    except ValueError as e:
+        logger.warning(f"[Req {request_id}] Invalid base64 image format: {e}")
+        raise HTTPException(status_code=400, detail="Invalid image format provided.")
 
-        # Quality validation
-        validation = validate_face_image(img_bytes)
-        if not validation["valid"]:
-            errors.append(f"Image {i + 1}: {validation['reason']}")
-            continue
+    # 2. Quality validation
+    validation = validate_face_image(img_bytes)
+    if not validation["valid"]:
+        logger.warning(f"[Req {request_id}] Image validation failed: {validation['reason']}")
+        raise HTTPException(status_code=400, detail=validation["reason"])
 
-        # Generate embedding
-        embedding = generate_face_embedding(img_bytes)
-        if embedding is None:
-            errors.append(f"Image {i + 1}: Could not generate face embedding. Please retake.")
-            continue
+    # 3. Generate embedding
+    embedding = generate_face_embedding(img_bytes)
+    if embedding is None:
+        logger.error(f"[Req {request_id}] Could not generate face embedding for student {student_id}")
+        raise HTTPException(status_code=400, detail="Could not generate face embedding. Please ensure clear lighting and try again.")
 
-        embeddings.append(embedding)
-        
-        # Keep the first valid image bytes to upload to Drive
-        if best_img_bytes is None:
-            best_img_bytes = img_bytes
-
-    # Need at least 1 valid embedding
-    if len(embeddings) < 1:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Registration failed. Not enough valid face images. Errors: {'; '.join(errors[:3])}"
-        )
-
-    # Average all valid embeddings into one representative vector
-    final_embedding = average_embeddings(embeddings)
-    
-    # Upload the best image to Google Drive
-    face_image_url = None
-    if best_img_bytes:
-        import uuid
-        filename = f"face_reg_{student_id}_{uuid.uuid4().hex[:8]}.jpg"
-        try:
-            face_image_url = upload_image_to_drive(best_img_bytes, filename)
-        except Exception as e:
-            logger.warning(f"Failed to upload face image to Google Drive: {e}")
-            # We don't fail the whole registration if upload fails, but it's ideal to store it.
-
-    # Check if student already has a face registered
-    existing = supabase.table("student_faces").select("id").eq("student_id", student_id).execute()
+    # 4. Upload to Google Drive
+    filename = f"face_reg_{student_id}_{request_id}.jpg"
+    try:
+        drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
+    except Exception as e:
+        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Storage error: Could not save face image securely.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    if existing.data:
-        # Update existing embedding
+    # 5. Store metadata in Supabase (students table)
+    try:
         update_data = {
-            "face_embedding": final_embedding,
-            "model_version": "ArcFace",
-            "updated_at": now_iso
+            "face_register": True,
+            "face_registered_at": now_iso,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "face_drive_file_id": drive_file_id
         }
-        if face_image_url:
-            update_data["face_image_url"] = face_image_url
-            
-        supabase.table("student_faces").update(update_data).eq("student_id", student_id).execute()
-    else:
-        # Insert new embedding
-        insert_data = {
-            "student_id": student_id,
-            "face_embedding": final_embedding,
-            "model_version": "ArcFace",
-            "created_at": now_iso,
-            "updated_at": now_iso
-        }
-        if face_image_url:
-            insert_data["face_image_url"] = face_image_url
-            
-        supabase.table("student_faces").insert(insert_data).execute()
+        res = supabase.table("students").update(update_data).eq("id", student_id).execute()
+        if not res.data:
+            logger.error(f"[Req {request_id}] Database update failed: Student {student_id} not found.")
+            raise HTTPException(status_code=404, detail="Student profile not found.")
+    except Exception as e:
+        logger.exception(f"[Req {request_id}] Database update exception: {e}")
+        raise HTTPException(status_code=500, detail="Database update failed while saving registration.")
 
-    # Mark student as face-registered
-    supabase.table("students").update({
-        "face_register": True,
-        "face_registered_at": now_iso
-    }).eq("id", student_id).execute()
-
-    _log_validation(supabase, student_id, "face_registration", "PASS",
-                    f"Registered {len(embeddings)} face images successfully")
+    _log_validation(supabase, student_id, "face_registration", "PASS", "Registered single face image successfully")
+    logger.info(f"[Req {request_id}] Face registration complete for student {student_id}")
 
     return {
         "success": True,
         "message": "Face registered successfully!",
-        "images_processed": len(embeddings),
-        "images_failed": len(errors),
-        "errors": errors,
         "registered_at": now_iso
     }
 
@@ -243,93 +196,90 @@ def update_face(
     req: "FaceUpdateRequest",
     current_user: dict = Depends(get_current_user)
 ):
-    """Update student face embedding. Requires password confirmation."""
+    """
+    Update student face registration.
+    Requires password verification and a single high-quality base64 image.
+    """
+    import uuid
     role_info = current_user.get("role")
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
     if role_name != "student":
-        raise HTTPException(status_code=403, detail="Only students can update their face")
+        raise HTTPException(status_code=403, detail="Only students can update their face registration")
 
     student_id = _get_student_id(current_user)
     supabase = get_supabase()
+    request_id = uuid.uuid4().hex[:8]
+    
+    logger.info(f"[Req {request_id}] Starting face update for student {student_id}")
 
-    # Verify password
+    # 1. Verify password
     user_id = current_user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+
     user_res = supabase.table("users").select("password_hash").eq("id", user_id).execute()
     if not user_res.data:
         raise HTTPException(status_code=404, detail="User not found")
-
+        
     password_hash = user_res.data[0]["password_hash"]
     if not pwd_context.verify(req.password, password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect password. Face update denied.")
+        logger.warning(f"[Req {request_id}] Face update failed: Invalid password for student {student_id}")
+        raise HTTPException(status_code=401, detail="Invalid password. Please try again.")
 
-    # Re-register (same flow as register)
-    images = req.images_base64
-    if len(images) < 1:
-        raise HTTPException(status_code=400, detail="Please provide at least 1 image.")
+    # 2. Decode image
+    try:
+        img_bytes = decode_base64_image(req.image_base64)
+    except ValueError as e:
+        logger.warning(f"[Req {request_id}] Invalid base64 image format: {e}")
+        raise HTTPException(status_code=400, detail="Invalid image format provided.")
 
-    embeddings = []
-    best_img_bytes = None
-    for i, img_b64 in enumerate(images):
-        try:
-            img_bytes = decode_base64_image(img_b64)
-            validation = validate_face_image(img_bytes)
-            if not validation["valid"]:
-                continue
-            embedding = generate_face_embedding(img_bytes)
-            if embedding:
-                embeddings.append(embedding)
-                if best_img_bytes is None:
-                    best_img_bytes = img_bytes
-        except Exception:
-            continue
+    # 3. Quality validation
+    validation = validate_face_image(img_bytes)
+    if not validation["valid"]:
+        logger.warning(f"[Req {request_id}] Image validation failed: {validation['reason']}")
+        raise HTTPException(status_code=400, detail=validation["reason"])
 
-    if len(embeddings) < 1:
-        raise HTTPException(status_code=400, detail="Not enough valid face images. Please retake.")
+    # 4. Generate embedding
+    embedding = generate_face_embedding(img_bytes)
+    if embedding is None:
+        logger.error(f"[Req {request_id}] Could not generate face embedding for student {student_id}")
+        raise HTTPException(status_code=400, detail="Could not generate face embedding. Please ensure clear lighting and try again.")
 
-    final_embedding = average_embeddings(embeddings)
-    
-    face_image_url = None
-    if best_img_bytes:
-        import uuid
-        filename = f"face_upd_{student_id}_{uuid.uuid4().hex[:8]}.jpg"
-        try:
-            face_image_url = upload_image_to_drive(best_img_bytes, filename)
-        except Exception as e:
-            logger.warning(f"Failed to upload updated face image to Google Drive: {e}")
+    # 5. Upload to Google Drive
+    filename = f"face_reg_{student_id}_{request_id}.jpg"
+    try:
+        drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
+    except Exception as e:
+        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Storage error: Could not save face image securely.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    existing = supabase.table("student_faces").select("id").eq("student_id", student_id).execute()
-    if existing.data:
+    # 6. Store metadata in Supabase (students table)
+    try:
         update_data = {
-            "face_embedding": final_embedding,
-            "updated_at": now_iso
+            "face_register": True,
+            "face_registered_at": now_iso,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "face_drive_file_id": drive_file_id
         }
-        if face_image_url:
-            update_data["face_image_url"] = face_image_url
-            
-        supabase.table("student_faces").update(update_data).eq("student_id", student_id).execute()
-    else:
-        insert_data = {
-            "student_id": student_id,
-            "face_embedding": final_embedding,
-            "model_version": "ArcFace",
-            "created_at": now_iso,
-            "updated_at": now_iso
-        }
-        if face_image_url:
-            insert_data["face_image_url"] = face_image_url
-            
-        supabase.table("student_faces").insert(insert_data).execute()
+        res = supabase.table("students").update(update_data).eq("id", student_id).execute()
+        if not res.data:
+            logger.error(f"[Req {request_id}] Database update failed: Student {student_id} not found.")
+            raise HTTPException(status_code=404, detail="Student profile not found.")
+    except Exception as e:
+        logger.exception(f"[Req {request_id}] Database update exception: {e}")
+        raise HTTPException(status_code=500, detail="Database update failed while saving registration.")
 
-    supabase.table("students").update({
-        "face_register": True,
-        "face_registered_at": now_iso
-    }).eq("id", student_id).execute()
+    _log_validation(supabase, student_id, "face_update", "PASS", "Updated single face image successfully")
+    logger.info(f"[Req {request_id}] Face registration updated for student {student_id}")
 
-    _log_validation(supabase, student_id, "face_update", "PASS", "Face embedding updated successfully")
-
-    return {"success": True, "message": "Face updated successfully!", "updated_at": now_iso}
+    return {
+        "success": True,
+        "message": "Face registration updated successfully!",
+        "updated_at": now_iso
+    }
 
 
 # ─── DELETE /api/face/reset/{student_id} ─────────────────────────────────────
@@ -347,13 +297,13 @@ def reset_face(
     if not student_res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    # Delete embedding
-    supabase.table("student_faces").delete().eq("student_id", student_id).execute()
-
-    # Reset flag
+    # Reset flag and clear embeddings/image data
     supabase.table("students").update({
         "face_register": False,
-        "face_registered_at": None
+        "face_registered_at": None,
+        "face_embedding": None,
+        "face_image_url": None,
+        "face_drive_file_id": None
     }).eq("id", student_id).execute()
 
     _log_validation(supabase, student_id, "face_reset", "INFO", f"Face reset by admin user {current_user.get('id')}")

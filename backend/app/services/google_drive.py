@@ -41,55 +41,99 @@ except Exception as e:
     logger.exception("Failed to initialize Google Drive service")
 
 
-def upload_image_to_drive(img_bytes: bytes, filename: str) -> str:
+import time
+from googleapiclient.errors import HttpError
+
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+def upload_image_to_drive(img_bytes: bytes, filename: str) -> tuple[str, str]:
     """
     Uploads a raw byte array directly to Google Drive (in-memory streaming)
     and makes it publicly readable.
     
-    Returns the public Google Drive URL.
-    Raises an Exception if the upload fails.
+    Validations:
+    - Size <= 5MB
+    
+    Retries:
+    - 3 attempts with exponential backoff for transient errors (429, 5xx)
+    
+    Returns:
+        tuple: (drive_file_id, public_url)
+    Raises:
+        HTTPException on permanent errors or exhaustive failures.
     """
     if not drive_service:
         logger.error("Cannot upload to Google Drive: credentials missing")
-        raise HTTPException(status_code=500, detail="Storage service misconfigured")
+        raise HTTPException(status_code=500, detail="Google Drive service misconfigured")
 
-    try:
-        # Stream image directly from memory (no disk I/O)
-        media = MediaIoBaseUpload(
-            io.BytesIO(img_bytes),
-            mimetype="image/jpeg",
-            resumable=True,
-        )
+    if len(img_bytes) > MAX_FILE_SIZE:
+        logger.warning(f"File {filename} exceeds size limit: {len(img_bytes)} bytes")
+        raise HTTPException(status_code=400, detail="Image size must be less than 5MB")
 
-        file_metadata = {
-            "name": filename,
-            "parents": [FOLDER_ID],
-        }
+    # Retry configuration
+    max_attempts = 3
+    delays = [0, 1, 2]  # wait times for attempt 1, 2, 3
 
-        # Execute the upload
-        file = drive_service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields="id",
-        ).execute()
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            time.sleep(delays[attempt])
 
-        file_id = file.get("id")
-        if not file_id:
-            raise ValueError("Google Drive did not return a file ID")
+        try:
+            # Stream image directly from memory
+            media = MediaIoBaseUpload(
+                io.BytesIO(img_bytes),
+                mimetype="image/jpeg",
+                resumable=True,
+            )
 
-        # Make file publicly readable
-        drive_service.permissions().create(
-            fileId=file_id,
-            body={
-                "type": "anyone",
-                "role": "reader",
-            },
-        ).execute()
+            file_metadata = {
+                "name": filename,
+                "parents": [FOLDER_ID],
+            }
 
-        # Construct and return the public URL
-        public_url = f"https://drive.google.com/uc?id={file_id}"
-        return public_url
+            # Execute the upload
+            file = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields="id",
+            ).execute()
 
-    except Exception as e:
-        logger.exception(f"Google Drive upload failed for {filename}")
-        raise HTTPException(status_code=500, detail="Failed to upload image to Google Drive")
+            file_id = file.get("id")
+            if not file_id:
+                raise ValueError("Google Drive did not return a file ID")
+
+            # Make file publicly readable
+            drive_service.permissions().create(
+                fileId=file_id,
+                body={
+                    "type": "anyone",
+                    "role": "reader",
+                },
+            ).execute()
+
+            public_url = f"https://drive.google.com/uc?id={file_id}"
+            logger.info(f"Successfully uploaded {filename} to Google Drive (Attempt {attempt + 1})")
+            return file_id, public_url
+
+        except HttpError as e:
+            status_code = e.resp.status
+            logger.warning(f"Google Drive HTTP Error {status_code} during upload (Attempt {attempt + 1}): {e}")
+            
+            # Permanent errors (400, 401, 403, 404) should not be retried
+            if status_code in (400, 401, 403, 404):
+                logger.error(f"Permanent Google Drive error {status_code}: {e.reason}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Google Drive API rejected the request: {e.reason}"
+                )
+            
+            # Transient errors (429, 500, 502, 503, 504) get retried
+            if attempt == max_attempts - 1:
+                logger.error(f"Exhausted all retries for Google Drive upload of {filename}")
+                raise HTTPException(status_code=500, detail="Failed to upload image after multiple retries due to network issues.")
+
+        except Exception as e:
+            logger.warning(f"Unexpected error during Google Drive upload (Attempt {attempt + 1}): {e}")
+            if attempt == max_attempts - 1:
+                logger.exception(f"Exhausted all retries for Google Drive upload of {filename}")
+                raise HTTPException(status_code=500, detail="Failed to upload image due to an internal server error.")

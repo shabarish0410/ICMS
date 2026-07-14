@@ -551,7 +551,7 @@ class MeetingOut(BaseModel):
 # ─── Face Schemas ─────────────────────────────────────────────────────────────
 
 class FaceRegisterRequest(BaseModel):
-    images_base64: List[str] = Field(..., min_length=5, max_length=10)
+    image_base64: str = Field(..., min_length=100)
 
 
 class FaceStatusOut(BaseModel):
@@ -563,7 +563,7 @@ class FaceStatusOut(BaseModel):
 
 
 class FaceUpdateRequest(BaseModel):
-    images_base64: List[str] = Field(..., min_length=5, max_length=10)
+    image_base64: str = Field(..., min_length=100)
     password: str = Field(..., min_length=1)
 
 

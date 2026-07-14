@@ -115,19 +115,15 @@ export default function FaceRegistrationScreen({ navigation }: any) {
               setInstruction('Hold still... capturing!');
               active = false;
               
-              // Capture high quality burst
-              const burstImages: string[] = [];
-              for (let i = 0; i < 5; i++) {
-                if (cameraRef.current) {
-                  const hqPhoto = await cameraRef.current.takePictureAsync({
-                    quality: 0.7, // compress payload
-                    base64: true,
-                  });
-                  burstImages.push(`data:image/jpeg;base64,${hqPhoto.base64}`);
-                }
+              // Capture high quality single frame
+              if (cameraRef.current) {
+                const hqPhoto = await cameraRef.current.takePictureAsync({
+                  quality: 0.8, // high quality
+                  base64: true,
+                });
+                setCapturedImages([`data:image/jpeg;base64,${hqPhoto.base64}`]);
               }
               
-              setCapturedImages(burstImages);
               setAppState('processing');
               return;
             } else {
@@ -165,11 +161,11 @@ export default function FaceRegistrationScreen({ navigation }: any) {
   const submitRegistration = async (imagesBase64: string[]) => {
     try {
       const headers = await getAuthHeader();
-      // Send array with 5 images
+      // Send single image base64
       const res = await fetch(`${API_BASE}/face/register`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ images_base64: imagesBase64 }),
+        body: JSON.stringify({ image_base64: imagesBase64[0] }),
       });
       
       const data = await res.json();
