@@ -165,7 +165,7 @@ def register_face(
 
     # Mark student as face-registered
     supabase.table("students").update({
-        "face_registered": True,
+        "face_register": True,
         "face_registered_at": now_iso
     }).eq("id", student_id).execute()
 
@@ -200,14 +200,14 @@ def get_face_status(
             raise HTTPException(status_code=403, detail="Access denied")
 
     supabase = get_supabase()
-    res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
+    res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
     student = res.data[0]
     return {
         "student_id": student_id,
-        "face_registered": bool(student.get("face_registered", False)),
+        "face_register": bool(student.get("face_register", False)),
         "registered_at": student.get("face_registered_at")
     }
 
@@ -224,14 +224,14 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
 
     student_id = _get_student_id(current_user)
     supabase = get_supabase()
-    res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
+    res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
     student = res.data[0]
     return {
         "student_id": student_id,
-        "face_registered": bool(student.get("face_registered", False)),
+        "face_register": bool(student.get("face_register", False)),
         "registered_at": student.get("face_registered_at")
     }
 
@@ -323,7 +323,7 @@ def update_face(
         supabase.table("student_faces").insert(insert_data).execute()
 
     supabase.table("students").update({
-        "face_registered": True,
+        "face_register": True,
         "face_registered_at": now_iso
     }).eq("id", student_id).execute()
 
@@ -352,7 +352,7 @@ def reset_face(
 
     # Reset flag
     supabase.table("students").update({
-        "face_registered": False,
+        "face_register": False,
         "face_registered_at": None
     }).eq("id", student_id).execute()
 
@@ -374,14 +374,14 @@ def admin_face_status(
     supabase = get_supabase()
 
     query = supabase.table("students").select(
-        "id, face_registered, face_registered_at, department, user:users(id, ic_number, full_name, email)",
+        "id, face_register, face_registered_at, department, user:users(id, ic_number, full_name, email)",
         count="exact"
     )
 
     if department:
         query = query.eq("department", department)
 
-    res = query.order("face_registered", desc=False).range(
+    res = query.order("face_register", desc=False).range(
         (page - 1) * size, page * size - 1
     ).execute()
 

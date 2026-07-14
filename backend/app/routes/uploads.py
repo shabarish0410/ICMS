@@ -3,23 +3,18 @@ import os
 import uuid
 from app.core.security import get_current_user
 from app.core.config import settings
-from app.core.supabase import get_supabase
-import io
 import logging
 
 logger = logging.getLogger("icms.uploads")
 
 router = APIRouter(prefix="/api/uploads", tags=["Uploads"])
 
-# Supabase Storage bucket name for attendance snapshots
-SNAPSHOT_BUCKET = "attendance-photos"
-
 @router.post("", status_code=201)
 def upload_file(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload a file, saving locally first, then pushing to Supabase Storage."""
+    """Upload a file, saving locally first, then pushing to Google Drive Storage."""
     ext = os.path.splitext(file.filename or "file.jpg")[1] or ".jpg"
     filename = f"{uuid.uuid4().hex}{ext}"
     

@@ -5,7 +5,7 @@
 
 -- ── 1. Add face registration columns to students ──────────────────────────────
 ALTER TABLE students
-  ADD COLUMN IF NOT EXISTS face_registered      BOOLEAN   DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS face_register      BOOLEAN   DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS face_registered_at   TIMESTAMPTZ;
 
 -- Enable the pgvector extension for Supabase

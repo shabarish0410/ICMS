@@ -76,7 +76,7 @@ class Student(Base):
     resume_url = Column(String(500), nullable=True)
     resume_data = Column(JSON, nullable=True)
     # ── Face Registration Fields ──────────────────────────────────────────────
-    face_registered = Column(Boolean, default=False)
+    face_register = Column(Boolean, default=False)
     face_registered_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),

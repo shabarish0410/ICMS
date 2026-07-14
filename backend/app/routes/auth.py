@@ -65,22 +65,22 @@ def login(req: LoginRequest):
     access_token = create_access_token({"sub": str(user_data["id"]), "role": role_name})
     refresh_token = create_refresh_token({"sub": str(user_data["id"])})
 
-    # Fetch face_registered status for students
-    face_registered = None
+    # Fetch face_register status for students
+    face_register = None
     if role_name == "student":
         try:
-            student_res = supabase.table("students").select("face_registered").eq("user_id", user_data["id"]).execute()
+            student_res = supabase.table("students").select("face_register").eq("user_id", user_data["id"]).execute()
             if student_res.data:
-                face_registered = bool(student_res.data[0].get("face_registered", False))
+                face_register = bool(student_res.data[0].get("face_register", False))
         except Exception as e:
-            logger.warning(f"Could not fetch face_registered status: {e}")
+            logger.warning(f"Could not fetch face_register status: {e}")
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         is_profile_completed=bool(user_data.get("is_profile_completed")),
         must_change_password=bool(user_data.get("must_change_password")),
-        face_registered=face_registered,
+        face_register=face_register,
     )
 
 

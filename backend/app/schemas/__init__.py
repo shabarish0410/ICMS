@@ -53,7 +53,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     is_profile_completed: bool = False
     must_change_password: bool = False
-    face_registered: Optional[bool] = None   # None = not applicable (admin); False = must register
+    face_register: Optional[bool] = None   # None = not applicable (admin); False = must register
 
 
 class RefreshRequest(BaseModel):
@@ -556,7 +556,7 @@ class FaceRegisterRequest(BaseModel):
 
 class FaceStatusOut(BaseModel):
     student_id: int
-    face_registered: bool
+    face_register: bool
     registered_at: Optional[datetime] = None
     class Config:
         from_attributes = True
