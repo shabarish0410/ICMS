@@ -94,7 +94,7 @@ def validate_face_image(image_bytes: bytes) -> Dict[str, Any]:
             from deepface import DeepFace
             faces = DeepFace.extract_faces(
                 img_path=np.array(img),
-                detector_backend="retinaface",
+                detector_backend="opencv",
                 enforce_detection=True,
                 align=True
             )
@@ -160,7 +160,7 @@ def generate_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
             result = DeepFace.represent(
                 img_path=img_array,
                 model_name="ArcFace",
-                detector_backend="retinaface",
+                detector_backend="opencv",
                 enforce_detection=True,
                 align=True
             )
