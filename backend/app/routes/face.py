@@ -68,6 +68,8 @@ def register_face(
     Generates ArcFace embeddings and stores them in the students table.
     """
     import uuid
+    import traceback
+    
     role_info = current_user.get("role")
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
     if role_name != "student":
@@ -80,35 +82,56 @@ def register_face(
     logger.info(f"[Req {request_id}] Starting face registration for student {student_id}")
 
     # 1. Decode image
+    logger.info(f"[Req {request_id}] Decoding image")
     try:
         img_bytes = decode_base64_image(req.image_base64)
-    except ValueError as e:
-        logger.warning(f"[Req {request_id}] Invalid base64 image format: {e}")
-        raise HTTPException(status_code=400, detail="Invalid image format provided.")
+    except Exception as e:
+        logger.exception(f"[Req {request_id}] Face registration failed at decoding image")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Decoding image failed: {str(e)}")
 
     # 2. Quality validation
-    validation = validate_face_image(img_bytes)
-    if not validation["valid"]:
-        logger.warning(f"[Req {request_id}] Image validation failed: {validation['reason']}")
-        raise HTTPException(status_code=400, detail=validation["reason"])
+    logger.info(f"[Req {request_id}] Detecting face")
+    try:
+        validation = validate_face_image(img_bytes)
+        if not validation["valid"]:
+            logger.warning(f"[Req {request_id}] Image validation failed: {validation['reason']}")
+            raise HTTPException(status_code=400, detail=validation["reason"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[Req {request_id}] Face registration failed at face detection")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Detecting face failed: {str(e)}")
 
     # 3. Generate embedding
-    embedding = generate_face_embedding(img_bytes)
-    if embedding is None:
-        logger.error(f"[Req {request_id}] Could not generate face embedding for student {student_id}")
-        raise HTTPException(status_code=400, detail="Could not generate face embedding. Please ensure clear lighting and try again.")
+    logger.info(f"[Req {request_id}] Generating embedding")
+    try:
+        embedding = generate_face_embedding(img_bytes)
+        if embedding is None:
+            logger.error(f"[Req {request_id}] Could not generate face embedding for student {student_id}")
+            raise HTTPException(status_code=400, detail="Could not generate face embedding. Please ensure clear lighting and try again.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[Req {request_id}] Face registration failed at embedding generation")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Generating embedding failed: {str(e)}")
 
     # 4. Upload to Google Drive
+    logger.info(f"[Req {request_id}] Uploading to Google Drive")
     filename = f"face_reg_{student_id}_{request_id}.jpg"
     try:
         drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
     except Exception as e:
-        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
-        raise HTTPException(status_code=500, detail="Storage error: Could not save face image securely.")
+        logger.exception(f"[Req {request_id}] Face registration failed at Google Drive upload")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Uploading to Google Drive failed: {str(e)}")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # 5. Store metadata in Supabase (students table)
+    logger.info(f"[Req {request_id}] Updating Supabase")
     try:
         update_data = {
             "face_register": True,
@@ -121,12 +144,15 @@ def register_face(
         if not res.data:
             logger.error(f"[Req {request_id}] Database update failed: Student {student_id} not found.")
             raise HTTPException(status_code=404, detail="Student profile not found.")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.exception(f"[Req {request_id}] Database update exception: {e}")
-        raise HTTPException(status_code=500, detail="Database update failed while saving registration.")
+        logger.exception(f"[Req {request_id}] Face registration failed at Supabase update")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Updating Supabase failed: {str(e)}")
 
     _log_validation(supabase, student_id, "face_registration", "PASS", "Registered single face image successfully")
-    logger.info(f"[Req {request_id}] Face registration complete for student {student_id}")
+    logger.info(f"[Req {request_id}] Registration completed")
 
     return {
         "success": True,
