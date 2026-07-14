@@ -67,6 +67,7 @@ export default function FaceRegistrationPage() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updatePassword, setUpdatePassword] = useState('');
   
@@ -200,13 +201,17 @@ export default function FaceRegistrationPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.detail || 'Registration failed. Please try again.';
       toast.error(msg);
-      // Seamless recovery: Go back to detecting without resetting the whole page
-      setAllCaptured(false);
-      setIsBursting(false);
-      setBurstCount(0);
+      setCaptureError(msg);
     } finally {
       setUploading(false);
     }
+  };
+
+  const restartCapture = () => {
+    setCaptureError(null);
+    setAllCaptured(false);
+    setIsBursting(false);
+    setBurstCount(0);
   };
 
   return (
@@ -375,6 +380,29 @@ export default function FaceRegistrationPage() {
                   <p className="text-brand-emerald text-sm font-medium">
                     {uploading ? "Securing AI embeddings..." : "Success!"}
                   </p>
+                </motion.div>
+              )}
+
+              {captureError && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="absolute inset-0 bg-dark-900/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-6 text-center"
+                >
+                  <div className="w-16 h-16 bg-brand-red/20 rounded-full flex items-center justify-center mb-6">
+                    <AlertCircle className="w-8 h-8 text-brand-red" />
+                  </div>
+                  <p className="text-white text-xl font-bold mb-2">Registration Failed</p>
+                  <p className="text-brand-red/90 text-sm mb-6 max-w-sm">
+                    {captureError}
+                  </p>
+                  <button
+                    onClick={restartCapture}
+                    className="px-6 py-3 bg-brand-indigo hover:bg-brand-indigo/90 text-white rounded-xl transition-all font-semibold shadow-sm flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Restart Registration
+                  </button>
                 </motion.div>
               )}
             </div>
