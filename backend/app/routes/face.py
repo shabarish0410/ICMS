@@ -196,23 +196,32 @@ def get_face_status(
 @router.get("/my-status")
 def get_my_face_status(current_user: dict = Depends(get_current_user)):
     """Get face registration status for the currently logged-in student."""
-    role_info = current_user.get("role")
-    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
-    if role_name != "student":
-        raise HTTPException(status_code=403, detail="Only students can check face status")
+    import traceback
+    try:
+        role_info = current_user.get("role")
+        role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+        if role_name != "student":
+            raise HTTPException(status_code=403, detail="Only students can check face status")
 
-    student_id = _get_student_id(current_user)
-    supabase = get_supabase()
-    res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Student not found")
+        student_id = _get_student_id(current_user)
+        supabase = get_supabase()
+        res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
+        
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Student not found")
 
-    student = res.data[0]
-    return {
-        "student_id": student_id,
-        "face_register": bool(student.get("face_register", False)),
-        "registered_at": student.get("face_registered_at")
-    }
+        student = res.data[0]
+        return {
+            "student_id": student_id,
+            "face_register": bool(student.get("face_register", False)),
+            "registered_at": student.get("face_registered_at")
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error fetching face status: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── PUT /api/face/update ─────────────────────────────────────────────────────
