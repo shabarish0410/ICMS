@@ -29,7 +29,7 @@ export default function FaceRegistrationScreen({ navigation }: any) {
   // Camera capture & detection states
   const [isDetecting, setIsDetecting] = useState(false);
   const [instruction, setInstruction] = useState('Place your face inside the circle');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -112,16 +112,22 @@ export default function FaceRegistrationScreen({ navigation }: any) {
             
             if (leftEyeOpen < 0.2 && rightEyeOpen < 0.2) {
               // Blink detected!
-              setInstruction('Blink detected! Capturing...');
+              setInstruction('Hold still... capturing!');
               active = false;
               
-              // Capture high quality
-              const hqPhoto = await cameraRef.current.takePictureAsync({
-                quality: 0.8,
-                base64: true,
-              });
+              // Capture high quality burst
+              const burstImages: string[] = [];
+              for (let i = 0; i < 5; i++) {
+                if (cameraRef.current) {
+                  const hqPhoto = await cameraRef.current.takePictureAsync({
+                    quality: 0.8,
+                    base64: true,
+                  });
+                  burstImages.push(`data:image/jpeg;base64,${hqPhoto.base64}`);
+                }
+              }
               
-              setCapturedImage(`data:image/jpeg;base64,${hqPhoto.base64}`);
+              setCapturedImages(burstImages);
               setAppState('processing');
               return;
             } else {
@@ -151,19 +157,19 @@ export default function FaceRegistrationScreen({ navigation }: any) {
 
   // ── Registration Submit ──
   useEffect(() => {
-    if (appState === 'processing' && capturedImage) {
-      submitRegistration(capturedImage);
+    if (appState === 'processing' && capturedImages.length > 0) {
+      submitRegistration(capturedImages);
     }
-  }, [appState, capturedImage]);
+  }, [appState, capturedImages]);
 
-  const submitRegistration = async (imageB64: string) => {
+  const submitRegistration = async (imagesBase64: string[]) => {
     try {
       const headers = await getAuthHeader();
-      // Send array with 1 image
+      // Send array with 5 images
       const res = await fetch(`${API_BASE}/face/register`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ images_base64: [imageB64] }),
+        body: JSON.stringify({ images_base64: imagesBase64 }),
       });
       
       const data = await res.json();

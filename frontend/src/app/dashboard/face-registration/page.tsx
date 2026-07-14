@@ -10,17 +10,8 @@ import {
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useFaceDetection, PoseType } from './useFaceDetection';
+import { useFaceDetection } from './useFaceDetection';
 import { FaceOvalOverlay } from './FaceOvalOverlay';
-
-// ── Capture Steps ───────────────────────────────────────────────────────────────
-const CAPTURE_STEPS: { pose: PoseType; label: string; icon: string }[] = [
-  { pose: 'straight', label: 'Look Straight', icon: '👀' },
-  { pose: 'left', label: 'Turn Left', icon: '⬅️' },
-  { pose: 'right', label: 'Turn Right', icon: '➡️' },
-  { pose: 'up', label: 'Look Up', icon: '⬆️' },
-  { pose: 'down', label: 'Look Down', icon: '⬇️' },
-];
 
 type RegistrationStatus = 'checking' | 'not_registered' | 'registered' | 'registering' | 'updating';
 
@@ -40,13 +31,15 @@ export default function FaceRegistrationPage() {
   const [status, setStatus] = useState<RegistrationStatus>('checking');
   const [faceData, setFaceData] = useState<FaceStatusData | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updatePassword, setUpdatePassword] = useState('');
-  const [flashEffect, setFlashEffect] = useState(false);
+  
+  // Burst capture state
+  const [isBursting, setIsBursting] = useState(false);
+  const [burstCount, setBurstCount] = useState(0);
+  const [allCaptured, setAllCaptured] = useState(false);
 
   // ── Load face status ────────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
@@ -76,6 +69,9 @@ export default function FaceRegistrationPage() {
       });
       streamRef.current = stream;
       setCameraOpen(true);
+      setAllCaptured(false);
+      setIsBursting(false);
+      setBurstCount(0);
     } catch (err: any) {
       setCameraError(
         err.name === 'NotAllowedError'
@@ -99,33 +95,55 @@ export default function FaceRegistrationPage() {
       streamRef.current = null;
     }
     setCameraOpen(false);
-    setCurrentStepIndex(0);
-    setCapturedImages([]);
+    setIsBursting(false);
+    setBurstCount(0);
+    setAllCaptured(false);
   }, []);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Auto-Capture Callback ───────────────────────────────────────────────────
-  const handlePoseStable = useCallback((dataUrl: string) => {
-    setFlashEffect(true);
-    setTimeout(() => setFlashEffect(false), 300);
+  // ── Burst Capture Logic ─────────────────────────────────────────────────────
+  const handleBurstCaptureRequest = useCallback(() => {
+    if (isBursting || allCaptured) return;
+    setIsBursting(true);
+    setBurstCount(0);
 
-    setCapturedImages((prev) => {
-      const newImages = [...prev, dataUrl];
-      if (newImages.length === CAPTURE_STEPS.length) {
-        // We have all images! Stop tracking and submit.
-        setTimeout(() => submitRegistration(newImages, status === 'updating', updatePassword), 1000);
-      } else {
-        // Move to next pose
-        setCurrentStepIndex((prevIdx) => prevIdx + 1);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const capturedImages: string[] = [];
+    let count = 0;
+    const totalFrames = 5;
+
+    const interval = setInterval(() => {
+      if (count >= totalFrames) {
+        clearInterval(interval);
+        setAllCaptured(true);
+        setIsBursting(false);
+        // Submit images
+        submitRegistration(capturedImages, status === 'updating', updatePassword);
+        return;
       }
-      return newImages;
-    });
-  }, [status, updatePassword]);
+
+      const captureCanvas = document.createElement('canvas');
+      captureCanvas.width = video.videoWidth;
+      captureCanvas.height = video.videoHeight;
+      const captureCtx = captureCanvas.getContext('2d');
+      if (captureCtx) {
+        captureCtx.translate(captureCanvas.width, 0);
+        captureCtx.scale(-1, 1);
+        captureCtx.drawImage(video, 0, 0);
+        const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
+        capturedImages.push(dataUrl);
+      }
+      count++;
+      setBurstCount(count);
+    }, 200); // 5 frames over 1 second (200ms interval)
+
+  }, [isBursting, allCaptured, status, updatePassword]);
 
   // ── MediaPipe AI Hook ───────────────────────────────────────────────────────
-  const currentTargetPose = currentStepIndex < CAPTURE_STEPS.length ? CAPTURE_STEPS[currentStepIndex].pose : null;
-  const faceState = useFaceDetection(videoRef, canvasRef, currentTargetPose, handlePoseStable);
+  const faceState = useFaceDetection(videoRef, canvasRef, handleBurstCaptureRequest);
 
   // ── Submit registration ────────────────────────────────────────────────────
   const submitRegistration = async (images: string[], isUpdate = false, password = '') => {
@@ -146,14 +164,13 @@ export default function FaceRegistrationPage() {
       const msg = err?.response?.data?.detail || 'Registration failed. Please try again.';
       toast.error(msg);
       // Restart process
-      setCapturedImages([]);
-      setCurrentStepIndex(0);
+      setAllCaptured(false);
+      setIsBursting(false);
+      setBurstCount(0);
     } finally {
       setUploading(false);
     }
   };
-
-  const allCaptured = capturedImages.length >= CAPTURE_STEPS.length;
 
   return (
     <div className="w-full">
@@ -296,7 +313,7 @@ export default function FaceRegistrationPage() {
               </div>
               <h3 className="text-xl text-dark-900 dark:text-white font-bold mb-3">Automated Smart Enrollment</h3>
               <p className="text-dark-500 dark:text-dark-400 text-sm max-w-md mb-8 leading-relaxed">
-                Our AI will automatically detect your face and capture photos as you follow the on-screen head movements.
+                Our AI will automatically detect your face, verify liveness, and capture photos as you look straight at the camera.
               </p>
               
               <button
@@ -343,14 +360,16 @@ export default function FaceRegistrationPage() {
               />
 
               <FaceOvalOverlay 
-                progress={faceState.stabilityProgress}
-                isLocked={faceState.isStable}
+                progress={isBursting ? burstCount / 5 : (faceState.hasBlinked ? 1 : 0)}
+                isLocked={faceState.hasBlinked}
                 isDetecting={faceState.isDetecting && faceState.hasFace}
                 color={faceState.guidanceColor}
               />
 
-              {flashEffect && (
-                <div className="absolute inset-0 bg-white animate-ping opacity-70 pointer-events-none z-50" />
+              {isBursting && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+                  <div className="w-32 h-32 border-4 border-brand-emerald rounded-full animate-ping opacity-50" />
+                </div>
               )}
 
               {allCaptured && (
@@ -375,37 +394,6 @@ export default function FaceRegistrationPage() {
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-
-            {/* Pose Progress Checklist */}
-            <div className="glass-card p-6 border-dark-200 dark:border-white/10 shadow-sm">
-              <h4 className="text-dark-500 dark:text-dark-400 text-xs font-bold mb-6 uppercase tracking-widest text-center">Required Poses</h4>
-              <div className="flex justify-center flex-wrap gap-6 sm:gap-10">
-                {CAPTURE_STEPS.map((step, index) => {
-                  const isCompleted = index < currentStepIndex;
-                  const isActive = index === currentStepIndex;
-                  return (
-                    <div 
-                      key={step.pose}
-                      className={`flex flex-col items-center transition-all duration-300 ${
-                        isCompleted ? 'opacity-100 scale-100' :
-                        isActive ? 'opacity-100 scale-105' : 'opacity-40 scale-95'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 ${
-                        isCompleted ? 'bg-brand-emerald/10 border-brand-emerald/30 text-brand-emerald' :
-                        isActive ? 'bg-brand-indigo/10 border-brand-indigo text-brand-indigo shadow-sm' :
-                        'bg-dark-50 dark:bg-dark-800 border-dark-200 dark:border-dark-600 text-dark-500'
-                      }`}>
-                        {isCompleted ? <CheckCircle className="w-5 h-5" /> : <span className="text-xl">{step.icon}</span>}
-                      </div>
-                      <span className={`text-xs font-bold ${isActive ? 'text-brand-indigo dark:text-white' : isCompleted ? 'text-brand-emerald' : 'text-dark-400'}`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
             <div className="flex justify-center pt-2">
               <button

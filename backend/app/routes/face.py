@@ -105,8 +105,8 @@ def register_face(
 
         embeddings.append(embedding)
 
-    # Need at least 3 valid embeddings
-    if len(embeddings) < 3:
+    # Need at least 1 valid embedding
+    if len(embeddings) < 1:
         raise HTTPException(
             status_code=400,
             detail=f"Registration failed. Not enough valid face images. Errors: {'; '.join(errors[:3])}"
@@ -238,8 +238,8 @@ def update_face(
 
     # Re-register (same flow as register)
     images = req.images_base64
-    if len(images) < 5:
-        raise HTTPException(status_code=400, detail="Please provide at least 5 images.")
+    if len(images) < 1:
+        raise HTTPException(status_code=400, detail="Please provide at least 1 image.")
 
     embeddings = []
     for i, img_b64 in enumerate(images):
@@ -254,7 +254,7 @@ def update_face(
         except Exception:
             continue
 
-    if len(embeddings) < 3:
+    if len(embeddings) < 1:
         raise HTTPException(status_code=400, detail="Not enough valid face images. Please retake.")
 
     final_embedding = average_embeddings(embeddings)
