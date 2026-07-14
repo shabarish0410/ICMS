@@ -135,9 +135,7 @@ def register_face(
         update_data = {
             "face_registered": True,
             "face_registered_at": now_iso,
-            "face_embedding": embedding,
-            "face_image_url": face_image_url,
-            "face_drive_file_id": drive_file_id
+            "face_image_url": face_image_url
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
@@ -296,9 +294,7 @@ def update_face(
         update_data = {
             "face_registered": True,
             "face_registered_at": now_iso,
-            "face_embedding": embedding,
-            "face_image_url": face_image_url,
-            "face_drive_file_id": drive_file_id
+            "face_image_url": face_image_url
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
