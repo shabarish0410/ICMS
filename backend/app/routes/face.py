@@ -134,7 +134,7 @@ def register_face(
     logger.info(f"[Req {request_id}] Updating Supabase")
     try:
         update_data = {
-            "face_register": True,
+            "face_registered": True,
             "face_registered_at": now_iso,
             "face_embedding": embedding,
             "face_image_url": face_image_url,
@@ -179,14 +179,14 @@ def get_face_status(
             raise HTTPException(status_code=403, detail="Access denied")
 
     supabase = get_supabase()
-    res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
+    res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")
 
     student = res.data[0]
     return {
         "student_id": student_id,
-        "face_register": bool(student.get("face_register", False)),
+        "face_registered": bool(student.get("face_registered", False)),
         "registered_at": student.get("face_registered_at")
     }
 
@@ -205,7 +205,7 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
 
         student_id = _get_student_id(current_user)
         supabase = get_supabase()
-        res = supabase.table("students").select("id, face_register, face_registered_at").eq("id", student_id).execute()
+        res = supabase.table("students").select("id, face_registered, face_registered_at").eq("id", student_id).execute()
         
         if not res.data:
             raise HTTPException(status_code=404, detail="Student not found")
@@ -213,7 +213,7 @@ def get_my_face_status(current_user: dict = Depends(get_current_user)):
         student = res.data[0]
         return {
             "student_id": student_id,
-            "face_register": bool(student.get("face_register", False)),
+            "face_registered": bool(student.get("face_registered", False)),
             "registered_at": student.get("face_registered_at")
         }
     except HTTPException:
@@ -293,7 +293,7 @@ def update_face(
     # 6. Store metadata in Supabase (students table)
     try:
         update_data = {
-            "face_register": True,
+            "face_registered": True,
             "face_registered_at": now_iso,
             "face_embedding": embedding,
             "face_image_url": face_image_url,
@@ -334,7 +334,7 @@ def reset_face(
 
     # Reset flag and clear embeddings/image data
     supabase.table("students").update({
-        "face_register": False,
+        "face_registered": False,
         "face_registered_at": None,
         "face_embedding": None,
         "face_image_url": None,
@@ -359,14 +359,14 @@ def admin_face_status(
     supabase = get_supabase()
 
     query = supabase.table("students").select(
-        "id, face_register, face_registered_at, department, user:users(id, ic_number, full_name, email)",
+        "id, face_registered, face_registered_at, department, user:users(id, ic_number, full_name, email)",
         count="exact"
     )
 
     if department:
         query = query.eq("department", department)
 
-    res = query.order("face_register", desc=False).range(
+    res = query.order("face_registered", desc=False).range(
         (page - 1) * size, page * size - 1
     ).execute()
 

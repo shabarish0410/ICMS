@@ -76,7 +76,7 @@ class Student(Base):
     resume_url = Column(String(500), nullable=True)
     resume_data = Column(JSON, nullable=True)
     # ── Face Registration Fields ──────────────────────────────────────────────
-    face_register = Column(Boolean, default=False)
+    face_registered = Column(Boolean, default=False)
     face_registered_at = Column(DateTime, nullable=True)
     face_embedding = Column(JSON, nullable=True)
     face_image_url = Column(String(500), nullable=True)

@@ -52,10 +52,10 @@ def mark_attendance(
     supabase = get_supabase()
 
     # ── GATE: Face registration required ─────────────────────────────────────
-    student_res = supabase.table("students").select("id, face_register, department").eq("id", student_id).execute()
+    student_res = supabase.table("students").select("id, face_registered, department").eq("id", student_id).execute()
     if not student_res.data:
         raise HTTPException(status_code=404, detail="Student profile not found.")
-    if not student_res.data[0].get("face_register"):
+    if not student_res.data[0].get("face_registered"):
         raise HTTPException(
             status_code=400,
             detail="Face registration required. Please register your face in Profile → Face Registration before marking attendance."
@@ -145,8 +145,8 @@ def face_attendance(
     supabase = get_supabase()
 
     # ── STEP 1: Check face registration ──────────────────────────────────────
-    student_res = supabase.table("students").select("id, face_register, face_embedding").eq("id", student_id).execute()
-    if not student_res.data or not student_res.data[0].get("face_register"):
+    student_res = supabase.table("students").select("id, face_registered, face_embedding").eq("id", student_id).execute()
+    if not student_res.data or not student_res.data[0].get("face_registered"):
         _log_att(supabase, student_id, "face_register_check", "FAIL", "Face not registered")
         raise HTTPException(
             status_code=400,
