@@ -24,6 +24,7 @@ from app.services.face_service import (
     average_embeddings,
     compare_embeddings,
 )
+from app.services.google_drive import upload_image_to_drive
 from passlib.context import CryptContext
 
 logger = logging.getLogger("icms.face")
@@ -84,6 +85,8 @@ def register_face(
     # Validate and generate embeddings for each image
     embeddings = []
     errors = []
+    best_img_bytes = None
+    
     for i, img_b64 in enumerate(images):
         try:
             img_bytes = decode_base64_image(img_b64)
@@ -104,6 +107,10 @@ def register_face(
             continue
 
         embeddings.append(embedding)
+        
+        # Keep the first valid image bytes to upload to Drive
+        if best_img_bytes is None:
+            best_img_bytes = img_bytes
 
     # Need at least 1 valid embedding
     if len(embeddings) < 1:
@@ -114,6 +121,17 @@ def register_face(
 
     # Average all valid embeddings into one representative vector
     final_embedding = average_embeddings(embeddings)
+    
+    # Upload the best image to Google Drive
+    face_image_url = None
+    if best_img_bytes:
+        import uuid
+        filename = f"face_reg_{student_id}_{uuid.uuid4().hex[:8]}.jpg"
+        try:
+            face_image_url = upload_image_to_drive(best_img_bytes, filename)
+        except Exception as e:
+            logger.warning(f"Failed to upload face image to Google Drive: {e}")
+            # We don't fail the whole registration if upload fails, but it's ideal to store it.
 
     # Check if student already has a face registered
     existing = supabase.table("student_faces").select("id").eq("student_id", student_id).execute()
@@ -122,20 +140,28 @@ def register_face(
 
     if existing.data:
         # Update existing embedding
-        supabase.table("student_faces").update({
+        update_data = {
             "face_embedding": final_embedding,
             "model_version": "ArcFace",
             "updated_at": now_iso
-        }).eq("student_id", student_id).execute()
+        }
+        if face_image_url:
+            update_data["face_image_url"] = face_image_url
+            
+        supabase.table("student_faces").update(update_data).eq("student_id", student_id).execute()
     else:
         # Insert new embedding
-        supabase.table("student_faces").insert({
+        insert_data = {
             "student_id": student_id,
             "face_embedding": final_embedding,
             "model_version": "ArcFace",
             "created_at": now_iso,
             "updated_at": now_iso
-        }).execute()
+        }
+        if face_image_url:
+            insert_data["face_image_url"] = face_image_url
+            
+        supabase.table("student_faces").insert(insert_data).execute()
 
     # Mark student as face-registered
     supabase.table("students").update({
@@ -242,6 +268,7 @@ def update_face(
         raise HTTPException(status_code=400, detail="Please provide at least 1 image.")
 
     embeddings = []
+    best_img_bytes = None
     for i, img_b64 in enumerate(images):
         try:
             img_bytes = decode_base64_image(img_b64)
@@ -251,6 +278,8 @@ def update_face(
             embedding = generate_face_embedding(img_bytes)
             if embedding:
                 embeddings.append(embedding)
+                if best_img_bytes is None:
+                    best_img_bytes = img_bytes
         except Exception:
             continue
 
@@ -258,22 +287,40 @@ def update_face(
         raise HTTPException(status_code=400, detail="Not enough valid face images. Please retake.")
 
     final_embedding = average_embeddings(embeddings)
+    
+    face_image_url = None
+    if best_img_bytes:
+        import uuid
+        filename = f"face_upd_{student_id}_{uuid.uuid4().hex[:8]}.jpg"
+        try:
+            face_image_url = upload_image_to_drive(best_img_bytes, filename)
+        except Exception as e:
+            logger.warning(f"Failed to upload updated face image to Google Drive: {e}")
+
     now_iso = datetime.now(timezone.utc).isoformat()
 
     existing = supabase.table("student_faces").select("id").eq("student_id", student_id).execute()
     if existing.data:
-        supabase.table("student_faces").update({
+        update_data = {
             "face_embedding": final_embedding,
             "updated_at": now_iso
-        }).eq("student_id", student_id).execute()
+        }
+        if face_image_url:
+            update_data["face_image_url"] = face_image_url
+            
+        supabase.table("student_faces").update(update_data).eq("student_id", student_id).execute()
     else:
-        supabase.table("student_faces").insert({
+        insert_data = {
             "student_id": student_id,
             "face_embedding": final_embedding,
             "model_version": "ArcFace",
             "created_at": now_iso,
             "updated_at": now_iso
-        }).execute()
+        }
+        if face_image_url:
+            insert_data["face_image_url"] = face_image_url
+            
+        supabase.table("student_faces").insert(insert_data).execute()
 
     supabase.table("students").update({
         "face_registered": True,

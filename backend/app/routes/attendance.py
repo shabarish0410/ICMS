@@ -19,7 +19,7 @@ from app.services.face_service import (
 )
 from app.utils.actions import log_admin_action, broadcast_notification
 import math
-from app.services.google_drive import upload_attendance_image
+from app.services.google_drive import upload_image_to_drive
 
 logger = logging.getLogger("icms.attendance")
 router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
@@ -213,8 +213,8 @@ def face_attendance(
     if not photo_url:
         try:
             import uuid
-            photo_filename = f"{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
-            _, photo_url = upload_attendance_image(
+            photo_filename = f"att_{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
+            photo_url = upload_image_to_drive(
                 img_bytes,
                 photo_filename
             )

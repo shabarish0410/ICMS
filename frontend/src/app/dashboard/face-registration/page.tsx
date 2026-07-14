@@ -22,6 +22,40 @@ interface FaceStatusData {
   updated_at?: string;
 }
 
+// Asynchronous scoring of image to prevent UI blocking
+const scoreImageQuality = (canvas: HTMLCanvasElement): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // Pushing to next tick to keep UI responsive
+    setTimeout(() => {
+      try {
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return resolve(true); // default pass
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let r = 0, g = 0, b = 0;
+        const step = 4 * 10; // sample every 10 pixels for speed
+        let count = 0;
+        
+        for (let i = 0; i < imgData.length; i += step) {
+          r += imgData[i];
+          g += imgData[i + 1];
+          b += imgData[i + 2];
+          count++;
+        }
+        
+        const brightness = (r + g + b) / (3 * count);
+        // Ensure lighting is acceptable (not completely dark or blown out)
+        if (brightness < 25 || brightness > 230) {
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      } catch (e) {
+        resolve(true);
+      }
+    }, 0);
+  });
+};
+
 export default function FaceRegistrationPage() {
   const { isAdmin } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -75,11 +109,19 @@ export default function FaceRegistrationPage() {
     } catch (err: any) {
       setCameraError(
         err.name === 'NotAllowedError'
-          ? 'Camera permission denied. Please allow camera access in your browser settings.'
+          ? 'Camera permission denied. Please allow camera access.'
           : 'Could not open camera. Please check your device.'
       );
     }
   }, []);
+
+  // Auto-start camera if user is not registered (optimizing for speed)
+  useEffect(() => {
+    if (status === 'not_registered' && !cameraOpen && !cameraError) {
+      setStatus('registering');
+      startCamera();
+    }
+  }, [status, cameraOpen, cameraError, startCamera]);
 
   // Attach stream to video element when it mounts
   useEffect(() => {
@@ -103,7 +145,7 @@ export default function FaceRegistrationPage() {
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   // ── Burst Capture Logic ─────────────────────────────────────────────────────
-  const handleBurstCaptureRequest = useCallback(() => {
+  const handleBurstCaptureRequest = useCallback(async () => {
     if (isBursting || allCaptured) return;
     setIsBursting(true);
     setBurstCount(0);
@@ -113,14 +155,21 @@ export default function FaceRegistrationPage() {
 
     const capturedImages: string[] = [];
     let count = 0;
-    const totalFrames = 5;
+    const totalAttempts = 5;
 
-    const interval = setInterval(() => {
-      if (count >= totalFrames) {
-        clearInterval(interval);
+    // Capture frames as fast as possible (0.5s burst)
+    const captureLoop = async () => {
+      if (count >= totalAttempts) {
         setAllCaptured(true);
         setIsBursting(false);
-        // Submit images
+        // If all frames were rejected, retry burst automatically
+        if (capturedImages.length === 0) {
+          toast.error("Poor lighting or blur detected. Retrying...");
+          setAllCaptured(false);
+          setIsBursting(false);
+          setBurstCount(0);
+          return;
+        }
         submitRegistration(capturedImages, status === 'updating', updatePassword);
         return;
       }
@@ -133,12 +182,23 @@ export default function FaceRegistrationPage() {
         captureCtx.translate(captureCanvas.width, 0);
         captureCtx.scale(-1, 1);
         captureCtx.drawImage(video, 0, 0);
-        const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
-        capturedImages.push(dataUrl);
+        
+        // Asynchronous scoring
+        const isGoodQuality = await scoreImageQuality(captureCanvas);
+        if (isGoodQuality) {
+          // Compress immediately (0.7 quality saves significant bandwidth)
+          const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.7);
+          capturedImages.push(dataUrl);
+        }
       }
       count++;
       setBurstCount(count);
-    }, 200); // 5 frames over 1 second (200ms interval)
+      
+      // Delay to spread out the 5 frames across ~0.5 seconds (100ms interval)
+      setTimeout(captureLoop, 100);
+    };
+
+    captureLoop();
 
   }, [isBursting, allCaptured, status, updatePassword]);
 
@@ -163,7 +223,7 @@ export default function FaceRegistrationPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.detail || 'Registration failed. Please try again.';
       toast.error(msg);
-      // Restart process
+      // Seamless recovery: Go back to detecting without resetting the whole page
       setAllCaptured(false);
       setIsBursting(false);
       setBurstCount(0);
@@ -191,7 +251,7 @@ export default function FaceRegistrationPage() {
         {status === 'checking' && (
           <div className="glass-card p-10 flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-4 border-brand-indigo border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-dark-600 dark:text-dark-300 font-medium">Checking registration status...</p>
+            <p className="text-dark-600 dark:text-dark-300 font-medium">Loading...</p>
           </div>
         )}
 
@@ -254,23 +314,6 @@ export default function FaceRegistrationPage() {
               </div>
             </div>
 
-            {/* Security Info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { icon: Shield, label: 'ArcFace AI', desc: 'Production-grade facial recognition' },
-                { icon: Eye, label: 'Liveness Check', desc: 'Anti-spoofing detects real faces' },
-                { icon: Lock, label: 'Privacy Safe', desc: 'Secure math embeddings, no raw images' },
-              ].map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="glass-card p-5 flex flex-col items-start text-left">
-                  <div className="p-2 bg-dark-50 dark:bg-white/5 rounded-lg border border-dark-100 dark:border-white/10 mb-3">
-                     <Icon className="w-5 h-5 text-brand-indigo dark:text-brand-cyan" />
-                  </div>
-                  <p className="text-dark-900 dark:text-white font-bold text-sm">{label}</p>
-                  <p className="text-dark-500 dark:text-dark-400 text-xs mt-1 leading-relaxed">{desc}</p>
-                </div>
-              ))}
-            </div>
-
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-4 pt-4">
               <button
@@ -287,43 +330,6 @@ export default function FaceRegistrationPage() {
                 <CheckCircle className="w-4 h-4" />
                 Go to Attendance
               </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Not Registered */}
-        {status === 'not_registered' && !cameraOpen && (
-          <div className="space-y-6">
-            <div className="glass-card p-6 border-l-4 border-l-brand-amber">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="w-6 h-6 text-brand-amber flex-shrink-0 mt-0.5" />
-                <div>
-                  <h2 className="font-bold text-dark-900 dark:text-white">Registration Required</h2>
-                  <p className="text-dark-600 dark:text-dark-300 text-sm mt-1 leading-relaxed">
-                    You must register your face before you can use Face Attendance. 
-                    <span className="font-semibold text-dark-900 dark:text-white"> Attendance cannot be marked without completing this step.</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-card p-10 text-center flex flex-col items-center">
-              <div className="w-16 h-16 bg-brand-indigo/10 rounded-full flex items-center justify-center mb-6">
-                <Sparkles className="w-8 h-8 text-brand-indigo" />
-              </div>
-              <h3 className="text-xl text-dark-900 dark:text-white font-bold mb-3">Automated Smart Enrollment</h3>
-              <p className="text-dark-500 dark:text-dark-400 text-sm max-w-md mb-8 leading-relaxed">
-                Our AI will automatically detect your face, verify liveness, and capture photos as you look straight at the camera.
-              </p>
-              
-              <button
-                onClick={() => { setStatus('registering'); startCamera(); }}
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-brand-indigo hover:bg-brand-indigo/90 text-white rounded-xl font-bold transition-all shadow-sm group"
-              >
-                <Camera className="w-5 h-5" />
-                Start Registration
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
             </div>
           </div>
         )}
@@ -346,6 +352,9 @@ export default function FaceRegistrationPage() {
                 }`}
               >
                 <p className="text-lg font-bold">{faceState.guidanceText}</p>
+                {faceState.hasTimeout && (
+                  <button onClick={() => window.location.reload()} className="mt-2 text-sm text-brand-red underline">Retry</button>
+                )}
               </motion.div>
             </AnimatePresence>
 

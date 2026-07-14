@@ -378,6 +378,7 @@ class StudentFace(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), unique=True, nullable=False)
     face_embedding = Column(JSON, nullable=False)  # ArcFace 512-dim vector as list of floats
+    face_image_url = Column(String(500), nullable=True)  # Google Drive URL
     model_version = Column(String(50), default="ArcFace")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),

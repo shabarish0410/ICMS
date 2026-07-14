@@ -11,9 +11,14 @@ export interface FaceState {
   guidanceText: string;
   guidanceColor: 'slate' | 'indigo' | 'emerald' | 'amber' | 'red';
   warning?: string;
+  hasTimeout?: boolean;
 }
 
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+// Singleton to reuse the model across mounts
+let globalFaceLandmarker: FaceLandmarker | null = null;
+let modelInitPromise: Promise<FaceLandmarker> | null = null;
 
 function getEAR(eyeLandmarks: {x:number, y:number}[]) {
   if (eyeLandmarks.length < 6) return 0.3;
@@ -30,7 +35,6 @@ export function useFaceDetection(
   canvasRef: React.RefObject<HTMLCanvasElement>,
   onBurstCaptureRequest?: () => void
 ) {
-  const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(null);
   const [faceState, setFaceState] = useState<FaceState>({
     isDetecting: false,
     hasFace: false,
@@ -44,30 +48,44 @@ export function useFaceDetection(
 
   const requestRef = useRef<number>();
   const lastVideoTimeRef = useRef<number>(-1);
+  const lastProcessTimeMs = useRef<number>(0);
+  const detectionStartTimeMs = useRef<number>(0);
+  
   const hasBlinkedRef = useRef(false);
   const burstRequestedRef = useRef(false);
   const isMountedRef = useRef(true);
+  
+  // Debounce tracking
+  const consecutiveWarningFrames = useRef(0);
+  const lastWarningRef = useRef<string>('');
 
   // Initialize MediaPipe Face Landmarker
   useEffect(() => {
     isMountedRef.current = true;
+    
     const initModel = async () => {
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
-        const landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: MODEL_URL,
-            delegate: 'GPU'
-          },
-          outputFaceBlendshapes: true,
-          runningMode: 'VIDEO',
-          numFaces: 1
-        });
+        if (!globalFaceLandmarker) {
+          if (!modelInitPromise) {
+            modelInitPromise = (async () => {
+              const vision = await FilesetResolver.forVisionTasks(
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+              );
+              return await FaceLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                  modelAssetPath: MODEL_URL,
+                  delegate: 'GPU'
+                },
+                outputFaceBlendshapes: true,
+                runningMode: 'VIDEO',
+                numFaces: 1
+              });
+            })();
+          }
+          globalFaceLandmarker = await modelInitPromise;
+        }
         
         if (isMountedRef.current) {
-          setFaceLandmarker(landmarker);
           setFaceState(prev => ({ ...prev, guidanceText: 'Ready. Position your face in the oval.', guidanceColor: 'slate' }));
         }
       } catch (err) {
@@ -77,16 +95,18 @@ export function useFaceDetection(
         }
       }
     };
+    
     initModel();
+    
     return () => {
       isMountedRef.current = false;
-      if (faceLandmarker) faceLandmarker.close();
+      // Do NOT close the faceLandmarker so it can be reused immediately.
     };
   }, []);
 
   // Main detection loop
   const detectFace = useCallback(() => {
-    if (!faceLandmarker || !videoRef.current || !canvasRef.current || burstRequestedRef.current) {
+    if (!globalFaceLandmarker || !videoRef.current || !canvasRef.current || burstRequestedRef.current) {
       if (!burstRequestedRef.current) {
         requestRef.current = requestAnimationFrame(detectFace);
       }
@@ -99,16 +119,31 @@ export function useFaceDetection(
       return;
     }
 
+    if (detectionStartTimeMs.current === 0) {
+      detectionStartTimeMs.current = performance.now();
+    }
+
+    const now = performance.now();
+    
+    // 15 FPS Throttle (~66ms)
+    if (now - lastProcessTimeMs.current < 66) {
+      requestRef.current = requestAnimationFrame(detectFace);
+      return;
+    }
+    
     // Process only if new frame is available
     if (video.currentTime !== lastVideoTimeRef.current) {
+      lastProcessTimeMs.current = now;
       lastVideoTimeRef.current = video.currentTime;
       
-      const startTimeMs = performance.now();
-      const results = faceLandmarker.detectForVideo(video, startTimeMs);
+      const results = globalFaceLandmarker.detectForVideo(video, now);
 
       if (results.faceLandmarks && results.faceLandmarks.length > 0) {
         const landmarks = results.faceLandmarks[0];
         
+        // Reset timeout clock if we successfully see a face
+        detectionStartTimeMs.current = now;
+
         // Face Size & Center check
         const nose = landmarks[1];
         const leftEar = landmarks[234];
@@ -118,8 +153,10 @@ export function useFaceDetection(
 
         const width = rightEar.x - leftEar.x;
         const height = bottomFace.y - topFace.y;
-        const isGoodSize = width > 0.3 && height > 0.3;
-        const isCentered = nose.x > 0.3 && nose.x < 0.7 && nose.y > 0.3 && nose.y < 0.7;
+        
+        // Slightly relaxed thresholds for speed and reliability
+        const isGoodSize = width > 0.25 && height > 0.25;
+        const isCentered = nose.x > 0.25 && nose.x < 0.75 && nose.y > 0.25 && nose.y < 0.75;
 
         // Blink detection
         const LEFT_EYE = [362, 385, 387, 263, 373, 380].map(i => landmarks[i]);
@@ -131,10 +168,23 @@ export function useFaceDetection(
           hasBlinkedRef.current = true;
         }
 
-        let warning = '';
-        if (results.faceLandmarks.length > 1) warning = 'Only one person allowed';
-        else if (!isCentered) warning = 'Center your face in the oval';
-        else if (!isGoodSize) warning = 'Move closer to the camera';
+        let rawWarning = '';
+        if (results.faceLandmarks.length > 1) rawWarning = 'Only one person allowed';
+        else if (!isCentered) rawWarning = 'Center your face in the oval';
+        else if (!isGoodSize) rawWarning = 'Move closer to the camera';
+
+        // Debounce warning (require 3 consecutive frames of the same warning to show it)
+        if (rawWarning === lastWarningRef.current && rawWarning !== '') {
+          consecutiveWarningFrames.current++;
+        } else if (rawWarning !== '') {
+          lastWarningRef.current = rawWarning;
+          consecutiveWarningFrames.current = 1;
+        } else {
+          lastWarningRef.current = '';
+          consecutiveWarningFrames.current = 0;
+        }
+
+        const warning = consecutiveWarningFrames.current >= 3 ? rawWarning : '';
 
         const hasBlinked = hasBlinkedRef.current;
         let guidanceText = 'Position your face in the oval';
@@ -167,11 +217,16 @@ export function useFaceDetection(
           readyForBurst: burstRequestedRef.current,
           guidanceText,
           guidanceColor,
-          warning
+          warning,
+          hasTimeout: false
         });
 
       } else {
         // No face detected
+        const hasTimeout = (now - detectionStartTimeMs.current) > 5000;
+        let w = 'No face detected';
+        if (hasTimeout) w = 'No face detected for 5 seconds. Please ensure good lighting.';
+
         setFaceState({
           isDetecting: true,
           hasFace: false,
@@ -180,8 +235,9 @@ export function useFaceDetection(
           hasBlinked: hasBlinkedRef.current,
           readyForBurst: false,
           guidanceText: 'Position your face in the frame',
-          guidanceColor: 'slate',
-          warning: 'No face detected'
+          guidanceColor: hasTimeout ? 'red' : 'slate',
+          warning: w,
+          hasTimeout
         });
       }
     }
@@ -189,7 +245,7 @@ export function useFaceDetection(
     if (!burstRequestedRef.current) {
       requestRef.current = requestAnimationFrame(detectFace);
     }
-  }, [faceLandmarker, onBurstCaptureRequest]);
+  }, [onBurstCaptureRequest]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(detectFace);

@@ -79,30 +79,9 @@ async def upload_uniform_image(
     ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
     filename = f"uniform_{image_type}_{uuid.uuid4().hex[:8]}.{ext}"
 
-    # Ensure bucket exists
     try:
-        buckets = supabase.storage.list_buckets()
-        bucket_names = [b.name for b in buckets]
-        if "uniform-images" not in bucket_names:
-            import httpx
-            from app.core.config import settings
-            headers = {
-                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
-                "Content-Type": "application/json"
-            }
-            payload = {"id": "uniform-images", "name": "uniform-images", "public": True}
-            bucket_url = f"{settings.SUPABASE_URL}/storage/v1/bucket"
-            httpx.post(bucket_url, json=payload, headers=headers, timeout=10.0)
-    except Exception as e:
-        logger.warning(f"Could not verify/create uniform-images bucket: {e}")
-
-    try:
-        supabase.storage.from_("uniform-images").upload(
-            filename,
-            file_bytes,
-            file_options={"content-type": file.content_type or "image/jpeg"}
-        )
-        public_url = supabase.storage.from_("uniform-images").get_public_url(filename)
+        from app.services.google_drive import upload_image_to_drive
+        public_url = upload_image_to_drive(file_bytes, filename)
         return {"success": True, "url": public_url, "filename": filename}
     except Exception as e:
         logger.error(f"Uniform image upload failed: {e}")

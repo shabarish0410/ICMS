@@ -5,6 +5,9 @@ from app.core.security import get_current_user
 from app.core.config import settings
 from app.core.supabase import get_supabase
 import io
+import logging
+
+logger = logging.getLogger("icms.uploads")
 
 router = APIRouter(prefix="/api/uploads", tags=["Uploads"])
 
@@ -32,31 +35,30 @@ def upload_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not save file locally: {str(e)}")
 
-    # 2. Try to upload the local file to Supabase
+    # 2. Upload to Google Drive using in-memory file_bytes
     try:
-        supabase = get_supabase()
+        from app.services.google_drive import upload_image_to_drive
+        public_url = upload_image_to_drive(file_bytes, filename)
         
-        # Pass the string filepath instead of BytesIO
-        res = supabase.storage.from_(SNAPSHOT_BUCKET).upload(
-            path=filename,
-            file=filepath,
-            file_options={"content-type": file.content_type or "image/jpeg", "upsert": "false"},
-        )
-        
-        public_url = supabase.storage.from_(SNAPSHOT_BUCKET).get_public_url(filename)
-        
+        # Cleanup local file since upload was successful
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception as e:
+            logger.warning(f"Could not delete temp file {filepath}: {e}")
+            
         return {
             "file_url": public_url,
             "filename": filename,
-            "storage": "supabase",
+            "storage": "google_drive",
         }
         
-    except Exception as supabase_err:
+    except Exception as drive_err:
         import traceback
         with open("upload_error.txt", "w") as f:
             f.write(traceback.format_exc())
             
-        print(f"⚠️ Supabase Storage upload failed, using local: {supabase_err}")
+        print(f"⚠️ Google Drive upload failed, keeping local file: {drive_err}")
         return {
             "file_url": f"/uploads/{filename}",
             "filename": filename,

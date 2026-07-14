@@ -94,7 +94,7 @@ export default function FaceRegistrationScreen({ navigation }: any) {
         });
 
         if (result.faces.length === 0) {
-          setInstruction('Place your face inside the circle');
+          setInstruction('Position your face in the frame');
         } else if (result.faces.length > 1) {
           setInstruction('Only one face should be visible');
         } else {
@@ -120,7 +120,7 @@ export default function FaceRegistrationScreen({ navigation }: any) {
               for (let i = 0; i < 5; i++) {
                 if (cameraRef.current) {
                   const hqPhoto = await cameraRef.current.takePictureAsync({
-                    quality: 0.8,
+                    quality: 0.7, // compress payload
                     base64: true,
                   });
                   burstImages.push(`data:image/jpeg;base64,${hqPhoto.base64}`);
@@ -140,7 +140,7 @@ export default function FaceRegistrationScreen({ navigation }: any) {
       } finally {
         setIsDetecting(false);
         if (active) {
-          frameTimer = setTimeout(detectLoop, 300);
+          frameTimer = setTimeout(detectLoop, 66); // ~15 FPS
         }
       }
     };
