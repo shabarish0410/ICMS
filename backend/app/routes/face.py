@@ -124,9 +124,8 @@ def register_face(
     try:
         drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
     except Exception as e:
-        logger.exception(f"[Req {request_id}] Face registration failed at Google Drive upload")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Uploading to Google Drive failed: {str(e)}")
+        logger.error(f"[Req {request_id}] Google Drive upload failed (bypassing): {e}")
+        drive_file_id, face_image_url = None, None
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -287,8 +286,8 @@ def update_face(
     try:
         drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
     except Exception as e:
-        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
-        raise HTTPException(status_code=500, detail="Storage error: Could not save face image securely.")
+        logger.error(f"[Req {request_id}] Google Drive upload failed (bypassing): {e}")
+        drive_file_id, face_image_url = None, None
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
