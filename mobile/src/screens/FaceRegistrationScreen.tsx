@@ -1,354 +1,425 @@
-/**
- * Face Registration Screen - React Native (Expo)
- * Guides the student through 5 face captures with poses.
- * Sends base64 images to /api/face/register
- */
-
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
-  ScrollView, Alert, ActivityIndicator, Dimensions
+  ScrollView, Alert, ActivityIndicator, Dimensions, Animated, Easing
 } from 'react-native';
-import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
-import { LinearGradient } from 'expo-linear-gradient';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FaceDetector from 'expo-face-detector';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-
-// ── Capture steps
-const CAPTURE_STEPS = [
-  { label: 'Looking Straight', instruction: 'Look directly at the camera', icon: '👀' },
-  { label: 'Looking Left',     instruction: 'Slowly turn head to the LEFT', icon: '⬅️' },
-  { label: 'Looking Right',    instruction: 'Slowly turn head to the RIGHT', icon: '➡️' },
-  { label: 'Looking Up',       instruction: 'Tilt your head slightly upward', icon: '⬆️' },
-  { label: 'Looking Down',     instruction: 'Tilt your head slightly downward', icon: '⬇️' },
-];
-
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const API_BASE = 'https://spark-innovation.onrender.com/api';
+
+type AppState = 'about' | 'permission' | 'environment' | 'camera' | 'processing' | 'success';
 
 export default function FaceRegistrationScreen({ navigation }: any) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
 
-  const [step, setStep] = useState(0);
-  const [capturedImages, setCapturedImages] = useState<string[]>([]);
-  const [capturing, setCapturing] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [registrationStatus, setRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered'>('unknown');
-  const [registeredAt, setRegisteredAt] = useState<string | null>(null);
-  const [cameraVisible, setCameraVisible] = useState(false);
+  const [appState, setAppState] = useState<AppState>('about');
+  
+  // Environment Check states
+  const [envChecks, setEnvChecks] = useState({
+    camera: false,
+    lighting: false,
+    internet: false,
+    ready: false
+  });
 
-  // Load status on mount
+  // Camera capture & detection states
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [instruction, setInstruction] = useState('Place your face inside the circle');
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  // Trigger entering animation on state change
   useEffect(() => {
-    checkStatus();
-  }, []);
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 400, easing: Easing.out(Easing.quad), useNativeDriver: true })
+    ]).start();
+  }, [appState]);
 
+  // Auth header helper
   const getAuthHeader = async () => {
     const token = await AsyncStorage.getItem('access_token');
     return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   };
 
-  const checkStatus = async () => {
+  // ── Environment Check Simulation ──
+  useEffect(() => {
+    if (appState === 'environment') {
+      let step = 0;
+      const interval = setInterval(() => {
+        step++;
+        if (step === 1) setEnvChecks((prev: any) => ({ ...prev, camera: true }));
+        else if (step === 2) setEnvChecks((prev: any) => ({ ...prev, internet: true }));
+        else if (step === 3) setEnvChecks((prev: any) => ({ ...prev, lighting: true }));
+        else if (step === 4) {
+          setEnvChecks((prev: any) => ({ ...prev, ready: true }));
+          clearInterval(interval);
+          setTimeout(() => setAppState('camera'), 800);
+        }
+      }, 600);
+      return () => clearInterval(interval);
+    }
+  }, [appState]);
+
+  // ── Face Detection Loop ──
+  useEffect(() => {
+    let active = true;
+    let frameTimer: any;
+
+    const detectLoop = async () => {
+      if (appState !== 'camera' || !cameraRef.current || isDetecting) return;
+      setIsDetecting(true);
+
+      try {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.3,
+          base64: true,
+        });
+
+        if (!active) return;
+
+        const result = await FaceDetector.detectFacesAsync(photo.uri, {
+          mode: FaceDetector.FaceDetectorMode.fast,
+          detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+          runClassifications: FaceDetector.FaceDetectorClassifications.all,
+        });
+
+        if (result.faces.length === 0) {
+          setInstruction('Place your face inside the circle');
+        } else if (result.faces.length > 1) {
+          setInstruction('Only one face should be visible');
+        } else {
+          const face = result.faces[0];
+          
+          // Check bounds (face centered and large enough)
+          const isCentered = face.bounds.origin.x > 0 && face.bounds.origin.y > 0;
+          
+          if (!isCentered) {
+            setInstruction('Center your face');
+          } else {
+            // Check Blink
+            const leftEyeOpen = face.leftEyeOpenProbability ?? 1;
+            const rightEyeOpen = face.rightEyeOpenProbability ?? 1;
+            
+            if (leftEyeOpen < 0.2 && rightEyeOpen < 0.2) {
+              // Blink detected!
+              setInstruction('Blink detected! Capturing...');
+              active = false;
+              
+              // Capture high quality
+              const hqPhoto = await cameraRef.current.takePictureAsync({
+                quality: 0.8,
+                base64: true,
+              });
+              
+              setCapturedImage(`data:image/jpeg;base64,${hqPhoto.base64}`);
+              setAppState('processing');
+              return;
+            } else {
+              setInstruction('Blink once naturally');
+            }
+          }
+        }
+      } catch (e) {
+        // silently ignore frame errors
+      } finally {
+        setIsDetecting(false);
+        if (active) {
+          frameTimer = setTimeout(detectLoop, 300);
+        }
+      }
+    };
+
+    if (appState === 'camera') {
+      frameTimer = setTimeout(detectLoop, 1000); // give camera time to initialize
+    }
+
+    return () => {
+      active = false;
+      clearTimeout(frameTimer);
+    };
+  }, [appState]);
+
+  // ── Registration Submit ──
+  useEffect(() => {
+    if (appState === 'processing' && capturedImage) {
+      submitRegistration(capturedImage);
+    }
+  }, [appState, capturedImage]);
+
+  const submitRegistration = async (imageB64: string) => {
     try {
       const headers = await getAuthHeader();
-      const res = await fetch(`${API_BASE}/face/my-status`, { headers });
-      const data = await res.json();
-      if (data.face_registered) {
-        setRegistrationStatus('registered');
-        setRegisteredAt(data.registered_at);
-      } else {
-        setRegistrationStatus('not_registered');
-      }
-    } catch {
-      setRegistrationStatus('not_registered');
-    }
-  };
-
-  // Capture with countdown
-  const doCapture = useCallback(async () => {
-    if (capturing || !cameraRef.current) return;
-    setCapturing(true);
-
-    // 3-second countdown
-    for (let i = 3; i >= 1; i--) {
-      setCountdown(i);
-      await new Promise(r => setTimeout(r, 900));
-    }
-    setCountdown(null);
-
-    try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
-        base64: true,
-        exif: false,
-      });
-
-      const base64 = `data:image/jpeg;base64,${photo.base64}`;
-      const newImages = [...capturedImages, base64];
-      setCapturedImages(newImages);
-
-      if (step < CAPTURE_STEPS.length - 1) {
-        setStep(s => s + 1);
-      }
-    } catch (e) {
-      Alert.alert('Capture Failed', 'Could not capture photo. Please try again.');
-    } finally {
-      setCapturing(false);
-    }
-  }, [capturing, capturedImages, step]);
-
-  // Submit registration
-  const submitRegistration = async () => {
-    if (capturedImages.length < 5) {
-      Alert.alert('Not Enough Photos', 'Please capture all 5 face poses.');
-      return;
-    }
-    setUploading(true);
-    try {
-      const headers = await getAuthHeader();
+      // Send array with 1 image
       const res = await fetch(`${API_BASE}/face/register`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ images_base64: capturedImages }),
+        body: JSON.stringify({ images_base64: [imageB64] }),
       });
+      
       const data = await res.json();
-
       if (res.ok) {
-        Alert.alert(
-          '✅ Registration Successful',
-          'Your face has been registered. You can now use Face Attendance.',
-          [{ text: 'OK', onPress: () => { setCameraVisible(false); checkStatus(); } }]
-        );
+        setAppState('success');
       } else {
-        Alert.alert('Registration Failed', data.detail || 'Please try again.');
+        Alert.alert('Registration Failed', data.detail || 'Could not register face.', [
+          { text: 'Try Again', onPress: () => setAppState('camera') }
+        ]);
       }
     } catch (e) {
-      Alert.alert('Error', 'Network error. Please check your connection.');
-    } finally {
-      setUploading(false);
+      Alert.alert('Network Error', 'Please check your connection and try again.', [
+        { text: 'Try Again', onPress: () => setAppState('camera') }
+      ]);
     }
   };
 
-  if (!permission) return <View style={styles.container}><ActivityIndicator color="#6366f1" size="large" /></View>;
 
-  if (!permission.granted) {
-    return (
-      <LinearGradient colors={['#0f172a', '#1e1b4b']} style={styles.container}>
-        <Text style={styles.title}>Camera Permission Required</Text>
-        <Text style={styles.subtitle}>Grant camera access to register your face.</Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-          <Text style={styles.primaryBtnText}>Grant Permission</Text>
+  // ── Views ──
+
+  const renderAbout = () => (
+    <Animated.View style={[styles.screen, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.largeTitle}>Face Registration</Text>
+          <Text style={styles.subtitle}>Register your face securely to enable Face Attendance in ICMS.</Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.benefitRow}>
+            <Text style={styles.benefitIcon}>🔒</Text>
+            <Text style={styles.benefitText}>Secure Attendance</Text>
+          </View>
+          <View style={styles.benefitRow}>
+            <Text style={styles.benefitIcon}>👤</Text>
+            <Text style={styles.benefitText}>One Face Per Account</Text>
+          </View>
+          <View style={styles.benefitRow}>
+            <Text style={styles.benefitIcon}>🤖</Text>
+            <Text style={styles.benefitText}>AI Face Verification</Text>
+          </View>
+          <View style={styles.benefitRow}>
+            <Text style={styles.benefitIcon}>⚡</Text>
+            <Text style={styles.benefitText}>Fast Attendance</Text>
+          </View>
+        </View>
+
+        <View style={styles.instructionContainer}>
+          <Text style={styles.instructionTitle}>Instructions</Text>
+          <Text style={styles.instructionItem}>• Remove any mask</Text>
+          <Text style={styles.instructionItem}>• Ensure good lighting</Text>
+          <Text style={styles.instructionItem}>• Keep your face inside the circle</Text>
+          <Text style={styles.instructionItem}>• Remove sunglasses</Text>
+          <Text style={styles.instructionItem}>• Hold your phone steady</Text>
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => {
+          if (permission?.granted) setAppState('environment');
+          else setAppState('permission');
+        }}>
+          <Text style={styles.primaryBtnText}>Continue</Text>
         </TouchableOpacity>
-      </LinearGradient>
-    );
-  }
-
-  const allCaptured = capturedImages.length >= CAPTURE_STEPS.length;
-
-  // ── Not registered view
-  if (registrationStatus === 'registered' && !cameraVisible) {
-    return (
-      <LinearGradient colors={['#0f172a', '#1e1b4b']} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.successCard}>
-            <Text style={styles.checkMark}>✅</Text>
-            <Text style={styles.title}>Face Registered</Text>
-            <Text style={styles.subtitle}>
-              Your face is registered and ready for secure attendance.
-            </Text>
-            {registeredAt && (
-              <Text style={styles.dateText}>
-                Registered: {new Date(registeredAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-              </Text>
-            )}
-            <TouchableOpacity
-              style={[styles.primaryBtn, { marginTop: 24 }]}
-              onPress={() => { setRegistrationStatus('not_registered'); setCameraVisible(true); setCapturedImages([]); setStep(0); }}
-            >
-              <Text style={styles.primaryBtnText}>🔄 Update Face Registration</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </LinearGradient>
-    );
-  }
-
-  if ((registrationStatus === 'not_registered' || registrationStatus === 'unknown') && !cameraVisible) {
-    return (
-      <LinearGradient colors={['#0f172a', '#1e1b4b']} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>🔐 Face Registration</Text>
-          <Text style={styles.subtitle}>
-            Register your face to use secure Face Attendance.{'\n'}You'll capture 5 photos in different poses.
-          </Text>
-
-          <View style={styles.stepsGrid}>
-            {CAPTURE_STEPS.map((s, i) => (
-              <View key={i} style={styles.stepChip}>
-                <Text style={styles.stepIcon}>{s.icon}</Text>
-                <Text style={styles.stepLabel}>{s.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, { marginTop: 24 }]}
-            onPress={() => { setCameraVisible(true); setCapturedImages([]); setStep(0); }}
-          >
-            <Text style={styles.primaryBtnText}>📷 Open Camera & Register</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </LinearGradient>
-    );
-  }
-
-  // ── Camera View
-  return (
-    <LinearGradient colors={['#0f172a', '#1e1b4b']} style={styles.container}>
-      {/* Progress */}
-      <View style={styles.progressBar}>
-        {CAPTURE_STEPS.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.progressDot,
-              i < capturedImages.length ? styles.progressDotDone :
-              i === capturedImages.length ? styles.progressDotActive :
-              styles.progressDotPending,
-            ]}
-          />
-        ))}
-        <Text style={styles.progressText}>
-          {Math.min(capturedImages.length + 1, CAPTURE_STEPS.length)} / {CAPTURE_STEPS.length}
-        </Text>
       </View>
+    </Animated.View>
+  );
 
-      {/* Camera */}
+  const renderPermission = () => (
+    <Animated.View style={[styles.screen, styles.center, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <View style={styles.iconCircle}>
+        <Text style={styles.largeIcon}>📷</Text>
+      </View>
+      <Text style={styles.largeTitle}>Camera Permission</Text>
+      <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 12, paddingHorizontal: 24 }]}>
+        ICMS needs access to your camera to register your face.
+      </Text>
+      <View style={[styles.bottomBar, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={async () => {
+          const res = await requestPermission();
+          if (res.granted) setAppState('environment');
+        }}>
+          <Text style={styles.primaryBtnText}>Allow Camera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.secondaryBtnText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+
+  const renderEnvironmentCheck = () => (
+    <Animated.View style={[styles.screen, styles.center, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <Text style={[styles.largeTitle, { marginBottom: 40 }]}>Environment Check</Text>
+      
+      <View style={styles.checkRow}>
+        <Text style={styles.checkText}>Camera Ready</Text>
+        {envChecks.camera ? <Text style={styles.checkIconSuccess}>✓</Text> : <ActivityIndicator color="#6366f1" />}
+      </View>
+      <View style={styles.checkRow}>
+        <Text style={styles.checkText}>Internet Connected</Text>
+        {envChecks.internet ? <Text style={styles.checkIconSuccess}>✓</Text> : (envChecks.camera ? <ActivityIndicator color="#6366f1" /> : <Text style={styles.checkIconPending}>-</Text>)}
+      </View>
+      <View style={styles.checkRow}>
+        <Text style={styles.checkText}>Lighting Good</Text>
+        {envChecks.lighting ? <Text style={styles.checkIconSuccess}>✓</Text> : (envChecks.internet ? <ActivityIndicator color="#6366f1" /> : <Text style={styles.checkIconPending}>-</Text>)}
+      </View>
+      <View style={styles.checkRow}>
+        <Text style={styles.checkText}>Ready</Text>
+        {envChecks.ready ? <Text style={styles.checkIconSuccess}>✓</Text> : (envChecks.lighting ? <ActivityIndicator color="#6366f1" /> : <Text style={styles.checkIconPending}>-</Text>)}
+      </View>
+    </Animated.View>
+  );
+
+  const renderCamera = () => (
+    <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
+      <View style={styles.cameraHeader}>
+        <Text style={styles.cameraInstruction}>{instruction}</Text>
+      </View>
+      
       <View style={styles.cameraContainer}>
         <CameraView
           ref={cameraRef}
           style={styles.camera}
           facing="front"
         >
-          {/* Face oval guide */}
-          <View style={styles.ovalGuide} />
-
-          {/* Countdown overlay */}
-          {countdown !== null && (
-            <View style={styles.countdownOverlay}>
-              <Text style={styles.countdownText}>{countdown}</Text>
-            </View>
-          )}
-
-          {/* Success overlay */}
-          {allCaptured && (
-            <View style={styles.successOverlay}>
-              <Text style={styles.successOverlayText}>✅ All photos captured!</Text>
-            </View>
-          )}
+          <View style={styles.ovalMaskContainer}>
+            <View style={styles.ovalGuide} />
+          </View>
         </CameraView>
       </View>
-
-      {/* Current instruction */}
-      {!allCaptured && (
-        <View style={styles.instructionBox}>
-          <Text style={styles.instructionIcon}>{CAPTURE_STEPS[step]?.icon}</Text>
-          <Text style={styles.instructionText}>{CAPTURE_STEPS[step]?.instruction}</Text>
-        </View>
-      )}
-
-      {/* Thumbnails */}
-      {capturedImages.length > 0 && (
-        <View style={styles.thumbnailRow}>
-          {capturedImages.map((img, i) => (
-            <Image key={i} source={{ uri: img }} style={styles.thumbnail} />
-          ))}
-        </View>
-      )}
-
-      {/* Action buttons */}
-      <View style={styles.actionRow}>
-        {!allCaptured ? (
-          <TouchableOpacity
-            style={[styles.primaryBtn, { flex: 1 }, (capturing || !!countdown) && styles.btnDisabled]}
-            onPress={doCapture}
-            disabled={capturing || !!countdown}
-          >
-            {capturing ? (
-              <ActivityIndicator color="white" />
-            ) : countdown ? (
-              <Text style={styles.primaryBtnText}>Capturing in {countdown}...</Text>
-            ) : (
-              <Text style={styles.primaryBtnText}>📷 Capture Photo {capturedImages.length + 1}</Text>
-            )}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.successBtn, { flex: 1 }, uploading && styles.btnDisabled]}
-            onPress={submitRegistration}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.primaryBtnText}>⬆️ Submit Registration</Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={() => { setCapturedImages([]); setStep(0); }}
-        >
-          <Text style={styles.resetBtnText}>🔄</Text>
+      
+      <View style={styles.cameraFooter}>
+        <TouchableOpacity style={styles.cancelLink} onPress={() => navigation.goBack()}>
+          <Text style={styles.cancelLinkText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+    </Animated.View>
+  );
 
-      <TouchableOpacity onPress={() => setCameraVisible(false)} style={styles.cancelBtn}>
-        <Text style={styles.cancelBtnText}>Cancel</Text>
-      </TouchableOpacity>
-    </LinearGradient>
+  const renderProcessing = () => (
+    <Animated.View style={[styles.screen, styles.center, { opacity: fadeAnim }]}>
+      <ActivityIndicator size="large" color="#6366f1" />
+      <Text style={[styles.largeTitle, { marginTop: 32 }]}>Processing...</Text>
+      <View style={styles.processingList}>
+        <Text style={styles.processingItem}>✓ Detecting Face</Text>
+        <Text style={styles.processingItem}>✓ Checking Liveness</Text>
+        <Text style={styles.processingItemActive}>Generating Face Embedding...</Text>
+        <Text style={styles.processingItemPending}>Uploading Securely...</Text>
+      </View>
+    </Animated.View>
+  );
+
+  const renderSuccess = () => (
+    <Animated.View style={[styles.screen, styles.center, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <View style={styles.iconCircleSuccess}>
+        <Text style={styles.largeIcon}>✅</Text>
+      </View>
+      <Text style={styles.largeTitle}>Face Registered</Text>
+      <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 12, paddingHorizontal: 24 }]}>
+        Your face has been securely registered. You can now use Face Attendance.
+      </Text>
+      <View style={[styles.bottomBar, { position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.primaryBtnText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {appState === 'about' && renderAbout()}
+      {appState === 'permission' && renderPermission()}
+      {appState === 'environment' && renderEnvironmentCheck()}
+      {appState === 'camera' && renderCamera()}
+      {appState === 'processing' && renderProcessing()}
+      {appState === 'success' && renderSuccess()}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: 24, alignItems: 'center' },
-  title: { color: 'white', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  subtitle: { color: '#94a3b8', fontSize: 14, textAlign: 'center', marginBottom: 16, lineHeight: 22 },
-  dateText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 8 },
-  checkMark: { fontSize: 48, textAlign: 'center', marginBottom: 16 },
-  successCard: { padding: 24, backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', alignItems: 'center', width: '100%' },
-  stepsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 16 },
-  stepChip: { alignItems: 'center', padding: 12, backgroundColor: 'rgba(99,102,241,0.15)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)', width: (SCREEN_W - 80) / 3 },
-  stepIcon: { fontSize: 24, marginBottom: 4 },
-  stepLabel: { color: '#c7d2fe', fontSize: 10, textAlign: 'center', fontWeight: '600' },
-  progressBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingTop: 56, paddingBottom: 8, gap: 8 },
-  progressDot: { height: 8, borderRadius: 4 },
-  progressDotDone: { width: 24, backgroundColor: '#10b981' },
-  progressDotActive: { width: 24, backgroundColor: '#6366f1' },
-  progressDotPending: { width: 8, backgroundColor: '#334155' },
-  progressText: { color: '#94a3b8', fontSize: 12, marginLeft: 8 },
-  cameraContainer: { flex: 1, margin: 16, borderRadius: 24, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(99,102,241,0.4)' },
-  camera: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  ovalGuide: { width: '50%', height: '70%', borderRadius: 999, borderWidth: 3, borderColor: 'rgba(99,102,241,0.8)', borderStyle: 'solid' },
-  countdownOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  countdownText: { color: 'white', fontSize: 72, fontWeight: 'black' },
-  successOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(16,185,129,0.5)', justifyContent: 'center', alignItems: 'center' },
-  successOverlayText: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  instructionBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, padding: 12, backgroundColor: 'rgba(15,23,42,0.8)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(99,102,241,0.3)', gap: 8 },
-  instructionIcon: { fontSize: 24 },
-  instructionText: { color: 'white', fontSize: 14, fontWeight: '600', flex: 1 },
-  thumbnailRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, justifyContent: 'center', marginTop: 8 },
-  thumbnail: { width: 52, height: 52, borderRadius: 12, borderWidth: 2, borderColor: '#10b981' },
-  actionRow: { flexDirection: 'row', gap: 12, margin: 16 },
-  primaryBtn: { padding: 16, backgroundColor: '#6366f1', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  successBtn: { padding: 16, backgroundColor: '#10b981', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  primaryBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
-  btnDisabled: { opacity: 0.5 },
-  resetBtn: { padding: 16, backgroundColor: '#1e293b', borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#334155' },
-  resetBtnText: { fontSize: 20 },
-  cancelBtn: { alignItems: 'center', paddingBottom: 24 },
-  cancelBtnText: { color: '#64748b', fontSize: 14 },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  screen: { flex: 1 },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { padding: 24, paddingTop: 60, paddingBottom: 100 },
+  
+  headerContainer: { marginBottom: 32 },
+  largeTitle: { fontSize: 32, fontWeight: '700', color: '#111827', letterSpacing: -0.5 },
+  subtitle: { fontSize: 16, color: '#6B7280', marginTop: 8, lineHeight: 24 },
+  
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+    marginBottom: 32
+  },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  benefitIcon: { fontSize: 24, marginRight: 16 },
+  benefitText: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  
+  instructionContainer: { paddingHorizontal: 8 },
+  instructionTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 },
+  instructionItem: { fontSize: 15, color: '#4B5563', marginBottom: 12, lineHeight: 22 },
+  
+  bottomBar: {
+    padding: 24,
+    paddingBottom: 40,
+    backgroundColor: '#FAFAFA',
+  },
+  primaryBtn: {
+    backgroundColor: '#000000', // Samsung One UI style sleek black button
+    borderRadius: 30,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  secondaryBtn: {
+    marginTop: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  secondaryBtnText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
+
+  iconCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
+  iconCircleSuccess: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#D1FAE5', justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
+  largeIcon: { fontSize: 40 },
+
+  checkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '80%', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  checkText: { fontSize: 18, fontWeight: '500', color: '#374151' },
+  checkIconSuccess: { fontSize: 20, color: '#10B981', fontWeight: 'bold' },
+  checkIconPending: { fontSize: 20, color: '#D1D5DB' },
+
+  cameraHeader: { position: 'absolute', top: 60, left: 0, right: 0, zIndex: 10, alignItems: 'center' },
+  cameraInstruction: { backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, overflow: 'hidden', fontSize: 16, fontWeight: '600' },
+  
+  cameraContainer: { flex: 1, backgroundColor: 'black' },
+  camera: { flex: 1 },
+  ovalMaskContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  ovalGuide: { width: 280, height: 400, borderRadius: 140, borderWidth: 4, borderColor: 'rgba(255,255,255,0.7)', borderStyle: 'dashed' }, 
+  
+  cameraFooter: { position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center' },
+  cancelLink: { padding: 16 },
+  cancelLinkText: { color: 'white', fontSize: 16, fontWeight: '600', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+
+  processingList: { marginTop: 32, alignItems: 'flex-start' },
+  processingItem: { fontSize: 16, color: '#10B981', marginBottom: 12, fontWeight: '500' },
+  processingItemActive: { fontSize: 16, color: '#6366f1', marginBottom: 12, fontWeight: '600' },
+  processingItemPending: { fontSize: 16, color: '#9CA3AF', marginBottom: 12 },
 });

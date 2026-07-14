@@ -75,10 +75,10 @@ def register_face(
     supabase = get_supabase()
 
     images = req.images_base64
-    if len(images) < 5 or len(images) > 10:
+    if len(images) < 1 or len(images) > 10:
         raise HTTPException(
             status_code=400,
-            detail=f"Please provide between 5 and 10 images. You provided {len(images)}."
+            detail=f"Please provide between 1 and 10 images. You provided {len(images)}."
         )
 
     # Validate and generate embeddings for each image

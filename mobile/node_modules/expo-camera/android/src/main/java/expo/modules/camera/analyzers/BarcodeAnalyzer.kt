@@ -8,14 +8,11 @@ import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
-import expo.modules.camera.CameraViewHelper
 import expo.modules.camera.records.BarcodeType
-import expo.modules.camera.records.CameraType
-import expo.modules.interfaces.barcodescanner.BarCodeScannerResult
-import java.nio.ByteBuffer
+import expo.modules.camera.utils.BarCodeScannerResult
 
 @OptIn(ExperimentalGetImage::class)
-class BarcodeAnalyzer(private val lensFacing: CameraType, formats: List<BarcodeType>, val onComplete: (BarCodeScannerResult) -> Unit) : ImageAnalysis.Analyzer {
+class BarcodeAnalyzer(formats: List<BarcodeType>, val onComplete: (BarCodeScannerResult) -> Unit) : ImageAnalysis.Analyzer {
   private val barcodeFormats = if (formats.isEmpty()) {
     0
   } else {
@@ -33,8 +30,14 @@ class BarcodeAnalyzer(private val lensFacing: CameraType, formats: List<BarcodeT
     val mediaImage = imageProxy.image
 
     if (mediaImage != null) {
-      val rotation = CameraViewHelper.getCorrectCameraRotation(imageProxy.imageInfo.rotationDegrees, lensFacing)
-      val image = InputImage.fromMediaImage(mediaImage, rotation)
+      val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+      val image = InputImage.fromMediaImage(mediaImage, rotationDegrees)
+
+      // MLKit returns coordinates in the upright (rotated) coordinate space,
+      // so we need the post-rotation dimensions for correct scaling.
+      val isRotated = rotationDegrees == 90 || rotationDegrees == 270
+      val effectiveWidth = if (isRotated) imageProxy.height else imageProxy.width
+      val effectiveHeight = if (isRotated) imageProxy.width else imageProxy.height
 
       barcodeScanner.process(image)
         .addOnSuccessListener { barcodes ->
@@ -44,14 +47,28 @@ class BarcodeAnalyzer(private val lensFacing: CameraType, formats: List<BarcodeT
           val barcode = barcodes.first()
           val raw = barcode.rawValue ?: barcode.rawBytes?.let { String(it) }
 
-          val cornerPoints = mutableListOf<Int>()
-          barcode.cornerPoints?.let { points ->
-            for (point in points) {
-              cornerPoints.addAll(listOf(point.x, point.y))
-            }
-          }
+          val cornerPoints = barcode.cornerPoints?.let { points ->
+            // Pre-allocate array
+            IntArray(points.size * 2).apply {
+              points.forEachIndexed { index, point ->
+                this[index * 2] = point.x
+                this[index * 2 + 1] = point.y
+              }
+            }.toMutableList()
+          } ?: mutableListOf()
 
-          onComplete(BarCodeScannerResult(barcode.format, barcode.displayValue, raw, cornerPoints, image.width, image.height))
+          val extra = BarCodeScannerResultSerializer.parseExtraDate(barcode)
+          onComplete(
+            BarCodeScannerResult(
+              barcode.format,
+              barcode.displayValue,
+              raw,
+              extra,
+              cornerPoints,
+              effectiveHeight,
+              effectiveWidth
+            )
+          )
         }
         .addOnFailureListener {
           Log.d("SCANNER", it.cause?.message ?: "Barcode scanning failed")
@@ -63,14 +80,17 @@ class BarcodeAnalyzer(private val lensFacing: CameraType, formats: List<BarcodeT
   }
 }
 
-private fun ByteBuffer.toByteArray(): ByteArray {
-  rewind()
-  val data = ByteArray(remaining())
-  get(data)
-  return data
-}
+fun Array<ImageProxy.PlaneProxy>.toByteArray(): ByteArray {
+  val totalSize = this.sumOf { it.buffer.remaining() }
+  val result = ByteArray(totalSize)
+  var offset = 0
 
-fun Array<ImageProxy.PlaneProxy>.toByteArray() = this.fold(mutableListOf<Byte>()) { acc, plane ->
-  acc.addAll(plane.buffer.toByteArray().toList())
-  acc
-}.toByteArray()
+  for (plane in this) {
+    val buffer = plane.buffer
+    val size = buffer.remaining()
+    buffer.get(result, offset, size)
+    offset += size
+  }
+
+  return result
+}
