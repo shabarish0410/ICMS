@@ -34,6 +34,8 @@ export default function FaceRegistrationScreen({ navigation }: any) {
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+  
+  const steadyStartTimeRef = useRef<number>(0);
 
   // Trigger entering animation on state change
   useEffect(() => {
@@ -105,14 +107,19 @@ export default function FaceRegistrationScreen({ navigation }: any) {
           
           if (!isCentered) {
             setInstruction('Center your face');
+            steadyStartTimeRef.current = 0;
           } else {
-            // Check Blink
-            const leftEyeOpen = face.leftEyeOpenProbability ?? 1;
-            const rightEyeOpen = face.rightEyeOpenProbability ?? 1;
+            // Wait for 1.5 seconds of steady centering
+            if (steadyStartTimeRef.current === 0) {
+              steadyStartTimeRef.current = Date.now();
+            }
             
-            if (leftEyeOpen < 0.2 && rightEyeOpen < 0.2) {
-              // Blink detected!
-              setInstruction('Hold still... capturing!');
+            const steadyDuration = Date.now() - steadyStartTimeRef.current;
+            
+            if (steadyDuration < 1500) {
+              setInstruction('Hold still...');
+            } else {
+              setInstruction('Capturing!');
               active = false;
               
               // Capture high quality single frame

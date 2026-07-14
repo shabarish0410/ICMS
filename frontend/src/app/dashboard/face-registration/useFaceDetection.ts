@@ -40,7 +40,7 @@ export function useFaceDetection(
     hasFace: false,
     isCentered: false,
     isGoodSize: false,
-    hasBlinked: false,
+    hasBlinked: true, // Legacy compatibility
     readyForBurst: false,
     guidanceText: 'Initializing AI model...',
     guidanceColor: 'slate',
@@ -51,13 +51,16 @@ export function useFaceDetection(
   const lastProcessTimeMs = useRef<number>(0);
   const detectionStartTimeMs = useRef<number>(0);
   
-  const hasBlinkedRef = useRef(false);
+  const hasBlinkedRef = useRef(true); // Hardcode true
   const burstRequestedRef = useRef(false);
   const isMountedRef = useRef(true);
   
   // Debounce tracking
   const consecutiveWarningFrames = useRef(0);
   const lastWarningRef = useRef<string>('');
+  
+  // Steady face tracking
+  const steadyStartTimeRef = useRef<number>(0);
 
   // Initialize MediaPipe Face Landmarker
   useEffect(() => {
@@ -186,24 +189,32 @@ export function useFaceDetection(
 
         const warning = consecutiveWarningFrames.current >= 3 ? rawWarning : '';
 
-        const hasBlinked = hasBlinkedRef.current;
         let guidanceText = 'Position your face in the oval';
         let guidanceColor: FaceState['guidanceColor'] = 'slate';
 
         if (warning) {
           guidanceText = warning;
           guidanceColor = 'amber';
-        } else if (!hasBlinked) {
-          guidanceText = 'Blink once naturally';
-          guidanceColor = 'indigo';
+          steadyStartTimeRef.current = 0; // Reset steady timer
         } else {
-          guidanceText = 'Hold still... capturing!';
-          guidanceColor = 'emerald';
+          if (steadyStartTimeRef.current === 0) {
+            steadyStartTimeRef.current = now;
+          }
           
-          if (!burstRequestedRef.current) {
-            burstRequestedRef.current = true;
-            if (onBurstCaptureRequest) {
-              onBurstCaptureRequest();
+          const steadyDuration = now - steadyStartTimeRef.current;
+          
+          if (steadyDuration < 1500) {
+            guidanceText = 'Hold still...';
+            guidanceColor = 'indigo';
+          } else {
+            guidanceText = 'Capturing!';
+            guidanceColor = 'emerald';
+            
+            if (!burstRequestedRef.current) {
+              burstRequestedRef.current = true;
+              if (onBurstCaptureRequest) {
+                onBurstCaptureRequest();
+              }
             }
           }
         }
@@ -232,7 +243,7 @@ export function useFaceDetection(
           hasFace: false,
           isCentered: false,
           isGoodSize: false,
-          hasBlinked: hasBlinkedRef.current,
+          hasBlinked: true,
           readyForBurst: false,
           guidanceText: 'Position your face in the frame',
           guidanceColor: hasTimeout ? 'red' : 'slate',
