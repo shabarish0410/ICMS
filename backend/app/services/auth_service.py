@@ -38,23 +38,26 @@ def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
     email = user_data.get("email")
     mobile = user_data.get("mobile")
 
-    # ── Always persist OTP first ─────────────────────────────────────────────
+    # Use mobile as lookup key; fall back to ic_number when no mobile exists
+    otp_lookup_key = mobile if mobile else ic_number
+
+    # ── Always persist OTP first (table key = 'mobile' column) ───────────────
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     otp_data = {
-        "identifier": ic_number,
+        "mobile":   otp_lookup_key,   # actual column name in otp_verifications
         "otp_hash": hash_password(otp),
         "expires_at": expires_at,
         "attempts": 0
     }
     try:
-        existing_otp = supabase.table("otp_verifications").select("id").eq("identifier", ic_number).execute()
-        if existing_otp.data:
-            supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
+        existing = supabase.table("otp_verifications").select("id").eq("mobile", otp_lookup_key).execute()
+        if existing.data:
+            supabase.table("otp_verifications").update(otp_data).eq("id", existing.data[0]["id"]).execute()
         else:
             supabase.table("otp_verifications").insert(otp_data).execute()
-        logger.debug(f"OTP persisted for '{ic_number}'")
+        logger.info(f"OTP persisted for '{ic_number}' (lookup_key='{otp_lookup_key}')")
     except Exception as e:
-        logger.error(f"Failed to save OTP for '{ic_number}': {e}")
+        logger.error(f"[OTP SAVE] Failed for '{ic_number}' (key='{otp_lookup_key}'): {e}")
         raise BusinessLogicError("Could not initiate login. Please try again.", status_code=500)
 
     # ── Attempt OTP delivery (best-effort, never blocks login) ───────────────
@@ -64,36 +67,37 @@ def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
             f"<div style='font-family:Arial'>"
             f"<h2>Two-Factor Authentication OTP</h2>"
             f"<p>Your OTP to login is:</p>"
-            f"<h1 style='color:blue'>{otp}</h1>"
+            f"<h1 style='color:#4F46E5'>{otp}</h1>"
             f"<p>This OTP is valid for 5 minutes.</p>"
             f"</div>"
         )
         try:
-            delivery_ok = send_email(to_email=email, subject="Login OTP", html=html)
+            delivery_ok = send_email(to_email=email, subject="Spark Innovation Center — Login OTP", html=html)
         except Exception as e:
-            logger.warning(f"Email OTP failed for '{ic_number}': {e}")
+            logger.warning(f"[OTP EMAIL] Failed for '{ic_number}': {e}")
 
         if not delivery_ok and mobile:
             try:
                 delivery_ok = send_otp_sms(mobile, otp)
             except Exception as e:
-                logger.warning(f"SMS OTP fallback failed for '{ic_number}': {e}")
+                logger.warning(f"[OTP SMS FALLBACK] Failed for '{ic_number}': {e}")
     elif mobile:
         try:
             delivery_ok = send_otp_sms(mobile, otp)
         except Exception as e:
-            logger.warning(f"SMS OTP failed for '{ic_number}': {e}")
+            logger.warning(f"[OTP SMS] Failed for '{ic_number}': {e}")
     else:
-        logger.warning(f"No email or mobile for '{ic_number}' — OTP saved but not delivered.")
+        logger.warning(f"[OTP DELIVERY] No email or mobile for '{ic_number}' — OTP saved but not delivered.")
 
     if not delivery_ok:
-        logger.warning(f"OTP delivery failed for '{ic_number}' but login proceeds (OTP stored).")
+        logger.warning(f"[OTP DELIVERY] Delivery failed for '{ic_number}' — login still proceeds (OTP stored).")
 
     return {
         "requires_2fa": True,
         "message": "OTP sent to your registered email/mobile.",
         "ic_number": ic_number
     }
+
 
 
 
@@ -106,8 +110,15 @@ def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:
         raise NotFoundError("User not found")
         
     user_data = res.data[0]
+    mobile = user_data.get("mobile")
+    otp_lookup_key = mobile if mobile else ic_number
     
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", ic_number).execute()
+    try:
+        otp_res = supabase.table("otp_verifications").select("*").eq("mobile", otp_lookup_key).execute()
+    except Exception as e:
+        logger.error(f"[OTP LOOKUP] Failed for '{ic_number}' (key='{otp_lookup_key}'): {e}")
+        raise BusinessLogicError("Database error during OTP verification", status_code=500)
+
     if not otp_res.data:
         raise ValidationError("No OTP requested for this user")
         
@@ -119,10 +130,19 @@ def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:
         
     if not verify_password(otp, otp_record["otp_hash"]):
         attempts = otp_record.get("attempts", 0) + 1
-        supabase.table("otp_verifications").update({"attempts": attempts}).eq("id", otp_record["id"]).execute()
+        try:
+            supabase.table("otp_verifications").update({"attempts": attempts}).eq("id", otp_record["id"]).execute()
+        except Exception as e:
+            logger.error(f"[OTP UPDATE] Failed to increment attempts for '{ic_number}': {e}")
         raise ValidationError("Invalid OTP")
         
-    supabase.table("otp_verifications").delete().eq("id", otp_record["id"]).execute()
+    try:
+        supabase.table("otp_verifications").delete().eq("id", otp_record["id"]).execute()
+        logger.info(f"[OTP VERIFY] Success for '{ic_number}', OTP deleted.")
+    except Exception as e:
+        logger.error(f"[OTP DELETE] Failed to delete used OTP for '{ic_number}': {e}")
+        # Proceed with login even if delete fails, but log it heavily
+
 
     now = datetime.now(timezone.utc).isoformat()
     supabase.table("users").update({"last_login": now}).eq("id", user_data["id"]).execute()
