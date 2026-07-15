@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { studentsAPI } from '@/services/api';
+import { studentsAPI, exportsAPI } from '@/services/api';
 import api from '@/services/api';
 import { Search, Plus, Edit2, Trash2, GraduationCap, X, Loader2, Upload, Download, CheckSquare, Square, AlertCircle, CheckCircle2, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -202,6 +202,25 @@ export default function StudentsPage() {
     if (e.dataTransfer.files?.[0]) setImportFile(e.dataTransfer.files[0]);
   };
 
+  const handleExportStudents = async () => {
+    try {
+      toast.loading('Generating export...', { id: 'export' });
+      const res = await exportsAPI.students();
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Students_Export.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      
+      toast.success('Export successful!', { id: 'export' });
+    } catch (err) {
+      toast.error('Failed to export students', { id: 'export' });
+    }
+  };
+
   const openEdit = (student: any) => {
     setEditing(student);
     setForm({ ic_number: student.user?.ic_number || '', full_name: student.user?.full_name || '', department: student.department, year: student.year, semester: student.semester || 1, mentor_name: student.mentor_name || '', password: '' });
@@ -225,6 +244,9 @@ export default function StudentsPage() {
           <p className="text-dark-500 dark:text-dark-400 mt-1">{total} students registered</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={handleExportStudents} className="btn-secondary flex items-center gap-2">
+            <Download className="w-4 h-4" /> Export to Excel
+          </button>
           <button onClick={() => setShowImportModal(true)} className="btn-secondary flex items-center gap-2">
             <Upload className="w-4 h-4" /> Import CSV/Excel
           </button>

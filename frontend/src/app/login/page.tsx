@@ -16,10 +16,13 @@ interface LoginForm {
 }
 
 export default function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, verify2FA, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [icNumberFor2FA, setIcNumberFor2FA] = useState('');
+  const [otp, setOtp] = useState('');
   const [mounted, setMounted] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
@@ -37,6 +40,15 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const result = await login(data.ic_number, data.password);
+      
+      if (result?.requires_2fa) {
+        setIcNumberFor2FA(data.ic_number);
+        setShow2FA(true);
+        toast.success(result.message || 'OTP sent successfully!', { id: 'login-otp' });
+        setIsSubmitting(false);
+        return;
+      }
+
       toast.success('Welcome back!');
 
       if (result.must_change_password) {
@@ -48,7 +60,31 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Login failed. Please check your credentials.');
-    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || otp.length !== 6) {
+      toast.error('Please enter a valid 6-digit OTP.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await verify2FA(icNumberFor2FA, otp);
+      toast.success('Login successful!');
+
+      if (result.must_change_password) {
+        router.push('/complete-profile?step=password');
+      } else if (!result.is_profile_completed) {
+        router.push('/complete-profile');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Invalid OTP.');
       setIsSubmitting(false);
     }
   };
@@ -154,11 +190,12 @@ export default function LoginPage() {
               <Sparkles className="w-8 h-8 text-brand-blue" />
               <div>
                 <h2 className="text-3xl font-heading font-bold text-white tracking-tight">Welcome back</h2>
-                <p className="text-dark-400 mt-1">Sign in to your account to continue</p>
+                <p className="text-dark-400 mt-1">{show2FA ? 'Enter the OTP sent to your email/mobile' : 'Sign in to your account to continue'}</p>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
+            {!show2FA ? (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
               {/* IC Number */}
               <div className="form-group">
                 <div className="relative">
@@ -230,8 +267,49 @@ export default function LoginPage() {
                 ) : (
                   <span className="flex items-center justify-center gap-2 relative z-10">Sign In <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
                 )}
-              </motion.button>
-            </form>
+                </motion.button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerify2FA} className="space-y-6 relative z-10">
+                <div className="form-group">
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 z-20" />
+                    <input
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      type="text"
+                      maxLength={6}
+                      placeholder=" "
+                      className="peer input-field pl-12 bg-dark-900/50 border-white/10 focus:border-brand-blue/50 focus:bg-dark-900/80 h-12 text-lg rounded-xl font-mono tracking-[0.5em]"
+                      required
+                      autoFocus
+                    />
+                    <label className="floating-label left-10">6-Digit OTP</label>
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary w-full h-12 rounded-xl text-base font-bold tracking-wide mt-4 relative group overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  ) : (
+                    <span className="flex items-center justify-center gap-2 relative z-10">Verify & Login <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+                  )}
+                </motion.button>
+                
+                <div className="text-center mt-4">
+                  <button type="button" onClick={() => setShow2FA(false)} className="text-sm text-dark-400 hover:text-white transition-colors">
+                    Back to login
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
           <p className="mt-8 text-center text-sm text-dark-400">

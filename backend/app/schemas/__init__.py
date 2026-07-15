@@ -48,12 +48,25 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     is_profile_completed: bool = False
     must_change_password: bool = False
     face_registered: Optional[bool] = None   # None = not applicable (admin); False = must register
+    requires_2fa: bool = False
+    message: Optional[str] = None
+    ic_number: Optional[str] = None
+
+
+class Verify2FARequest(BaseModel):
+    ic_number: str
+    otp: str
+
+    @field_validator('ic_number')
+    @classmethod
+    def check_ic(cls, v):
+        return validate_ic_number(v)
 
 
 class RefreshRequest(BaseModel):

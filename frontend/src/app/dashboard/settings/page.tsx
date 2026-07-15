@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { usersAPI } from '@/services/api';
 import toast from 'react-hot-toast';
-import { User, Shield, ScanFace, Lock, Loader2, Smartphone, CheckCircle2, ChevronRight } from 'lucide-react';
+import { User, Shield, ScanFace, Lock, Loader2, Smartphone, CheckCircle2, ChevronRight, FileBadge } from 'lucide-react';
 import FaceRegistrationPage from '../face-registration/page';
+import AchievementsTab from './AchievementsTab';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'face'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'face' | 'achievements'>('profile');
 
   // Profile Form State
   const [fullName, setFullName] = useState('');
@@ -24,8 +25,6 @@ export default function SettingsPage() {
   const [linkedin, setLinkedin] = useState('');
   const [github, setGithub] = useState('');
   const [portfolio, setPortfolio] = useState('');
-  const [achievements, setAchievements] = useState('');
-  const [certifications, setCertifications] = useState('');
   const [resumeUrl, setResumeUrl] = useState('');
   
   const [savingProfile, setSavingProfile] = useState(false);
@@ -46,12 +45,6 @@ export default function SettingsPage() {
         setGithub(user.student.github_url || '');
         setPortfolio(user.student.portfolio_url || '');
         
-        // Display jsonb properly if stored as array of dicts, or just stringify. Assuming simple text for now based on prompt.
-        // Wait, schema defaults to '[]'::jsonb but user requested simple text/textarea for achievements/certifications.
-        // We will store as string if it's not structured yet. Let's just stringify or parse.
-        const parseJsonb = (val: any) => Array.isArray(val) ? val.map((v: any) => v.title || v).join(', ') : (val || '');
-        setAchievements(parseJsonb(user.student.achievements));
-        setCertifications(parseJsonb(user.student.certifications));
         setResumeUrl(user.student.resume_url || '');
       }
     }
@@ -73,9 +66,6 @@ export default function SettingsPage() {
 
       if (user.role?.name === 'student') {
         const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean);
-        // We'll wrap achievements and certifications into a basic array format for the JSONB column
-        const achArray = achievements.split(',').map(a => a.trim()).filter(Boolean);
-        const certArray = certifications.split(',').map(c => c.trim()).filter(Boolean);
 
         const { studentsAPI } = await import('@/services/api');
         await studentsAPI.updateSelfProfile({
@@ -84,8 +74,6 @@ export default function SettingsPage() {
           linkedin_url: linkedin,
           github_url: github,
           portfolio_url: portfolio,
-          achievements: achArray,
-          certifications: certArray,
           resume_url: resumeUrl
         });
       }
@@ -131,6 +119,18 @@ export default function SettingsPage() {
       >
         <ScanFace className="w-4 h-4" /> Face Registration
       </button>
+      {user?.role?.name === 'student' && (
+        <button
+          onClick={() => setActiveTab('achievements')}
+          className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+            activeTab === 'achievements' 
+              ? 'bg-dark-50 dark:bg-white/10 text-dark-900 dark:text-white border border-dark-200 dark:border-white/10 shadow-sm' 
+              : 'text-dark-500 hover:text-dark-900 dark:text-dark-400 dark:hover:text-white hover:bg-dark-50 dark:hover:bg-white/5'
+          }`}
+        >
+          <FileBadge className="w-4 h-4" /> Achievements
+        </button>
+      )}
     </div>
   );
 
@@ -279,27 +279,6 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Achievements</label>
-                        <textarea
-                          value={achievements}
-                          onChange={(e) => setAchievements(e.target.value)}
-                          placeholder="List your achievements..."
-                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
-                          rows={2}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Certifications</label>
-                        <textarea
-                          value={certifications}
-                          onChange={(e) => setCertifications(e.target.value)}
-                          placeholder="List your certifications..."
-                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
-                          rows={2}
-                        />
-                      </div>
                     </div>
                   </>
                 )}
@@ -373,6 +352,16 @@ export default function SettingsPage() {
             <div className="-mx-4 sm:mx-0">
               <FaceRegistrationPage />
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'achievements' && (
+          <motion.div
+            key="achievements"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="w-full"
+          >
+            <AchievementsTab />
           </motion.div>
         )}
       </AnimatePresence>

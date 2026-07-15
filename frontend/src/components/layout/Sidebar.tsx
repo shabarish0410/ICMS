@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, GraduationCap, Users2, FolderKanban, Calendar,
   Bell, Settings, ClipboardList, FileText, Megaphone,
-  Video, ChevronLeft, ChevronRight, Cpu, LogOut, ScanFace, Shield, Shirt, UserCheck
+  Video, ChevronLeft, ChevronRight, Cpu, LogOut, ScanFace, Shield, Shirt, UserCheck, FileBadge
 } from 'lucide-react';
 
 const adminMenu = [
@@ -27,6 +27,7 @@ const adminMenu = [
   { label: 'Admins', href: '/dashboard/admins', icon: Shield },
   { label: 'Face Management', href: '/dashboard/admins/face-management', icon: Cpu },
   { label: 'Uniform Mgmt', href: '/dashboard/admins/uniform-management', icon: Shirt },
+  { label: 'Approvals', href: '/dashboard/admins/achievements', icon: FileBadge },
 ];
 
 const studentMenu = [

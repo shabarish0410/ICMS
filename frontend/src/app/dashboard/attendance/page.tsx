@@ -4,11 +4,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
-import { attendanceAPI, uploadsAPI, studentsAPI, faceAPI } from '@/services/api';
+import { attendanceAPI, uploadsAPI, studentsAPI, faceAPI, exportsAPI } from '@/services/api';
 import { useRouter } from 'next/navigation';
 import { 
   UserCheck, Camera, CheckCircle, Clock, Calendar, 
-  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw, ScanFace, Shield
+  TrendingUp, Loader2, X, AlertTriangle, ShieldCheck, Key, RefreshCw, ScanFace, Shield, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -100,6 +100,25 @@ export default function AttendancePage() {
       toast.error(e.response?.data?.detail || 'Failed to update attendance');
     },
   });
+
+  const handleExportAttendance = async () => {
+    try {
+      toast.loading('Generating export...', { id: 'export-att' });
+      const res = await exportsAPI.attendance();
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Attendance_Export.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      
+      toast.success('Export successful!', { id: 'export-att' });
+    } catch (err) {
+      toast.error('Failed to export attendance logs', { id: 'export-att' });
+    }
+  };
 
   const s = stats?.data;
   const records = history?.data?.items || [];
@@ -312,6 +331,11 @@ export default function AttendancePage() {
           <p className="text-dark-500 mt-1">{isAdmin ? 'Monitor center attendance analytics' : 'Check-in and view your logs'}</p>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button onClick={handleExportAttendance} className="btn-secondary flex items-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl border border-dark-200 dark:border-dark-700 hover:border-primary-400 hover:text-primary-600 transition-colors">
+              <Download className="w-4 h-4" /> Export
+            </button>
+          )}
           {/* Secure Face Attendance button (students only) */}
           {isStudent && (
             <button

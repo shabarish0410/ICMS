@@ -1,5 +1,4 @@
 from app.core.supabase import get_supabase
-import json
 
 def test():
     try:

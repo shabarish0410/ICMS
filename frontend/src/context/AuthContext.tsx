@@ -13,13 +13,19 @@ interface AuthContextType {
   isAdmin: boolean;
   isStudent: boolean;
   login: (ic_number: string, password: string) => Promise<{
-    is_profile_completed: boolean;
-    must_change_password: boolean;
+    is_profile_completed?: boolean;
+    must_change_password?: boolean;
+    requires_2fa?: boolean;
+    message?: string;
   }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   completeProfile: (data: { full_name: string; email: string; mobile: string }) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
+  verify2FA: (ic_number: string, otp: string) => Promise<{
+    is_profile_completed: boolean;
+    must_change_password: boolean;
+  }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,15 +65,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (ic_number: string, password: string) => {
     const res = await authAPI.login({ ic_number, password });
+    
+    if (res.data.requires_2fa) {
+      return res.data; // { requires_2fa, message, ic_number }
+    }
+
     const { access_token, refresh_token, is_profile_completed, must_change_password } = res.data;
-
-    // 1. Persist tokens BEFORE calling /me so the interceptor can read them synchronously
     tokenStorage.setTokens(access_token, refresh_token);
-
-    // 2. Fetch full user profile now that the token is in localStorage
     await refreshUser();
 
-    // 3. If refreshUser fails, it clears tokens. We should throw so the UI shows an error.
+    if (!tokenStorage.getToken()) {
+      throw { response: { data: { detail: "Failed to load user profile. Check backend logs." } } };
+    }
+
+    return { is_profile_completed, must_change_password };
+  };
+
+  const verify2FA = async (ic_number: string, otp: string) => {
+    const res = await authAPI.verify2FA({ ic_number, otp });
+    const { access_token, refresh_token, is_profile_completed, must_change_password } = res.data;
+    
+    tokenStorage.setTokens(access_token, refresh_token);
+    await refreshUser();
+
     if (!tokenStorage.getToken()) {
       throw { response: { data: { detail: "Failed to load user profile. Check backend logs." } } };
     }
@@ -109,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser,
         completeProfile,
         changePassword,
+        verify2FA,
       }}
     >
       {children}

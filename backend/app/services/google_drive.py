@@ -37,7 +37,7 @@ try:
         logger.info("Google Drive service initialized successfully.")
     else:
         logger.warning("Google Drive credentials not found. Drive uploads will fail.")
-except Exception as e:
+except Exception:
     logger.exception("Failed to initialize Google Drive service")
 
 

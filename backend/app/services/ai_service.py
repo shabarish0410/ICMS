@@ -5,7 +5,6 @@ Falls back to permissive mode if no uniforms are registered or Gemini is unavail
 """
 
 import io
-import base64
 import logging
 from typing import Optional, Dict, Any
 
@@ -148,7 +147,6 @@ def verify_uniform_with_reference(
         }
 
     try:
-        from PIL import Image
         live_image = _bytes_to_pil(image_bytes)
 
         # ── Fetch registered uniform reference images ──────────────────────────
@@ -275,7 +273,6 @@ def verify_dress_code(image_url: str) -> bool:
     """
     try:
         import httpx
-        from PIL import Image
 
         if image_url.startswith("/uploads/"):
             import os

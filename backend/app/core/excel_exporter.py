@@ -1,11 +1,6 @@
 import os
 import csv
-import sqlite3
-from app.core.config import settings
 
-import os
-import csv
-from app.core.config import settings
 
 def export_to_csv():
     """Reads Supabase database and exports tables to Excel-compatible CSV files in backend directory."""

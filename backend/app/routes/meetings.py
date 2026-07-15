@@ -1,13 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, Query
 from app.core.security import get_current_user, require_roles
-from app.core.supabase import get_supabase
 from app.schemas import MeetingCreate, MeetingUpdate, MeetingOut, PaginatedResponse
-from app.utils.actions import log_admin_action, broadcast_notification
+from app.services import meeting_service
 import math
 
 router = APIRouter(prefix="/api/meetings", tags=["Meetings"])
-
 
 @router.get("", response_model=PaginatedResponse)
 def list_meetings(
@@ -16,133 +13,32 @@ def list_meetings(
     current_user: dict = Depends(get_current_user)
 ):
     """List meetings. Student sees only meetings they're invited to."""
-    supabase = get_supabase()
-    
-    role_info = current_user.get("role")
-    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
-
-    query = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)", count="exact")
-
-    if role_name == "student":
-        invites_res = supabase.table("meeting_invites").select("meeting_id").eq("user_id", current_user["id"]).execute()
-        meeting_ids = [r["meeting_id"] for r in invites_res.data]
-        if not meeting_ids:
-            return PaginatedResponse(items=[], total=0, page=page, size=size, pages=0)
-        query = query.in_("id", meeting_ids)
-
-    res = query.order("date", desc=True).range((page - 1) * size, page * size - 1).execute()
-
+    result = meeting_service.list_meetings(page, size, current_user)
     return PaginatedResponse(
-        items=res.data,
-        total=res.count or 0, page=page, size=size, pages=math.ceil((res.count or 0) / size) if (res.count or 0) else 0,
+        items=result["items"],
+        total=result["total"],
+        page=result["page"],
+        size=result["size"],
+        pages=math.ceil(result["total"] / result["size"]) if result["total"] else 0,
     )
-
 
 @router.get("/{meeting_id}", response_model=MeetingOut)
 def get_meeting(meeting_id: int, current_user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    res = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)").eq("id", meeting_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-    return res.data[0]
-
+    return meeting_service.get_meeting(meeting_id, current_user)
 
 @router.post("", response_model=MeetingOut, status_code=201)
 def create_meeting(req: MeetingCreate, current_user: dict = Depends(require_roles("admin"))):
-    supabase = get_supabase()
-    
-    new_meeting = {
-        "title": req.title,
-        "agenda": req.agenda,
-        "date": req.date.isoformat(),
-        "duration_minutes": req.duration_minutes,
-        "meeting_link": req.meeting_link,
-        "documents": req.documents or [],
-        "created_by": current_user["id"],
-    }
-    res = supabase.table("meetings").insert(new_meeting).execute()
-    meeting = res.data[0]
-
-    # Add direct user invites
-    invited_user_ids = set(req.invite_user_ids or [])
-
-    # Add team members
-    for team_id in (req.invite_team_ids or []):
-        team_members = supabase.table("students").select("user_id").eq("team_id", team_id).execute()
-        for member in team_members.data:
-            invited_user_ids.add(member["user_id"])
-
-    # Create invite relationships and notifications
-    if invited_user_ids:
-        invites = [{"meeting_id": meeting["id"], "user_id": uid} for uid in invited_user_ids]
-        supabase.table("meeting_invites").insert(invites).execute()
-        
-        date_obj = datetime.fromisoformat(meeting["date"].replace('Z', '+00:00'))
-        date_str = date_obj.strftime('%b %d, %Y %I:%M %p')
-
-        notifications = []
-        for uid in invited_user_ids:
-            notifications.append({
-                "user_id": uid, 
-                "title": f"📅 Meeting: {meeting['title']}",
-                "message": f"You are invited to '{meeting['title']}' on {date_str}",
-                "notification_type": "meeting", 
-                "link": "/dashboard/meetings",
-            })
-            if notifications:
-                supabase.table("notifications").insert(notifications).execute()
-
-    final_res = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)").eq("id", meeting["id"]).execute()
-    log_admin_action(current_user["id"], "create", "meetings", meeting["id"], new_value=meeting)
-    broadcast_notification("Meeting Scheduled", f"A new meeting '{meeting['title']}' has been scheduled.", "meeting")
-    
-    return final_res.data[0]
-
+    return meeting_service.create_meeting(req, current_user)
 
 @router.put("/{meeting_id}", response_model=MeetingOut)
 def update_meeting(meeting_id: int, req: MeetingUpdate, current_user: dict = Depends(require_roles("admin"))):
-    supabase = get_supabase()
-    existing = supabase.table("meetings").select("id").eq("id", meeting_id).execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-        
-    update_data = req.model_dump(exclude_unset=True)
-    if update_data.get("date"):
-        update_data["date"] = update_data["date"].isoformat()
-        
-    supabase.table("meetings").update(update_data).eq("id", meeting_id).execute()
-    
-    final_res = supabase.table("meetings").select("*, creator:users!meetings_created_by_fkey(*)").eq("id", meeting_id).execute()
-    log_admin_action(current_user["id"], "update", "meetings", meeting_id, old_value=existing.data[0], new_value=update_data)
-    broadcast_notification("Meeting Updated", f"The meeting '{update_data.get('title', 'Meeting')}' has been updated.", "meeting")
-    
-    return final_res.data[0]
-
+    return meeting_service.update_meeting(meeting_id, req, current_user)
 
 @router.delete("/{meeting_id}")
 def delete_meeting(meeting_id: int, current_user: dict = Depends(require_roles("admin"))):
-    supabase = get_supabase()
-    existing = supabase.table("meetings").select("id").eq("id", meeting_id).execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-        
-    supabase.table("meetings").delete().eq("id", meeting_id).execute()
-    log_admin_action(current_user["id"], "delete", "meetings", meeting_id, old_value=existing.data[0])
+    meeting_service.delete_meeting(meeting_id, current_user)
     return {"message": "Meeting deleted successfully"}
-
 
 @router.get("/{meeting_id}/invitees")
 def list_invitees(meeting_id: int, current_user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    existing = supabase.table("meetings").select("id").eq("id", meeting_id).execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-        
-    invites_res = supabase.table("meeting_invites").select("user_id, users(*)").eq("meeting_id", meeting_id).execute()
-    invitees = []
-    for r in invites_res.data:
-        user_info = r.get("users", {})
-        if user_info:
-            invitees.append({"id": user_info["id"], "name": user_info.get("full_name"), "ic_number": user_info.get("ic_number")})
-            
-    return invitees
+    return meeting_service.list_invitees(meeting_id, current_user)

@@ -14,7 +14,8 @@ from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
     notifications, forms, weekly_reports, announcements,
-    meetings, attendance, uploads, users, face, uniforms
+    meetings, attendance, uploads, users, face, uniforms,
+    achievements, admin_achievements, exports
 )
 
 # Use Python's standard logger instead of hardcoded Windows file paths
@@ -76,18 +77,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.core.logging import LoggingMiddleware
+app.add_middleware(LoggingMiddleware)
+
 # Static files for uploads
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 from fastapi import HTTPException
+from app.core.exceptions import ICMSException
+
+@app.exception_handler(ICMSException)
+async def icms_exception_handler(request: Request, exc: ICMSException):
+    logger.warning(f"ICMS EXCEPTION | URL: {request.url} | Status: {exc.status_code} | {exc.message} | Details: {exc.details}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message, "extras": exc.details},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "error": str(exc)},
+        content={"detail": "Internal Server Error"},
         headers={"Access-Control-Allow-Origin": "*"}
     )
 
@@ -117,6 +131,9 @@ app.include_router(uploads.router)
 app.include_router(users.router)
 app.include_router(face.router)
 app.include_router(uniforms.router)
+app.include_router(achievements.router)
+app.include_router(admin_achievements.router)
+app.include_router(exports.router)
 
 
 @app.get("/api/health")

@@ -230,15 +230,20 @@ create table registrations (
     registered_at timestamptz default now()
 );
 
--- 17. Certificates
-create table certificates (
+-- 17. Student Achievements
+create table student_achievements (
     id serial primary key,
     student_id integer references students(id) on delete cascade not null,
-    event_id integer references events(id) on delete cascade,
     title varchar(255) not null,
     description text,
+    issuer varchar(255),
+    issue_date date,
     certificate_url text,
-    issued_at timestamptz default now()
+    status varchar(50) default 'Pending',
+    rejection_reason text,
+    created_at timestamptz default now(),
+    reviewed_by integer references users(id) on delete set null,
+    reviewed_at timestamptz
 );
 
 -- 18. Notifications

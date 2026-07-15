@@ -7,7 +7,7 @@ import base64
 import io
 import math
 import logging
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Dict, Any
 
 import numpy as np
 from PIL import Image
@@ -416,3 +416,246 @@ def _basic_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Basic liveness check error: {e}")
         return {"passed": True, "reason": "Liveness bypassed.", "blink_detected": True, "movement_detected": True}
+
+from datetime import datetime, timezone
+import uuid
+from passlib.context import CryptContext
+from app.core.supabase import get_supabase
+from app.core.exceptions import NotFoundError, ValidationError, PermissionDeniedError, BusinessLogicError
+from app.schemas import FaceRegisterRequest, FaceUpdateRequest
+from app.services.google_drive import upload_image_to_drive
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _get_student_id(current_user: dict) -> int:
+    student_data = current_user.get("student")
+    if isinstance(student_data, list) and len(student_data) > 0:
+        return student_data[0]["id"]
+    elif isinstance(student_data, dict):
+        return student_data["id"]
+    raise PermissionDeniedError("Student profile not found")
+
+def _log_validation(supabase, student_id: int, step: str, result: str, message: str):
+    try:
+        supabase.table("attendance_logs").insert({
+            "student_id": student_id,
+            "validation_step": step,
+            "result": result,
+            "message": message,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }).execute()
+    except Exception as e:
+        logger.warning(f"Failed to write attendance log: {e}")
+
+def register_face(req: FaceRegisterRequest, current_user: dict) -> dict:
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    if role_name != "student":
+        raise PermissionDeniedError("Only students can register their face")
+
+    student_id = _get_student_id(current_user)
+    supabase = get_supabase()
+    request_id = uuid.uuid4().hex[:8]
+
+    try:
+        img_bytes = decode_base64_image(req.image_base64)
+    except Exception as e:
+        raise BusinessLogicError(f"Decoding image failed: {str(e)}", status_code=500)
+
+    validation = validate_face_image(img_bytes)
+    if not validation["valid"]:
+        raise ValidationError(validation["reason"])
+
+    embedding = generate_face_embedding(img_bytes)
+    if embedding is None:
+        raise ValidationError("Could not generate face embedding. Please ensure clear lighting and try again.")
+
+    filename = f"face_reg_{student_id}_{request_id}.jpg"
+    try:
+        drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
+    except Exception:
+        raise BusinessLogicError("Google Drive upload failed. Please try again.", status_code=500)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        update_data = {
+            "face_registered": True,
+            "face_registered_at": now_iso
+        }
+        res = supabase.table("students").update(update_data).eq("id", student_id).execute()
+        if not res.data:
+            raise NotFoundError("Student profile not found.")
+            
+        face_data = {
+            "student_id": student_id,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "updated_at": now_iso
+        }
+        supabase.table("student_faces").upsert(face_data, on_conflict="student_id").execute()
+    except Exception as e:
+        raise BusinessLogicError(f"Updating Supabase failed: {str(e)}", status_code=500)
+
+    _log_validation(supabase, student_id, "face_registration", "PASS", "Registered single face image successfully")
+
+    return {
+        "success": True,
+        "message": "Face registered successfully!",
+        "registered_at": now_iso
+    }
+
+def get_face_status(student_id: int, current_user: dict) -> dict:
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+
+    if role_name == "student":
+        my_student_id = _get_student_id(current_user)
+        if my_student_id != student_id:
+            raise PermissionDeniedError("Access denied")
+
+    supabase = get_supabase()
+    res = supabase.table("students").select("id, face_registered, face_registered_at, face_image_url").eq("id", student_id).execute()
+    if not res.data:
+        raise NotFoundError("Student not found")
+
+    student = res.data[0]
+    return {
+        "student_id": student_id,
+        "face_registered": bool(student.get("face_registered", False)),
+        "registered_at": student.get("face_registered_at"),
+        "face_image_url": student.get("face_image_url")
+    }
+
+def get_my_face_status(current_user: dict) -> dict:
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    if role_name != "student":
+        raise PermissionDeniedError("Only students can check face status")
+
+    student_id = _get_student_id(current_user)
+    supabase = get_supabase()
+    res = supabase.table("students").select("id, face_registered, face_registered_at, face_image_url").eq("id", student_id).execute()
+    
+    if not res.data:
+        raise NotFoundError("Student not found")
+
+    student = res.data[0]
+    return {
+        "student_id": student_id,
+        "face_registered": bool(student.get("face_registered", False)),
+        "registered_at": student.get("face_registered_at"),
+        "face_image_url": student.get("face_image_url")
+    }
+
+def update_face(req: FaceUpdateRequest, current_user: dict) -> dict:
+    role_info = current_user.get("role")
+    role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
+    if role_name != "student":
+        raise PermissionDeniedError("Only students can update their face registration")
+
+    student_id = _get_student_id(current_user)
+    supabase = get_supabase()
+    request_id = uuid.uuid4().hex[:8]
+
+    user_id = current_user.get("id")
+    if not user_id:
+        raise PermissionDeniedError("User not authenticated")
+
+    user_res = supabase.table("users").select("password_hash").eq("id", user_id).execute()
+    if not user_res.data:
+        raise NotFoundError("User not found")
+        
+    password_hash = user_res.data[0]["password_hash"]
+    if not pwd_context.verify(req.password, password_hash):
+        raise PermissionDeniedError("Invalid password. Please try again.")
+
+    try:
+        img_bytes = decode_base64_image(req.image_base64)
+    except ValueError:
+        raise ValidationError("Invalid image format provided.")
+
+    validation = validate_face_image(img_bytes)
+    if not validation["valid"]:
+        raise ValidationError(validation["reason"])
+
+    embedding = generate_face_embedding(img_bytes)
+    if embedding is None:
+        raise ValidationError("Could not generate face embedding. Please ensure clear lighting and try again.")
+
+    filename = f"face_reg_{student_id}_{request_id}.jpg"
+    try:
+        drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
+    except Exception:
+        raise BusinessLogicError("Google Drive upload failed. Please try again.", status_code=500)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        update_data = {
+            "face_registered": True,
+            "face_registered_at": now_iso
+        }
+        res = supabase.table("students").update(update_data).eq("id", student_id).execute()
+        if not res.data:
+            raise NotFoundError("Student profile not found.")
+            
+        face_data = {
+            "student_id": student_id,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "updated_at": now_iso
+        }
+        supabase.table("student_faces").upsert(face_data, on_conflict="student_id").execute()
+    except Exception:
+        raise BusinessLogicError("Database update failed while saving registration.", status_code=500)
+
+    _log_validation(supabase, student_id, "face_update", "PASS", "Updated single face image successfully")
+
+    return {
+        "success": True,
+        "message": "Face registration updated successfully!",
+        "updated_at": now_iso
+    }
+
+def reset_face(student_id: int, current_user: dict) -> dict:
+    supabase = get_supabase()
+
+    student_res = supabase.table("students").select("id").eq("id", student_id).execute()
+    if not student_res.data:
+        raise NotFoundError("Student not found")
+
+    supabase.table("students").update({
+        "face_registered": False,
+        "face_registered_at": None,
+        "face_embedding": None,
+        "face_image_url": None,
+        "face_drive_file_id": None
+    }).eq("id", student_id).execute()
+
+    _log_validation(supabase, student_id, "face_reset", "INFO", f"Face reset by admin user {current_user.get('id')}")
+
+    return {"success": True, "message": "Face registration reset successfully."}
+
+def admin_face_status(department: str, page: int, size: int, current_user: dict) -> dict:
+    supabase = get_supabase()
+
+    query = supabase.table("students").select(
+        "id, face_registered, face_registered_at, department, user:users(id, ic_number, full_name, email)",
+        count="exact"
+    )
+
+    if department:
+        query = query.eq("department", department)
+
+    res = query.order("face_registered", desc=False).range(
+        (page - 1) * size, page * size - 1
+    ).execute()
+
+    return {
+        "items": res.data,
+        "total": res.count or 0,
+        "page": page,
+        "size": size
+    }
+

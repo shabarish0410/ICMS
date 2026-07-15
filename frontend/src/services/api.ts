@@ -194,6 +194,7 @@ export const authAPI = {
     api.post('/auth/forgot-password', data),
   verifyOtp: (data: { ic_number: string; otp: string; new_password: string }) =>
     api.post('/auth/verify-otp', data),
+  verify2FA: (data: { ic_number: string; otp: string }) => api.post('/auth/verify-2fa', data),
   logout: () => api.post('/auth/logout'),
   requestOtp: (mobile: string) => api.post('/auth/register/request-otp', { mobile }),
   register: (data: any) => api.post('/auth/register', data),
@@ -446,5 +447,25 @@ export const uniformsAPI = {
     api.post('/uniforms/test', { image_base64: imageBase64, department: department || 'all' }),
 };
 
-export default api;
+// ─── Achievements & Certifications API ───────────────────────────────────────
+export const achievementsAPI = {
+  upload: (data: any) => api.post('/achievements/', data),
+  listMy: () => api.get('/achievements/'),
+  update: (id: number, data: any) => api.put(`/achievements/${id}`, data),
+  delete: (id: number) => api.delete(`/achievements/${id}`),
+};
 
+// ─── Admin Achievements API ──────────────────────────────────────────────────
+export const adminAchievementsAPI = {
+  listAll: (params?: Record<string, any>) => api.get('/admin/achievements/', { params }),
+  review: (id: number, status: string, rejection_reason?: string) =>
+    api.put(`/admin/achievements/${id}/review`, { status, rejection_reason }),
+};
+
+// ─── Exports API ─────────────────────────────────────────────────────────────
+export const exportsAPI = {
+  students: () => api.get('/exports/students', { responseType: 'blob' }),
+  attendance: (eventId?: number) => api.get('/exports/attendance', { params: { event_id: eventId }, responseType: 'blob' }),
+};
+
+export default api;
