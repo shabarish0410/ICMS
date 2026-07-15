@@ -240,6 +240,13 @@ class StudentUpdate(BaseModel):
     is_active: Optional[bool] = None
     resume_url: Optional[str] = None
     resume_data: Optional[Any] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    skills: Optional[List[str]] = None
+    bio: Optional[str] = None
+    achievements: Optional[List[dict]] = None
+    certifications: Optional[List[dict]] = None
 
 
 class StudentOut(BaseModel):
@@ -253,6 +260,13 @@ class StudentOut(BaseModel):
     team_id: Optional[int] = None
     resume_url: Optional[str] = None
     resume_data: Optional[Any] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    skills: Optional[List[str]] = None
+    bio: Optional[str] = None
+    achievements: Optional[List[dict]] = None
+    certifications: Optional[List[dict]] = None
     team: Optional["TeamOut"] = None
     user: Optional[UserOut] = None
     created_at: Optional[datetime] = None

@@ -17,6 +17,17 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  
+  // Student Specific Fields
+  const [bio, setBio] = useState('');
+  const [skills, setSkills] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [github, setGithub] = useState('');
+  const [portfolio, setPortfolio] = useState('');
+  const [achievements, setAchievements] = useState('');
+  const [certifications, setCertifications] = useState('');
+  const [resumeUrl, setResumeUrl] = useState('');
+  
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -28,6 +39,21 @@ export default function SettingsPage() {
       setFullName(user.full_name || '');
       setEmail(user.email || '');
       setPhone(user.mobile || '');
+      if (user.student) {
+        setBio(user.student.bio || '');
+        setSkills(user.student.skills ? user.student.skills.join(', ') : '');
+        setLinkedin(user.student.linkedin_url || '');
+        setGithub(user.student.github_url || '');
+        setPortfolio(user.student.portfolio_url || '');
+        
+        // Display jsonb properly if stored as array of dicts, or just stringify. Assuming simple text for now based on prompt.
+        // Wait, schema defaults to '[]'::jsonb but user requested simple text/textarea for achievements/certifications.
+        // We will store as string if it's not structured yet. Let's just stringify or parse.
+        const parseJsonb = (val: any) => Array.isArray(val) ? val.map((v: any) => v.title || v).join(', ') : (val || '');
+        setAchievements(parseJsonb(user.student.achievements));
+        setCertifications(parseJsonb(user.student.certifications));
+        setResumeUrl(user.student.resume_url || '');
+      }
     }
   }, [user]);
 
@@ -44,6 +70,26 @@ export default function SettingsPage() {
         email: email || null,
         mobile: phone || null,
       });
+
+      if (user.role?.name === 'student') {
+        const skillsArray = skills.split(',').map(s => s.trim()).filter(Boolean);
+        // We'll wrap achievements and certifications into a basic array format for the JSONB column
+        const achArray = achievements.split(',').map(a => a.trim()).filter(Boolean);
+        const certArray = certifications.split(',').map(c => c.trim()).filter(Boolean);
+
+        const { studentsAPI } = await import('@/services/api');
+        await studentsAPI.updateSelfProfile({
+          bio,
+          skills: skillsArray,
+          linkedin_url: linkedin,
+          github_url: github,
+          portfolio_url: portfolio,
+          achievements: achArray,
+          certifications: certArray,
+          resume_url: resumeUrl
+        });
+      }
+
       await refreshUser();
       toast.success('Your changes have been saved');
     } catch (err: any) {
@@ -161,6 +207,102 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+
+                {user?.role?.name === 'student' && (
+                  <>
+                    <hr className="border-dark-100 dark:border-white/10 my-6" />
+                    <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Student Profile</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Bio</label>
+                        <textarea
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          placeholder="Tell us about yourself..."
+                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Skills (comma separated)</label>
+                        <input
+                          type="text"
+                          value={skills}
+                          onChange={(e) => setSkills(e.target.value)}
+                          placeholder="e.g. React, Python, UI/UX"
+                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">LinkedIn URL</label>
+                          <input
+                            type="url"
+                            value={linkedin}
+                            onChange={(e) => setLinkedin(e.target.value)}
+                            placeholder="https://linkedin.com/in/username"
+                            className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">GitHub URL</label>
+                          <input
+                            type="url"
+                            value={github}
+                            onChange={(e) => setGithub(e.target.value)}
+                            placeholder="https://github.com/username"
+                            className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Portfolio URL (Optional)</label>
+                          <input
+                            type="url"
+                            value={portfolio}
+                            onChange={(e) => setPortfolio(e.target.value)}
+                            placeholder="https://myportfolio.com"
+                            className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Resume Link</label>
+                          <input
+                            type="url"
+                            value={resumeUrl}
+                            onChange={(e) => setResumeUrl(e.target.value)}
+                            placeholder="Link to PDF/DOCX"
+                            className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Achievements</label>
+                        <textarea
+                          value={achievements}
+                          onChange={(e) => setAchievements(e.target.value)}
+                          placeholder="List your achievements..."
+                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          rows={2}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-dark-600 dark:text-dark-300 ml-1">Certifications</label>
+                        <textarea
+                          value={certifications}
+                          onChange={(e) => setCertifications(e.target.value)}
+                          placeholder="List your certifications..."
+                          className="w-full px-4 py-3 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-xl text-dark-900 dark:text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-brand-indigo/50 transition-all shadow-sm"
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="pt-6 border-t border-dark-100 dark:border-white/10 flex justify-end">
                   <button

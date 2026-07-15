@@ -124,23 +124,34 @@ def register_face(
     try:
         drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
     except Exception as e:
-        logger.error(f"[Req {request_id}] Google Drive upload failed (bypassing): {e}")
-        drive_file_id, face_image_url = None, None
+        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Google Drive upload failed. Please try again.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # 5. Store metadata in Supabase (students table)
     logger.info(f"[Req {request_id}] Updating Supabase")
     try:
+        # Update students table
         update_data = {
             "face_registered": True,
-            "face_registered_at": now_iso,
-            "face_image_url": face_image_url
+            "face_registered_at": now_iso
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
             logger.error(f"[Req {request_id}] Database update failed: Student {student_id} not found.")
             raise HTTPException(status_code=404, detail="Student profile not found.")
+            
+        # Upsert embedding and image URL into student_faces table
+        face_data = {
+            "student_id": student_id,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "updated_at": now_iso
+        }
+        # Assuming student_id is unique, upsert on student_id
+        face_res = supabase.table("student_faces").upsert(face_data, on_conflict="student_id").execute()
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -284,8 +295,8 @@ def update_face(
     try:
         drive_file_id, face_image_url = upload_image_to_drive(img_bytes, filename)
     except Exception as e:
-        logger.error(f"[Req {request_id}] Google Drive upload failed (bypassing): {e}")
-        drive_file_id, face_image_url = None, None
+        logger.error(f"[Req {request_id}] Google Drive upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Google Drive upload failed. Please try again.")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -293,13 +304,22 @@ def update_face(
     try:
         update_data = {
             "face_registered": True,
-            "face_registered_at": now_iso,
-            "face_image_url": face_image_url
+            "face_registered_at": now_iso
         }
         res = supabase.table("students").update(update_data).eq("id", student_id).execute()
         if not res.data:
             logger.error(f"[Req {request_id}] Database update failed: Student {student_id} not found.")
             raise HTTPException(status_code=404, detail="Student profile not found.")
+            
+        # Upsert embedding and image URL into student_faces table
+        face_data = {
+            "student_id": student_id,
+            "face_embedding": embedding,
+            "face_image_url": face_image_url,
+            "updated_at": now_iso
+        }
+        face_res = supabase.table("student_faces").upsert(face_data, on_conflict="student_id").execute()
+        
     except Exception as e:
         logger.exception(f"[Req {request_id}] Database update exception: {e}")
         raise HTTPException(status_code=500, detail="Database update failed while saving registration.")

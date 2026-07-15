@@ -322,7 +322,11 @@ def update_self_profile(req: StudentUpdate, current_user: dict = Depends(get_cur
     supabase = get_supabase()
     update_data = req.model_dump(exclude_unset=True)
     student_updates = {}
-    allowed_keys = {"department", "year", "semester", "resume_url", "resume_data"}
+    allowed_keys = {
+        "department", "year", "semester", "resume_url", "resume_data",
+        "linkedin_url", "github_url", "portfolio_url", "skills", "bio", 
+        "achievements", "certifications"
+    }
     for key in allowed_keys:
         if key in update_data:
             student_updates[key] = update_data[key]

@@ -122,10 +122,18 @@ def validate_face_image(image_bytes: bytes) -> Dict[str, Any]:
             import cv2
             gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
             blur_score = cv2.Laplacian(gray, cv2.CV_64F).var()
-            if blur_score < 50:
+            if blur_score < 70:  # Strict blur threshold
                 return {"valid": False, "reason": "Image is blurry. Hold the camera steady.", "face_count": 1}
+                
+            # Lighting validation (average pixel brightness)
+            mean_brightness = np.mean(gray)
+            if mean_brightness < 60:
+                return {"valid": False, "reason": "Image is too dark. Please move to a well-lit area.", "face_count": 1}
+            elif mean_brightness > 240:
+                return {"valid": False, "reason": "Image is too bright. Please reduce backlighting.", "face_count": 1}
             
-            return {"valid": True, "reason": "OK", "face_count": 1}
+            # Side face rejection: OpenCV frontalface detector naturally filters out severe side profiles.
+            return {"valid": True, "reason": "OK", "face_count": 1, "quality_score": round(blur_score)}
             
         except ImportError:
             # DeepFace not available — use basic PIL check as fallback
