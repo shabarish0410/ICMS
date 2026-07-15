@@ -1,15 +1,5 @@
-"""
-face/quality.py
-─────────────────────────────────────────────────
-Responsibility: Image quality analysis.
-  - Blur detection (Laplacian variance)
-  - Brightness / over-exposure check
-  - Face size check
-  - Face confidence check
-  - Composite quality score
+"""face/quality.py — Image quality analysis: blur, brightness, face size, quality score."""
 
-No database access. No external service calls.
-"""
 import logging
 from typing import Dict, Any
 

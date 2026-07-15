@@ -1,14 +1,5 @@
-"""
-face/embedding.py
-─────────────────────────────────────────────────
-Responsibility: Face embedding generation and comparison.
-  - Generate 512-dim ArcFace embeddings via DeepFace
-  - Lightweight perceptual-hash fallback when DeepFace unavailable
-  - Cosine distance comparison
-  - Average multiple embeddings
+"""face/embedding.py — ArcFace embedding generation and cosine-distance comparison."""
 
-No database access. No external service calls.
-"""
 import logging
 import ast
 from typing import List, Optional, Dict, Any

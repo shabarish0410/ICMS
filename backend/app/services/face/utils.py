@@ -1,13 +1,5 @@
-"""
-face/utils.py
-─────────────────────────────────────────────────
-Responsibility: Low-level image I/O utilities.
-  - Decode base64 strings into raw bytes
-  - Convert raw bytes to PIL Images
-  - Convert PIL Images to numpy arrays
+"""face/utils.py — Low-level image I/O: base64 decode, bytes ↔ PIL, PIL → numpy."""
 
-No business logic. No external service calls.
-"""
 import base64
 import io
 import logging

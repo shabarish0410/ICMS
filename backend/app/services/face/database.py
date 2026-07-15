@@ -1,16 +1,5 @@
-"""
-face/database.py
-─────────────────────────────────────────────────
-Responsibility: Supabase CRUD for face-related records.
-  - Load student face record
-  - Load registered embedding
-  - Upsert embedding + photo_url to student_faces
-  - Update students.face_registered flag
-  - Reset face registration
-  - Write audit logs to attendance_logs
+"""face/database.py — Supabase CRUD for student_faces, students, and audit logs."""
 
-No image processing. No storage logic.
-"""
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List

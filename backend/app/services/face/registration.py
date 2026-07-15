@@ -1,23 +1,5 @@
-"""
-face/registration.py
-─────────────────────────────────────────────────
-Responsibility: Orchestrate the full face registration workflow.
+"""face/registration.py — Orchestrates the full face register/update pipeline with structured logging."""
 
-Pipeline (for both /register and /update):
-    1.  Decode image
-    2.  Validate image format & resolution
-    3.  Detect face (exactly one)
-    4.  Assess quality (blur, brightness, size)
-    5.  Generate face embedding
-    6.  Upload image to Google Drive
-    7.  Verify upload success
-    8.  Update Supabase (student_faces + students)
-    9.  Write audit log
-    10. Return success response
-
-Each stage is logged with a correlation request_id and execution timing.
-On failure, the exact stage name is included in the error detail.
-"""
 import logging
 import time
 import uuid

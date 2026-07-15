@@ -1,13 +1,5 @@
-"""
-face/validation.py
-─────────────────────────────────────────────────
-Responsibility: Face detection and image-level validation.
-  - Detect faces using DeepFace (with PIL/basic fallback)
-  - Enforce: exactly one face, minimum resolution
-  - Liveness detection (blink via EAR, head movement via yaw)
+"""face/validation.py — Face detection (DeepFace) and liveness verification (MediaPipe)."""
 
-No database access. No embedding generation.
-"""
 import math
 import logging
 from typing import List, Dict, Any

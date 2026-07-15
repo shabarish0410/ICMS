@@ -37,20 +37,8 @@ def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
     otp = generate_otp()
     email = user_data.get("email")
     mobile = user_data.get("mobile")
-    
-    if email:
-        html = f"<div style='font-family:Arial'><h2>Two-Factor Authentication OTP</h2><p>Your OTP to login is:</p><h1 style='color:blue'>{otp}</h1><p>This OTP is valid for 5 minutes.</p></div>"
-        try:
-            send_email(to_email=email, subject="Login OTP", html=html)
-        except Exception as e:
-            logger.warning(f"Failed to send email OTP: {e}")
-            if mobile:
-                send_otp_sms(mobile, otp)
-    elif mobile:
-        send_otp_sms(mobile, otp)
-    else:
-        logger.warning(f"No email or mobile for {ic_number}, but 2FA is required!")
 
+    # ── Always persist OTP first ─────────────────────────────────────────────
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     otp_data = {
         "identifier": ic_number,
@@ -58,18 +46,55 @@ def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
         "expires_at": expires_at,
         "attempts": 0
     }
-    
-    existing_otp = supabase.table("otp_verifications").select("id").eq("identifier", ic_number).execute()
-    if existing_otp.data:
-        supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
+    try:
+        existing_otp = supabase.table("otp_verifications").select("id").eq("identifier", ic_number).execute()
+        if existing_otp.data:
+            supabase.table("otp_verifications").update(otp_data).eq("id", existing_otp.data[0]["id"]).execute()
+        else:
+            supabase.table("otp_verifications").insert(otp_data).execute()
+        logger.debug(f"OTP persisted for '{ic_number}'")
+    except Exception as e:
+        logger.error(f"Failed to save OTP for '{ic_number}': {e}")
+        raise BusinessLogicError("Could not initiate login. Please try again.", status_code=500)
+
+    # ── Attempt OTP delivery (best-effort, never blocks login) ───────────────
+    delivery_ok = False
+    if email:
+        html = (
+            f"<div style='font-family:Arial'>"
+            f"<h2>Two-Factor Authentication OTP</h2>"
+            f"<p>Your OTP to login is:</p>"
+            f"<h1 style='color:blue'>{otp}</h1>"
+            f"<p>This OTP is valid for 5 minutes.</p>"
+            f"</div>"
+        )
+        try:
+            delivery_ok = send_email(to_email=email, subject="Login OTP", html=html)
+        except Exception as e:
+            logger.warning(f"Email OTP failed for '{ic_number}': {e}")
+
+        if not delivery_ok and mobile:
+            try:
+                delivery_ok = send_otp_sms(mobile, otp)
+            except Exception as e:
+                logger.warning(f"SMS OTP fallback failed for '{ic_number}': {e}")
+    elif mobile:
+        try:
+            delivery_ok = send_otp_sms(mobile, otp)
+        except Exception as e:
+            logger.warning(f"SMS OTP failed for '{ic_number}': {e}")
     else:
-        supabase.table("otp_verifications").insert(otp_data).execute()
+        logger.warning(f"No email or mobile for '{ic_number}' — OTP saved but not delivered.")
+
+    if not delivery_ok:
+        logger.warning(f"OTP delivery failed for '{ic_number}' but login proceeds (OTP stored).")
 
     return {
         "requires_2fa": True,
         "message": "OTP sent to your registered email/mobile.",
         "ic_number": ic_number
     }
+
 
 
 def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:

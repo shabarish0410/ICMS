@@ -1,14 +1,5 @@
-"""
-face/storage.py
-─────────────────────────────────────────────────
-Responsibility: Image storage on Google Drive.
-  - Upload image bytes to Google Drive
-  - Verify the file exists after upload
-  - Confirm public permissions are set
-  - Return (drive_file_id, public_url)
+"""face/storage.py — Google Drive upload with retry, permission verification, and URL generation."""
 
-No database access. No face logic.
-"""
 import io
 import logging
 import time

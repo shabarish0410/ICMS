@@ -1,19 +1,5 @@
-"""
-face/recognition.py
-─────────────────────────────────────────────────
-Responsibility: Face recognition (identification only).
-  - Generate a temporary embedding from a probe image
-  - Compare against a student's registered embedding
-  - Return match result with confidence score
+"""face/recognition.py — Face recognition (probe → compare): no DB writes, no uploads."""
 
-Deliberately does NOT:
-  - Store anything
-  - Upload anything
-  - Read from any database beyond what is passed in
-
-Call `get_registered_embedding` from database.py to load the stored embedding,
-then pass it here for comparison.
-"""
 import logging
 from typing import Optional, Dict, Any
 

@@ -1,13 +1,5 @@
-"""
-face/attendance.py
-─────────────────────────────────────────────────
-Responsibility: Attendance-specific face verification helpers.
-  - Verify a probe image against a student's registered face
-  - Return structured result for use by attendance_service.py
+"""face/attendance.py — Attendance verification adapter: validation + liveness + recognition."""
 
-This is a thin adapter that wires recognition.py + database.py
-so that attendance_service.py has a single clean call.
-"""
 import logging
 from typing import Dict, Any, List, Optional
 

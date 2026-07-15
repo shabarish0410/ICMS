@@ -43,10 +43,13 @@ def send_email(to_email: str, subject: str, html: str):
             return True
         else:
             key_len = len(api_key) if api_key else 0
-            error_msg = f"Brevo API Error (Key length on Render: {key_len}) ({response.status_code}): {response.text}"
+            error_msg = f"Brevo API Error (Key length: {key_len}) ({response.status_code}): {response.text}"
             print(error_msg)
-            raise RuntimeError(error_msg)
+            # Do NOT re-raise — a Brevo outage must never cause a 500 on login
+            return False
             
     except Exception as e:
         print("BREVO ERROR:", str(e))
-        raise RuntimeError(f"Email delivery failed: {str(e)}")
+        # Do NOT re-raise — callers should degrade gracefully
+        return False
+

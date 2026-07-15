@@ -1,16 +1,5 @@
-"""
-face_service.py  ─  Compatibility Facade
-─────────────────────────────────────────────────────────────────────────────
-This module preserves the original public API surface of the old monolithic
-face_service.py so that:
-  - app/routes/face.py needs NO changes
-  - app/services/attendance_service.py needs NO changes
-  - app/services/uniform_service.py needs NO changes
+"""face_service.py — Compatibility facade re-exporting the face/* package."""
 
-ALL implementation now lives in app/services/face/ (the modular package).
-This file is intentionally kept thin — it just re-exports names.
-─────────────────────────────────────────────────────────────────────────────
-"""
 
 # ── Utility functions (used by attendance_service & uniform_service) ──────────
 from app.services.face.utils import decode_base64_image, bytes_to_pil  # noqa: F401
