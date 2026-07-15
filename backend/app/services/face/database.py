@@ -104,9 +104,18 @@ def save_face_registration(
             raise NotFoundError(f"Student {student_id} not found during registration save")
         logger.debug(f"[Database] students.face_registered updated for student {student_id}")
     except NotFoundError:
+        _rollback_student_faces(supabase, student_id)
         raise
     except Exception as e:
+        _rollback_student_faces(supabase, student_id)
         raise RuntimeError(f"[Database] Supabase students update failed: {e}") from e
+
+def _rollback_student_faces(supabase, student_id: int) -> None:
+    try:
+        supabase.table("student_faces").delete().eq("student_id", student_id).execute()
+        logger.warning(f"[Database] Rolled back student_faces for student {student_id} due to partial failure")
+    except Exception as e:
+        logger.error(f"[Database] Failed to rollback student_faces for student {student_id}: {e}")
 
 
 def reset_face_registration(student_id: int) -> None:

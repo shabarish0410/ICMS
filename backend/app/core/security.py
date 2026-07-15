@@ -147,6 +147,8 @@ def get_current_user(
         user["must_change_password"] = bool(user.get("must_change_password", False))
 
         return user
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         logger.error(f"Error in get_current_user: {str(e)}\n{traceback.format_exc()}")

@@ -13,10 +13,14 @@ from app.services.face_service import (
 )
 from app.utils.actions import log_admin_action
 from app.services.google_drive import upload_image_to_drive
+from app.utils.logger import get_structured_logger, log_step
+import uuid
+import time
+import logging
 
-logger = logging.getLogger("icms.attendance")
+logger = get_structured_logger("icms.attendance")
 
-def _log_att(supabase, student_id: int, step: str, result: str, message: str) -> None:
+def _log_att(supabase, student_id: int, step: str, result: str, message: str, request_id: str = "unknown", start_time: Optional[float] = None) -> None:
     try:
         supabase.table("attendance_logs").insert({
             "student_id": student_id,
@@ -27,6 +31,9 @@ def _log_att(supabase, student_id: int, step: str, result: str, message: str) ->
         }).execute()
     except Exception as e:
         logger.warning(f"attendance_log write failed: {e}")
+        
+    log_level = logging.INFO if result == "PASS" else logging.ERROR
+    log_step(logger, log_level, message, request_id, student_id, "/api/attendance/face", step, result, start_time, exc_info=False)
 
 
 def mark_attendance(req: AttendanceMarkRequest, current_user: dict) -> Dict[str, Any]:
@@ -99,53 +106,68 @@ def face_attendance(req: FaceMarkAttendanceRequest, current_user: dict) -> Dict[
     else:
         raise PermissionDeniedError("Student profile not found")
 
+    request_id = str(uuid.uuid4())
+    t0 = time.monotonic()
+    
     supabase = get_supabase()
 
     student_res = supabase.table("students").select("id, face_registered, face_embedding").eq("id", student_id).execute()
     if not student_res.data or not student_res.data[0].get("face_registered"):
-        _log_att(supabase, student_id, "face_register_check", "FAIL", "Face not registered")
+        _log_att(supabase, student_id, "face_register_check", "FAIL", "Face not registered", request_id, t0)
         raise ValidationError("Face not registered. Please register your face in Profile → Face Registration before using face attendance.")
-    _log_att(supabase, student_id, "face_register_check", "PASS", "Face is registered")
+    _log_att(supabase, student_id, "face_register_check", "PASS", "Face is registered", request_id, t0)
 
     try:
         img_bytes = decode_base64_image(req.image_base64)
     except ValueError as e:
-        _log_att(supabase, student_id, "image_decode", "FAIL", str(e))
+        _log_att(supabase, student_id, "image_decode", "FAIL", str(e), request_id, t0)
         raise ValidationError(f"Invalid image: {e}")
 
     validation = validate_face_image(img_bytes)
     if not validation["valid"]:
-        _log_att(supabase, student_id, "face_detect", "FAIL", validation["reason"])
+        _log_att(supabase, student_id, "face_detect", "FAIL", validation["reason"], request_id, t0)
         raise ValidationError(validation["reason"])
-    _log_att(supabase, student_id, "face_detect", "PASS", f"Face detected (count={validation['face_count']})")
+    _log_att(supabase, student_id, "face_detect", "PASS", f"Face detected (count={validation['face_count']})", request_id, t0)
 
-    liveness_frames = req.liveness_frames or []
-    if not liveness_frames:
-        liveness_frames = [req.image_base64]
+    liveness_frames_b64 = req.liveness_frames or []
+    if not liveness_frames_b64:
+        liveness_frames_bytes = [img_bytes]
+    else:
+        liveness_frames_bytes = []
+        for b64 in liveness_frames_b64:
+            try:
+                liveness_frames_bytes.append(decode_base64_image(b64))
+            except Exception as e:
+                logger.warning(f"Failed to decode liveness frame: {e}")
 
-    liveness = perform_liveness_check(liveness_frames)
+    liveness = perform_liveness_check(liveness_frames_bytes)
     if not liveness["passed"]:
-        _log_att(supabase, student_id, "liveness_check", "FAIL", liveness["reason"])
+        _log_att(supabase, student_id, "liveness_check", "FAIL", liveness["reason"], request_id, t0)
         raise ValidationError(f"Liveness verification failed: {liveness['reason']}")
-    _log_att(supabase, student_id, "liveness_check", "PASS", f"blink={liveness['blink_detected']}, movement={liveness['movement_detected']}")
+    _log_att(supabase, student_id, "liveness_check", "PASS", f"blink={liveness['blink_detected']}, movement={liveness['movement_detected']}", request_id, t0)
 
-    live_embedding = generate_face_embedding(img_bytes)
+    aligned_face = validation.get("aligned_face")
+    if aligned_face is not None:
+        live_embedding = generate_face_embedding(aligned_face, enforce_detection=False)
+    else:
+        live_embedding = generate_face_embedding(img_bytes, enforce_detection=True)
+        
     if live_embedding is None:
-        _log_att(supabase, student_id, "embedding_generate", "FAIL", "Could not generate face embedding")
+        _log_att(supabase, student_id, "embedding_generate", "FAIL", "Could not generate face embedding", request_id, t0)
         raise ValidationError("Could not analyze face. Please ensure good lighting and try again.")
-    _log_att(supabase, student_id, "embedding_generate", "PASS", "Embedding generated")
+    _log_att(supabase, student_id, "embedding_generate", "PASS", "Embedding generated", request_id, t0)
 
     registered_embedding = student_res.data[0].get("face_embedding")
     if not registered_embedding:
-        _log_att(supabase, student_id, "embedding_load", "FAIL", "No embedding found in database")
+        _log_att(supabase, student_id, "embedding_load", "FAIL", "No embedding found in database", request_id, t0)
         raise ValidationError("Face embedding not found. Please re-register your face.")
-    _log_att(supabase, student_id, "embedding_load", "PASS", "Registered embedding loaded")
+    _log_att(supabase, student_id, "embedding_load", "PASS", "Registered embedding loaded", request_id, t0)
 
     comparison = compare_embeddings(live_embedding, registered_embedding)
     if not comparison["match"]:
-        _log_att(supabase, student_id, "face_match", "FAIL", f"distance={comparison['distance']}, threshold={comparison['threshold']}, confidence={comparison['confidence']}%")
+        _log_att(supabase, student_id, "face_match", "FAIL", f"distance={comparison['distance']}, threshold={comparison['threshold']}, confidence={comparison['confidence']}%", request_id, t0)
         raise BusinessLogicError(f"Face verification failed. The face does not match the registered student. (Confidence: {comparison['confidence']}%)", status_code=401)
-    _log_att(supabase, student_id, "face_match", "PASS", f"Match! distance={comparison['distance']}, confidence={comparison['confidence']}%")
+    _log_att(supabase, student_id, "face_match", "PASS", f"Match! distance={comparison['distance']}, confidence={comparison['confidence']}%", request_id, t0)
 
     photo_url = req.photo_url 
     drive_file_id = None
@@ -168,9 +190,9 @@ def face_attendance(req: FaceMarkAttendanceRequest, current_user: dict) -> Dict[
     uniform_details = uniform_result.get("details", {})
 
     if not uniform_verified:
-        _log_att(supabase, student_id, "uniform_check", "FAIL", f"Uniform mismatch: {uniform_result['reason']} (confidence={uniform_confidence}%)")
+        _log_att(supabase, student_id, "uniform_check", "FAIL", f"Uniform mismatch: {uniform_result['reason']} (confidence={uniform_confidence}%)", request_id, t0)
         raise ValidationError(f"Uniform verification failed: {uniform_result['reason']} (Confidence: {uniform_confidence}%)")
-    _log_att(supabase, student_id, "uniform_check", "PASS", f"Uniform verified: confidence={uniform_confidence}% reason={uniform_result['reason']}")
+    _log_att(supabase, student_id, "uniform_check", "PASS", f"Uniform verified: confidence={uniform_confidence}% reason={uniform_result['reason']}", request_id, t0)
 
     ist_tz = pytz.timezone("Asia/Kolkata")
     now_ist = datetime.now(timezone.utc).astimezone(ist_tz)
@@ -178,24 +200,24 @@ def face_attendance(req: FaceMarkAttendanceRequest, current_user: dict) -> Dict[
     today = date.today().isoformat()
 
     if time_str < "14:30":
-        _log_att(supabase, student_id, "time_window", "FAIL", f"Too early: {time_str}")
+        _log_att(supabase, student_id, "time_window", "FAIL", f"Too early: {time_str}", request_id, t0)
         raise ValidationError("Attendance is not open yet. Attendance opens at 2:30 PM.")
 
     if time_str > "15:00":
-        _log_att(supabase, student_id, "time_window", "FAIL", f"Too late: {time_str}")
+        _log_att(supabase, student_id, "time_window", "FAIL", f"Too late: {time_str}", request_id, t0)
         raise ValidationError("Attendance window has closed. It closed at 3:00 PM.")
 
     final_status = "PRESENT"
     if "14:46" <= time_str <= "15:00":
         final_status = "LATE"
 
-    _log_att(supabase, student_id, "time_window", "PASS", f"Time {time_str} → status={final_status}")
+    _log_att(supabase, student_id, "time_window", "PASS", f"Time {time_str} → status={final_status}", request_id, t0)
 
     existing = supabase.table("attendance").select("id").eq("student_id", student_id).eq("date", today).execute()
     if existing.data:
-        _log_att(supabase, student_id, "duplicate_check", "FAIL", f"Already marked for {today}")
+        _log_att(supabase, student_id, "duplicate_check", "FAIL", f"Already marked for {today}", request_id, t0)
         raise BusinessLogicError("Attendance has already been recorded for today.", status_code=409)
-    _log_att(supabase, student_id, "duplicate_check", "PASS", "No duplicate found")
+    _log_att(supabase, student_id, "duplicate_check", "PASS", "No duplicate found", request_id, t0)
 
     new_att = {
         "student_id": student_id,
@@ -218,7 +240,7 @@ def face_attendance(req: FaceMarkAttendanceRequest, current_user: dict) -> Dict[
     att_id = res.data[0]["id"]
     final_res = supabase.table("attendance").select("*, student:students(*, user:users(*))").eq("id", att_id).execute()
 
-    _log_att(supabase, student_id, "attendance_saved", "PASS", f"Attendance ID={att_id} saved. Status={final_status} uniform_confidence={uniform_confidence}%")
+    _log_att(supabase, student_id, "attendance_saved", "PASS", f"Attendance ID={att_id} saved. Status={final_status} uniform_confidence={uniform_confidence}%", request_id, t0)
 
     return final_res.data[0]
 

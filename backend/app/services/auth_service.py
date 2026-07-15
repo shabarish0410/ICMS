@@ -14,7 +14,7 @@ from app.core.exceptions import NotFoundError, PermissionDeniedError, Validation
 logger = logging.getLogger("icms.auth")
 
 def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
-    """Authenticate user and generate OTP for 2FA."""
+    """Authenticate user and return access tokens (2FA removed)."""
     supabase = get_supabase()
     
     res = supabase.table("users").select("*, role:roles(name)").eq("ic_number", ic_number).execute()
@@ -32,118 +32,6 @@ def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
         logger.warning(f"Login failed: Account '{ic_number}' deactivated.")
         raise PermissionDeniedError("Account is deactivated")
         
-    logger.info(f"Login successful for '{ic_number}'. Generating 2FA OTP.")
-    
-    otp = generate_otp()
-    email = user_data.get("email")
-    mobile = user_data.get("mobile")
-
-    # Use mobile as lookup key; fall back to ic_number when no mobile exists
-    otp_lookup_key = mobile if mobile else ic_number
-
-    # ── Always persist OTP first (table key = 'mobile' column) ───────────────
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
-    otp_data = {
-        "mobile":   otp_lookup_key,   # actual column name in otp_verifications
-        "otp_hash": hash_password(otp),
-        "expires_at": expires_at,
-        "attempts": 0
-    }
-    try:
-        existing = supabase.table("otp_verifications").select("id").eq("mobile", otp_lookup_key).execute()
-        if existing.data:
-            supabase.table("otp_verifications").update(otp_data).eq("id", existing.data[0]["id"]).execute()
-        else:
-            supabase.table("otp_verifications").insert(otp_data).execute()
-        logger.info(f"OTP persisted for '{ic_number}' (lookup_key='{otp_lookup_key}')")
-    except Exception as e:
-        logger.error(f"[OTP SAVE] Failed for '{ic_number}' (key='{otp_lookup_key}'): {e}")
-        raise BusinessLogicError("Could not initiate login. Please try again.", status_code=500)
-
-    # ── Attempt OTP delivery (best-effort, never blocks login) ───────────────
-    delivery_ok = False
-    if email:
-        html = (
-            f"<div style='font-family:Arial'>"
-            f"<h2>Two-Factor Authentication OTP</h2>"
-            f"<p>Your OTP to login is:</p>"
-            f"<h1 style='color:#4F46E5'>{otp}</h1>"
-            f"<p>This OTP is valid for 5 minutes.</p>"
-            f"</div>"
-        )
-        try:
-            delivery_ok = send_email(to_email=email, subject="Spark Innovation Center — Login OTP", html=html)
-        except Exception as e:
-            logger.warning(f"[OTP EMAIL] Failed for '{ic_number}': {e}")
-
-        if not delivery_ok and mobile:
-            try:
-                delivery_ok = send_otp_sms(mobile, otp)
-            except Exception as e:
-                logger.warning(f"[OTP SMS FALLBACK] Failed for '{ic_number}': {e}")
-    elif mobile:
-        try:
-            delivery_ok = send_otp_sms(mobile, otp)
-        except Exception as e:
-            logger.warning(f"[OTP SMS] Failed for '{ic_number}': {e}")
-    else:
-        logger.warning(f"[OTP DELIVERY] No email or mobile for '{ic_number}' — OTP saved but not delivered.")
-
-    if not delivery_ok:
-        logger.warning(f"[OTP DELIVERY] Delivery failed for '{ic_number}' — login still proceeds (OTP stored).")
-
-    return {
-        "requires_2fa": True,
-        "message": "OTP sent to your registered email/mobile.",
-        "ic_number": ic_number
-    }
-
-
-
-
-def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:
-    """Verify OTP and return access tokens."""
-    supabase = get_supabase()
-    
-    res = supabase.table("users").select("*, role:roles(name)").eq("ic_number", ic_number).execute()
-    if not res.data:
-        raise NotFoundError("User not found")
-        
-    user_data = res.data[0]
-    mobile = user_data.get("mobile")
-    otp_lookup_key = mobile if mobile else ic_number
-    
-    try:
-        otp_res = supabase.table("otp_verifications").select("*").eq("mobile", otp_lookup_key).execute()
-    except Exception as e:
-        logger.error(f"[OTP LOOKUP] Failed for '{ic_number}' (key='{otp_lookup_key}'): {e}")
-        raise BusinessLogicError("Database error during OTP verification", status_code=500)
-
-    if not otp_res.data:
-        raise ValidationError("No OTP requested for this user")
-        
-    otp_record = otp_res.data[0]
-    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
-    
-    if datetime.now(timezone.utc) > expires_at:
-        raise ValidationError("OTP has expired")
-        
-    if not verify_password(otp, otp_record["otp_hash"]):
-        attempts = otp_record.get("attempts", 0) + 1
-        try:
-            supabase.table("otp_verifications").update({"attempts": attempts}).eq("id", otp_record["id"]).execute()
-        except Exception as e:
-            logger.error(f"[OTP UPDATE] Failed to increment attempts for '{ic_number}': {e}")
-        raise ValidationError("Invalid OTP")
-        
-    try:
-        supabase.table("otp_verifications").delete().eq("id", otp_record["id"]).execute()
-        logger.info(f"[OTP VERIFY] Success for '{ic_number}', OTP deleted.")
-    except Exception as e:
-        logger.error(f"[OTP DELETE] Failed to delete used OTP for '{ic_number}': {e}")
-        # Proceed with login even if delete fails, but log it heavily
-
-
     now = datetime.now(timezone.utc).isoformat()
     supabase.table("users").update({"last_login": now}).eq("id", user_data["id"]).execute()
 
@@ -164,6 +52,8 @@ def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Could not fetch face_registered status: {e}")
 
+    logger.info(f"Login successful for '{ic_number}'.")
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -171,6 +61,7 @@ def verify_login_2fa(ic_number: str, otp: str) -> Dict[str, Any]:
         "must_change_password": bool(user_data.get("must_change_password")),
         "face_registered": face_registered,
     }
+
 
 
 def complete_user_profile(user_id: int, full_name: str, email: str, mobile: str, avatar_url: Optional[str]) -> Dict[str, Any]:

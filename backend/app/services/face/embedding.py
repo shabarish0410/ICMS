@@ -17,17 +17,22 @@ FACE_MATCH_THRESHOLD = 0.40   # Cosine distance ─ lower = more similar
 
 # ── Embedding Generation ───────────────────────────────────────────────────────
 
-def generate_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
+def generate_face_embedding(image_source: Any, enforce_detection: bool = True) -> Optional[List[float]]:
     """
-    Generate a unit-normalised 512-dim ArcFace embedding from raw image bytes.
+    Generate a unit-normalised 512-dim ArcFace embedding from raw image bytes or np.ndarray.
     Falls back to a perceptual-hash embedding if DeepFace is unavailable.
 
     Returns:
         List[float] of length 512, or None on failure.
     """
     try:
-        img_pil   = bytes_to_pil(image_bytes)
-        img_array = np.array(img_pil)
+        if isinstance(image_source, bytes):
+            img_pil   = bytes_to_pil(image_source)
+            img_array = np.array(img_pil)
+        elif isinstance(image_source, np.ndarray):
+            img_array = image_source
+        else:
+            return None
 
         try:
             from deepface import DeepFace
@@ -36,8 +41,8 @@ def generate_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
                 img_path=img_array,
                 model_name="ArcFace",
                 detector_backend="opencv",
-                enforce_detection=True,
-                align=True,
+                enforce_detection=enforce_detection,
+                align=enforce_detection,
             )
             raw_vec = result[0]["embedding"]
             vec     = np.array(raw_vec, dtype=np.float64)
@@ -49,7 +54,9 @@ def generate_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
 
         except ImportError:
             logger.warning("[Embedding] DeepFace not installed — using perceptual-hash fallback")
-            return _perceptual_hash_embedding(img_pil)
+            if isinstance(image_source, bytes):
+                return _perceptual_hash_embedding(bytes_to_pil(image_source))
+            return None
 
         except Exception as e:
             logger.error(f"[Embedding] DeepFace.represent error: {e}", exc_info=True)

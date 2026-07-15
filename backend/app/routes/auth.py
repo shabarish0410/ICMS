@@ -3,7 +3,7 @@ from app.core.security import get_current_user, oauth2_scheme, blacklist_token
 from app.schemas import (
     LoginRequest, TokenResponse, RefreshRequest, UserOut,
     CompleteProfileRequest, ChangePasswordRequest,
-    ForgotPasswordRequest, VerifyOTPRequest, RequestOTPRequest, RegisterRequest, Verify2FARequest
+    ForgotPasswordRequest, VerifyOTPRequest, RequestOTPRequest, RegisterRequest
 )
 from app.services import auth_service
 
@@ -21,10 +21,7 @@ def login(req: LoginRequest):
     return auth_service.authenticate_user(req.ic_number, req.password)
 
 
-@router.post("/verify-2fa", response_model=TokenResponse)
-def verify_login_2fa(req: Verify2FARequest):
-    """Verify 2FA OTP and issue tokens."""
-    return auth_service.verify_login_2fa(req.ic_number, req.otp)
+
 
 
 @router.get("/me", response_model=dict)

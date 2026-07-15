@@ -286,6 +286,8 @@ create table student_faces (
     id serial primary key,
     student_id integer references students(id) on delete cascade unique not null,
     face_embedding jsonb not null,
+    face_image_url text,
+    drive_file_id text,
     model_version varchar(50) default 'ArcFace',
     created_at timestamptz default now(),
     updated_at timestamptz default now()

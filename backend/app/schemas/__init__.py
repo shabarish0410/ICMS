@@ -59,15 +59,6 @@ class TokenResponse(BaseModel):
     ic_number: Optional[str] = None
 
 
-class Verify2FARequest(BaseModel):
-    ic_number: str
-    otp: str
-
-    @field_validator('ic_number')
-    @classmethod
-    def check_ic(cls, v):
-        return validate_ic_number(v)
-
 
 class RefreshRequest(BaseModel):
     refresh_token: str

@@ -106,13 +106,13 @@ def assess_quality(img_array: np.ndarray, facial_area: dict, confidence: float) 
     if blur < MIN_BLUR_SCORE:
         return {
             "passed": False,
-            "reason": "Image is too blurry. Hold the camera steady.",
+            "reason": "Image Too Blurry",
             "blur_score": blur, "brightness": brightness, "quality_score": 0,
         }
     if brightness < MIN_BRIGHTNESS:
         return {
             "passed": False,
-            "reason": "Image is too dark. Please move to a well-lit area.",
+            "reason": "Image Too Dark",
             "blur_score": blur, "brightness": brightness, "quality_score": 0,
         }
     if brightness > MAX_BRIGHTNESS:

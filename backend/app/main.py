@@ -92,8 +92,7 @@ async def icms_exception_handler(request: Request, exc: ICMSException):
     logger.warning(f"ICMS EXCEPTION | URL: {request.url} | Status: {exc.status_code} | {exc.message} | Details: {exc.details}")
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.message, "extras": exc.details},
-        headers={"Access-Control-Allow-Origin": "*"}
+        content={"detail": exc.message, "extras": exc.details}
     )
 
 @app.exception_handler(Exception)
@@ -101,8 +100,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"},
-        headers={"Access-Control-Allow-Origin": "*"}
+        content={"detail": "Internal Server Error"}
     )
 
 @app.exception_handler(HTTPException)
@@ -113,8 +111,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         logger.warning(f"HTTP EXCEPTION | URL: {request.url} | Status: {exc.status_code} | {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
-        headers={"Access-Control-Allow-Origin": "*"}
+        content={"detail": exc.detail}
     )
 
 # Register routers

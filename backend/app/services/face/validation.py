@@ -78,7 +78,7 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
             if face_count == 0:
                 return {
                     "valid": False,
-                    "reason": "No face detected. Please position your face clearly in front of the camera.",
+                    "reason": "No Face Detected",
                     "face_count": 0,
                     "quality_score": 0,
                 }
@@ -86,7 +86,7 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
             if face_count > 1:
                 return {
                     "valid": False,
-                    "reason": f"Multiple faces detected ({face_count}). Only one person should be in frame.",
+                    "reason": "Multiple Faces Detected",
                     "face_count": face_count,
                     "quality_score": 0,
                 }
@@ -94,6 +94,7 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
             face       = faces[0]
             region     = face.get("facial_area", {})
             confidence = face.get("confidence", 0.0)
+            aligned_face = face.get("face")
 
             quality = assess_quality(img_array, region, confidence)
             if not quality["passed"]:
@@ -114,6 +115,7 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
                 "face_count": 1,
                 "quality_score": quality["quality_score"],
                 "facial_area": region,
+                "aligned_face": aligned_face,
             }
 
         except ImportError:
@@ -125,7 +127,7 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
             if "face could not be detected" in err or "no face" in err:
                 return {
                     "valid": False,
-                    "reason": "No face detected. Please position your face clearly.",
+                    "reason": "No Face Detected",
                     "face_count": 0,
                     "quality_score": 0,
                 }
@@ -162,7 +164,7 @@ def _eye_aspect_ratio(pts: list) -> float:
     return (v1 + v2) / (2.0 * h)
 
 
-def perform_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
+def perform_liveness_check(frames_bytes: List[bytes]) -> Dict[str, Any]:
     """
     Liveness detection across multiple frames using MediaPipe Face Mesh.
 
@@ -173,7 +175,7 @@ def perform_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
     Returns:
         {'passed': bool, 'reason': str, 'blink_detected': bool, 'movement_detected': bool}
     """
-    if not frames_base64:
+    if not frames_bytes:
         return {
             "passed": False,
             "reason": "No frames provided for liveness check.",
@@ -196,10 +198,9 @@ def perform_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
             min_detection_confidence=0.5,
         ) as face_mesh:
 
-            for i, frame_b64 in enumerate(frames_base64):
+            for i, frame_bytes in enumerate(frames_bytes):
                 try:
-                    img_bytes = decode_base64_image(frame_b64)
-                    img_pil   = bytes_to_pil(img_bytes)
+                    img_pil   = bytes_to_pil(frame_bytes)
                     img_rgb   = np.array(img_pil)
                     results   = face_mesh.process(img_rgb)
 
@@ -236,7 +237,7 @@ def perform_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
         if len(yaw_values) >= 2:
             movement_detected = (max(yaw_values) - min(yaw_values)) > LIVENESS_YAW_RANGE_MIN
 
-        if len(frames_base64) < MIN_LIVENESS_FRAMES:
+        if len(frames_bytes) < MIN_LIVENESS_FRAMES:
             return {
                 "passed": False,
                 "reason": "Insufficient frames for liveness check. Please follow the on-screen prompts.",
@@ -254,26 +255,25 @@ def perform_liveness_check(frames_base64: List[str]) -> Dict[str, Any]:
 
     except ImportError:
         logger.warning("[Liveness] MediaPipe not installed — using pixel-variance fallback")
-        return _pixel_liveness_fallback(frames_base64)
+        return _pixel_liveness_fallback(frames_bytes)
 
     except Exception as e:
         logger.error(f"[Liveness] Unexpected error: {e}", exc_info=True)
         return {"passed": True, "reason": "Liveness bypassed (service error).", "blink_detected": True, "movement_detected": True}
 
 
-def _pixel_liveness_fallback(frames_base64: List[str]) -> Dict[str, Any]:
+def _pixel_liveness_fallback(frames_bytes: List[bytes]) -> Dict[str, Any]:
     """
     Fallback liveness: check pixel-level variance across frames.
     A static photo has near-zero inter-frame variance; live camera has noise.
     """
-    if len(frames_base64) < MIN_LIVENESS_FRAMES:
+    if len(frames_bytes) < MIN_LIVENESS_FRAMES:
         return {"passed": False, "reason": "Need at least 3 frames.", "blink_detected": False, "movement_detected": False}
 
     try:
         arrays = []
-        for f in frames_base64[:5]:
-            raw = decode_base64_image(f)
-            img = bytes_to_pil(raw).resize((64, 64)).convert("L")
+        for f_bytes in frames_bytes[:5]:
+            img = bytes_to_pil(f_bytes).resize((64, 64)).convert("L")
             arrays.append(np.array(img, dtype=np.float32))
 
         if len(arrays) < 2:

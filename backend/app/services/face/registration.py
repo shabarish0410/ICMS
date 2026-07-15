@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from app.core.exceptions import (
     NotFoundError, ValidationError, PermissionDeniedError, BusinessLogicError
 )
-from app.core.supabase import get_supabase
+from app.utils.logger import get_structured_logger, log_step
 from app.schemas import FaceRegisterRequest, FaceUpdateRequest
 
 from app.services.face.utils import decode_base64_image
@@ -22,7 +22,7 @@ from app.services.face.database import (
     get_face_status_record, admin_face_list, write_audit_log, get_student_record
 )
 
-logger = logging.getLogger("icms.face.registration")
+logger = get_structured_logger("icms.face.registration")
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -62,64 +62,59 @@ def _run_pipeline(
     def elapsed() -> str:
         return f"{(time.monotonic() - t0) * 1000:.0f}ms"
 
-    logger.info(
-        f"[Registration] [{request_id}] {operation} pipeline started "
-        f"for student_id={student_id}"
-    )
+    log_step(logger, logging.INFO, f"{operation} pipeline started", request_id, student_id, f"/api/face/{operation}", f"{operation}_started", "START")
     write_audit_log(student_id, f"{operation}_started", "INFO", f"request_id={request_id}")
 
     # ── Stage 1: Decode ───────────────────────────────────────────────────────
-    logger.debug(f"[Registration] [{request_id}] Stage 1/5: Decode image")
+    log_step(logger, logging.DEBUG, "Stage 1/5: Decode image", request_id, student_id, f"/api/face/{operation}", "decode", "START")
     try:
         img_bytes = decode_base64_image(image_b64)
     except ValueError as e:
+        log_step(logger, logging.ERROR, f"Image Decode Failed: {e}", request_id, student_id, f"/api/face/{operation}", "decode", "FAIL", t0, exc_info=True)
         write_audit_log(student_id, "image_decode", "FAIL", str(e))
         raise ValidationError(f"Image Decode Failed: {e}")
-    logger.debug(f"[Registration] [{request_id}] Image decoded ({len(img_bytes)} bytes) | {elapsed()}")
+    log_step(logger, logging.DEBUG, f"Image decoded ({len(img_bytes)} bytes)", request_id, student_id, f"/api/face/{operation}", "decode", "PASS", t0)
 
     # ── Stage 2: Validate (face detection + quality) ──────────────────────────
-    logger.debug(f"[Registration] [{request_id}] Stage 2/5: Validate & detect face")
+    log_step(logger, logging.DEBUG, "Stage 2/5: Validate & detect face", request_id, student_id, f"/api/face/{operation}", "validate", "START")
     validation = detect_and_validate_face(img_bytes)
     if not validation["valid"]:
+        log_step(logger, logging.WARNING, f"Validation Failed: {validation['reason']}", request_id, student_id, f"/api/face/{operation}", "validate", "FAIL", t0)
         write_audit_log(student_id, "face_validation", "FAIL", validation["reason"])
         raise ValidationError(validation["reason"])
     write_audit_log(
         student_id, "face_validation", "PASS",
         f"quality_score={validation.get('quality_score', 'N/A')}%"
     )
-    logger.info(
-        f"[Registration] [{request_id}] Validation Passed ✓ "
-        f"quality_score={validation.get('quality_score', 'N/A')}% | {elapsed()}"
-    )
+    log_step(logger, logging.INFO, f"Validation Passed: score={validation.get('quality_score', 'N/A')}%", request_id, student_id, f"/api/face/{operation}", "validate", "PASS", t0)
 
     # ── Stage 3: Generate embedding ───────────────────────────────────────────
-    logger.debug(f"[Registration] [{request_id}] Stage 3/5: Generate embedding")
-    embedding = generate_face_embedding(img_bytes)
+    log_step(logger, logging.DEBUG, "Stage 3/5: Generate embedding", request_id, student_id, f"/api/face/{operation}", "embed", "START")
+    
+    aligned_face = validation.get("aligned_face")
+    if aligned_face is not None:
+        embedding = generate_face_embedding(aligned_face, enforce_detection=False)
+    else:
+        embedding = generate_face_embedding(img_bytes, enforce_detection=True)
+        
     if embedding is None:
+        log_step(logger, logging.ERROR, "Embedding Generation Failed", request_id, student_id, f"/api/face/{operation}", "embed", "FAIL", t0)
         write_audit_log(student_id, "embedding_generate", "FAIL", "Embedding generation returned None")
-        raise ValidationError(
-            "Embedding Generation Failed: Could not extract face features. "
-            "Ensure clear lighting and a frontal face position."
-        )
+        raise BusinessLogicError("Embedding Generation Failed", status_code=422)
     write_audit_log(student_id, "embedding_generate", "PASS", f"dim={len(embedding)}")
-    logger.info(f"[Registration] [{request_id}] Embedding Generated ✓ dim={len(embedding)} | {elapsed()}")
+    log_step(logger, logging.INFO, f"Embedding Generated dim={len(embedding)}", request_id, student_id, f"/api/face/{operation}", "embed", "PASS", t0)
 
     # ── Stage 4: Upload to Google Drive ───────────────────────────────────────
-    logger.debug(f"[Registration] [{request_id}] Stage 4/5: Upload to Google Drive")
+    log_step(logger, logging.DEBUG, "Stage 4/5: Upload to Google Drive", request_id, student_id, f"/api/face/{operation}", "upload", "START")
     filename = f"face_{operation}_{student_id}_{request_id}.jpg"
     try:
         drive_file_id, public_url = upload_face_image(img_bytes, filename)
     except RuntimeError as e:
+        log_step(logger, logging.ERROR, f"Google Drive Upload Failed: {e}", request_id, student_id, f"/api/face/{operation}", "upload", "FAIL", t0, exc_info=True)
         write_audit_log(student_id, "drive_upload", "FAIL", str(e))
-        raise BusinessLogicError(
-            f"Google Drive Upload Failed: {e}. Please try again.",
-            status_code=500,
-        )
+        raise BusinessLogicError("Google Drive Upload Failed", status_code=400)
     write_audit_log(student_id, "drive_upload", "PASS", f"file_id={drive_file_id}")
-    logger.info(
-        f"[Registration] [{request_id}] Google Drive Upload Verified ✓ "
-        f"file_id={drive_file_id} | {elapsed()}"
-    )
+    log_step(logger, logging.INFO, f"Google Drive Upload Verified file_id={drive_file_id}", request_id, student_id, f"/api/face/{operation}", "upload", "PASS", t0)
 
     return img_bytes, embedding, drive_file_id, public_url
 
@@ -138,24 +133,20 @@ def register_face(req: FaceRegisterRequest, current_user: dict) -> dict:
     )
 
     # ── Stage 5: Persist ──────────────────────────────────────────────────────
-    logger.debug(f"[Registration] [{request_id}] Stage 5/5: Persist to Supabase")
+    log_step(logger, logging.DEBUG, "Stage 5/5: Persist to Supabase", request_id, student_id, "/api/face/register", "persist", "START")
     try:
         save_face_registration(student_id, embedding, public_url, drive_file_id, now_iso)
     except NotFoundError as e:
+        log_step(logger, logging.ERROR, f"Supabase Update Failed: {e}", request_id, student_id, "/api/face/register", "persist", "FAIL", exc_info=True)
         write_audit_log(student_id, "supabase_update", "FAIL", str(e))
         raise
     except RuntimeError as e:
+        log_step(logger, logging.ERROR, f"Supabase Update Failed: {e}", request_id, student_id, "/api/face/register", "persist", "FAIL", exc_info=True)
         write_audit_log(student_id, "supabase_update", "FAIL", str(e))
-        raise BusinessLogicError(
-            f"Supabase Update Failed: {e}. Registration could not be saved.",
-            status_code=500,
-        )
+        raise BusinessLogicError("Supabase Update Failed", status_code=400)
 
     write_audit_log(student_id, "face_registration", "PASS", "Registration complete")
-    logger.info(
-        f"[Registration] [{request_id}] Registration Completed ✓ "
-        f"student_id={student_id} at {now_iso}"
-    )
+    log_step(logger, logging.INFO, "Registration Completed", request_id, student_id, "/api/face/register", "persist", "PASS")
 
     return {
         "success":       True,
@@ -187,7 +178,7 @@ def update_face(req: FaceUpdateRequest, current_user: dict) -> dict:
         raise PermissionDeniedError("Invalid password. Please try again.")
 
     write_audit_log(student_id, "password_verify", "PASS", "Password verified for face update")
-    logger.debug(f"[Registration] [{request_id}] Password verified ✓ for student_id={student_id}")
+    log_step(logger, logging.DEBUG, "Password verified", request_id, student_id, "/api/face/update", "auth", "PASS")
 
     _, embedding, drive_file_id, public_url = _run_pipeline(
         req.image_base64, student_id, request_id, "update"
@@ -197,20 +188,16 @@ def update_face(req: FaceUpdateRequest, current_user: dict) -> dict:
     try:
         save_face_registration(student_id, embedding, public_url, drive_file_id, now_iso)
     except NotFoundError as e:
+        log_step(logger, logging.ERROR, f"Supabase Update Failed: {e}", request_id, student_id, "/api/face/update", "persist", "FAIL", exc_info=True)
         write_audit_log(student_id, "supabase_update", "FAIL", str(e))
         raise
     except RuntimeError as e:
+        log_step(logger, logging.ERROR, f"Supabase Update Failed: {e}", request_id, student_id, "/api/face/update", "persist", "FAIL", exc_info=True)
         write_audit_log(student_id, "supabase_update", "FAIL", str(e))
-        raise BusinessLogicError(
-            f"Supabase Update Failed: {e}. Face update could not be saved.",
-            status_code=500,
-        )
+        raise BusinessLogicError("Supabase Update Failed", status_code=400)
 
     write_audit_log(student_id, "face_update", "PASS", "Face update complete")
-    logger.info(
-        f"[Registration] [{request_id}] Face Update Completed ✓ "
-        f"student_id={student_id} at {now_iso}"
-    )
+    log_step(logger, logging.INFO, "Face Update Completed", request_id, student_id, "/api/face/update", "persist", "PASS")
 
     return {
         "success":    True,
