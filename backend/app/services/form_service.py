@@ -164,9 +164,10 @@ def delete_form(form_id: int, current_user: dict) -> None:
 
 
 def submit_form(form_id: int, req: FormResponseCreate, current_user: dict) -> Dict[str, Any]:
-    if not current_user.get("student") or len(current_user["student"]) == 0:
+    student_data = current_user.get("student")
+    if not student_data:
         raise PermissionDeniedError("Only students can submit forms.")
-    student_id = current_user["student"][0]["id"]
+    student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
     
     supabase = get_supabase()
     form_res = supabase.table("forms").select("settings, status").eq("id", form_id).execute()

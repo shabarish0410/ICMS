@@ -82,10 +82,11 @@ def register_for_event(event_id: int, current_user: dict) -> Dict[str, Any]:
     role_info = current_user.get("role")
     role_name = role_info.get("name") if isinstance(role_info, dict) else "student"
 
-    if role_name != "student" or not current_user.get("student"):
+    student_data = current_user.get("student")
+    if role_name != "student" or not student_data:
         raise PermissionDeniedError("Only students can register for events")
 
-    student_id = current_user["student"][0]["id"]
+    student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
     
     existing = supabase.table("registrations").select("id").eq("event_id", event_id).eq("student_id", student_id).execute()
     if existing.data:

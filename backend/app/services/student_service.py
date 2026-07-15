@@ -258,9 +258,10 @@ def get_available_students(page: int, size: int, search: str, department: str, y
 
 
 def get_self_profile(current_user: dict) -> Dict[str, Any]:
-    if not current_user.get("student") or len(current_user["student"]) == 0:
+    student_data = current_user.get("student")
+    if not student_data:
         raise PermissionDeniedError("Only students have a student profile")
-    student_id = current_user["student"][0]["id"]
+    student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
     supabase = get_supabase()
     res = supabase.table("students").select("*, user:users(*), team:teams!students_team_id_fkey(*)").eq("id", student_id).execute()
     if not res.data:
@@ -269,9 +270,10 @@ def get_self_profile(current_user: dict) -> Dict[str, Any]:
 
 
 def update_self_profile(current_user: dict, req: StudentUpdate) -> Dict[str, Any]:
-    if not current_user.get("student") or len(current_user["student"]) == 0:
+    student_data = current_user.get("student")
+    if not student_data:
         raise PermissionDeniedError("Only students have a student profile")
-    student_id = current_user["student"][0]["id"]
+    student_id = student_data[0]["id"] if isinstance(student_data, list) else student_data["id"]
     user_id = current_user["id"]
     supabase = get_supabase()
     

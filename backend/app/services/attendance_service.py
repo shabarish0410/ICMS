@@ -15,7 +15,7 @@ from app.services.face_service import (
 from app.utils.actions import log_admin_action
 from app.services.google_drive import upload_image_to_drive
 from app.utils.logger import get_structured_logger, log_step
-import uuid
+
 import time
 import logging
 
@@ -175,7 +175,6 @@ def face_attendance(req: FaceMarkAttendanceRequest, current_user: dict) -> Dict[
 
     if not photo_url:
         try:
-            import uuid
             photo_filename = f"att_{student_id}_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.jpg"
             drive_file_id, photo_url = upload_image_to_drive(img_bytes, photo_filename)
         except Exception as upload_err:
