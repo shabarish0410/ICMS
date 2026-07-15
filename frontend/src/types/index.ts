@@ -12,6 +12,7 @@ export interface User {
   is_profile_completed: boolean;
   must_change_password?: boolean;
   created_at?: string;
+  student?: Student;
 }
 
 export interface Role {
@@ -33,6 +34,14 @@ export interface Student {
   team?: Team;
   user?: User;
   created_at?: string;
+  bio?: string;
+  skills?: string[];
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
+  achievements?: any;
+  certifications?: any;
+  resume_url?: string;
 }
 
 export interface Team {

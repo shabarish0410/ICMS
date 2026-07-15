@@ -133,8 +133,6 @@ export default function FaceRegistrationScreen({ navigation }: any) {
               
               setAppState('processing');
               return;
-            } else {
-              setInstruction('Blink once naturally');
             }
           }
         }
