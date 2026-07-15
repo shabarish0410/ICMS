@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 import bcrypt
 import logging
 from fastapi import Depends, HTTPException, status
@@ -53,11 +53,18 @@ def decode_token(token: str) -> dict:
         )
         logger.debug(f"decode_token success. Payload: {payload}")
         return payload
+    except ExpiredSignatureError as e:
+        logger.debug(f"JWT expired (normal during refresh): {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except JWTError as e:
         logger.warning(f"JWT decode error: {type(e).__name__}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {str(e)}",
+            detail=f"Invalid token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
