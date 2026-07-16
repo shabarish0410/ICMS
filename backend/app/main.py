@@ -65,15 +65,10 @@ async def lifespan(app: FastAPI):
         logger.info(f"[Startup] FACE_PIPELINE_V2=True — warming up ML models ...")
         try:
             import asyncio
-            from app.core.model_cache import warmup_models
             from app.services.face.embedding_store import detect_backend
             from app.services.face.database import cleanup_expired_idempotency_keys
 
             loop = asyncio.get_event_loop()
-
-            # Warm up ArcFace and MediaPipe in thread pool (CPU-blocking)
-            model_status = await loop.run_in_executor(None, warmup_models)
-            logger.info(f"[Startup] Model warm-up: {model_status}")
 
             # Detect pgvector availability
             sb = get_supabase()

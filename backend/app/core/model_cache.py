@@ -6,97 +6,71 @@ so it does not block the event loop). Subsequent requests use the already-loaded
 weights from memory — eliminates ~2-3 s cold-start latency per request.
 """
 import logging
-from typing import Optional
+import os
+from typing import Optional, Any
 
 logger = logging.getLogger("icms.model_cache")
 
-_deepface_ready  = False
-_mediapipe_ready = False
-_startup_status: dict = {}
+_arcface_model = None
+_mediapipe_face_mesh = None
 
-
-def warmup_models() -> dict:
-    """
-    Load ArcFace weights and MediaPipe FaceMesh into memory.
-
-    Must be called from inside `asyncio.run_in_executor(None, warmup_models)`
-    because DeepFace and MediaPipe initialisation is CPU-blocking.
-
-    Returns:
-        dict with keys: deepface, mediapipe, deepface_error, mediapipe_error
-    """
-    global _deepface_ready, _mediapipe_ready, _startup_status
-
-    status: dict = {
-        "deepface":        "unloaded",
-        "mediapipe":       "unloaded",
-        "deepface_error":  None,
-        "mediapipe_error": None,
-    }
-
-    # ── ArcFace / DeepFace ────────────────────────────────────────────────────
+def _log_memory(stage: str):
     try:
-        import numpy as np
-        from deepface import DeepFace  # noqa: F401
-
-        # Trigger model file download and weight loading with a 1-pixel dummy.
-        # "skip" detector bypasses face detection so we only load the ArcFace model.
-        dummy = np.zeros((112, 112, 3), dtype=np.uint8)
-        DeepFace.represent(
-            img_path=dummy,
-            model_name="ArcFace",
-            detector_backend="skip",
-            enforce_detection=False,
-        )
-        _deepface_ready = True
-        status["deepface"] = "loaded"
-        logger.info("[ModelCache] ArcFace model warmed up ✓")
-
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().rss / 1024 / 1024
+        logger.info(f"[Memory] {stage}: {mem_mb:.2f} MB")
     except ImportError:
-        status["deepface_error"] = "DeepFace not installed"
-        logger.warning("[ModelCache] DeepFace not installed — ArcFace will be unavailable")
-    except Exception as e:
-        status["deepface_error"] = str(e)
-        logger.error(f"[ModelCache] ArcFace warmup failed: {e}", exc_info=True)
+        pass
 
-    # ── MediaPipe FaceMesh ────────────────────────────────────────────────────
-    try:
-        import mediapipe as mp
+def get_arcface_model() -> Any:
+    """Lazy load the ArcFace model."""
+    global _arcface_model
+    if _arcface_model is None:
+        _log_memory("Before loading DeepFace")
+        try:
+            # Fix 3: Disable TensorFlow GPU Detection
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+            os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+            
+            try:
+                import tensorflow as tf
+                tf.config.set_visible_devices([], "GPU")
+            except ImportError:
+                pass
 
-        # Instantiate FaceMesh to trigger model download / compilation
-        with mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            refine_landmarks=True,
-        ):
-            pass
-        _mediapipe_ready = True
-        status["mediapipe"] = "loaded"
-        logger.info("[ModelCache] MediaPipe FaceMesh warmed up ✓")
+            from deepface import DeepFace
+            # Fix 6: Build model once and reuse
+            _arcface_model = DeepFace.build_model("ArcFace")
+            _log_memory("After loading DeepFace")
+        except ImportError:
+            logger.warning("DeepFace not installed.")
+        except Exception as e:
+            logger.error(f"Failed to load ArcFace: {e}", exc_info=True)
+    return _arcface_model
 
-    except ImportError:
-        status["mediapipe_error"] = "MediaPipe not installed"
-        logger.warning("[ModelCache] MediaPipe not installed — liveness detection will use fallback")
-    except Exception as e:
-        status["mediapipe_error"] = str(e)
-        logger.error(f"[ModelCache] MediaPipe warmup failed: {e}", exc_info=True)
-
-    _startup_status = status
-    return status
-
-
-# ── Public accessors ──────────────────────────────────────────────────────────
+def get_mediapipe_face_mesh() -> Any:
+    """Lazy load the MediaPipe FaceMesh."""
+    global _mediapipe_face_mesh
+    if _mediapipe_face_mesh is None:
+        _log_memory("Before loading MediaPipe")
+        try:
+            import mediapipe as mp
+            _mediapipe_face_mesh = mp.solutions.face_mesh.FaceMesh(
+                static_image_mode=True,
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5,
+            )
+            _log_memory("After loading MediaPipe")
+        except ImportError:
+            logger.warning("MediaPipe not installed.")
+        except Exception as e:
+            logger.error(f"Failed to load MediaPipe: {e}", exc_info=True)
+    return _mediapipe_face_mesh
 
 def is_deepface_ready() -> bool:
-    """True if ArcFace was successfully loaded at startup."""
-    return _deepface_ready
-
+    return _arcface_model is not None
 
 def is_mediapipe_ready() -> bool:
-    """True if MediaPipe FaceMesh was successfully loaded at startup."""
-    return _mediapipe_ready
-
-
-def get_startup_status() -> dict:
-    """Return the status dict produced by `warmup_models()`."""
-    return _startup_status
+    return _mediapipe_face_mesh is not None

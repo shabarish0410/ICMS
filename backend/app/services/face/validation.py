@@ -63,7 +63,10 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
             }
 
         try:
+            from app.core.model_cache import get_arcface_model
             from deepface import DeepFace
+            get_arcface_model()
+            
             img_array = np.array(img)
 
             faces = DeepFace.extract_faces(
@@ -201,49 +204,44 @@ def perform_liveness_check(frames_bytes: List[bytes]) -> Dict[str, Any]:
         }
 
     try:
-        import mediapipe as mp
-        mp_face_mesh = mp.solutions.face_mesh
+        from app.core.model_cache import get_mediapipe_face_mesh
+        face_mesh = get_mediapipe_face_mesh()
+        if not face_mesh:
+            raise ImportError("MediaPipe face mesh could not be loaded")
 
         ear_values  = []
         yaw_values  = []
         blink_detected = False
 
-        with mp_face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-        ) as face_mesh:
+        for i, frame_bytes in enumerate(frames_bytes):
+            try:
+                img_pil   = bytes_to_pil(frame_bytes)
+                img_rgb   = np.array(img_pil)
+                results   = face_mesh.process(img_rgb)
 
-            for i, frame_bytes in enumerate(frames_bytes):
-                try:
-                    img_pil   = bytes_to_pil(frame_bytes)
-                    img_rgb   = np.array(img_pil)
-                    results   = face_mesh.process(img_rgb)
-
-                    if not results.multi_face_landmarks:
-                        continue
-
-                    lm = results.multi_face_landmarks[0].landmark
-
-                    class _LM:
-                        def __init__(self, x, y):
-                            self.x, self.y = x, y
-
-                    left_pts  = [_LM(lm[idx].x, lm[idx].y) for idx in _LEFT_EYE_IDX]
-                    right_pts = [_LM(lm[idx].x, lm[idx].y) for idx in _RIGHT_EYE_IDX]
-                    avg_ear   = (_eye_aspect_ratio(left_pts) + _eye_aspect_ratio(right_pts)) / 2.0
-                    ear_values.append(avg_ear)
-
-                    nose_x  = lm[_NOSE_TIP].x
-                    left_x  = lm[_LEFT_EAR_LM].x
-                    right_x = lm[_RIGHT_EAR_LM].x
-                    if right_x != left_x:
-                        yaw_values.append((nose_x - left_x) / (right_x - left_x))
-
-                except Exception as fe:
-                    logger.debug(f"[Liveness] Frame {i} skipped: {fe}")
+                if not results.multi_face_landmarks:
                     continue
+
+                lm = results.multi_face_landmarks[0].landmark
+
+                class _LM:
+                    def __init__(self, x, y):
+                        self.x, self.y = x, y
+
+                left_pts  = [_LM(lm[idx].x, lm[idx].y) for idx in _LEFT_EYE_IDX]
+                right_pts = [_LM(lm[idx].x, lm[idx].y) for idx in _RIGHT_EYE_IDX]
+                avg_ear   = (_eye_aspect_ratio(left_pts) + _eye_aspect_ratio(right_pts)) / 2.0
+                ear_values.append(avg_ear)
+
+                nose_x  = lm[_NOSE_TIP].x
+                left_x  = lm[_LEFT_EAR_LM].x
+                right_x = lm[_RIGHT_EAR_LM].x
+                if right_x != left_x:
+                    yaw_values.append((nose_x - left_x) / (right_x - left_x))
+
+            except Exception as fe:
+                logger.debug(f"[Liveness] Frame {i} skipped: {fe}")
+                continue
 
         if ear_values:
             min_ear = min(ear_values)

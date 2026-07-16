@@ -35,7 +35,10 @@ def generate_face_embedding(image_source: Any, enforce_detection: bool = True) -
             return None
 
         try:
+            from app.core.model_cache import get_arcface_model
             from deepface import DeepFace
+            
+            get_arcface_model()
 
             result = DeepFace.represent(
                 img_path=img_array,
