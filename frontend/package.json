@@ -6,7 +6,7 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "build:cap": "cross-env CAPACITOR_BUILD=true next build",
     "cap:sync": "npx cap sync",
     "cap:open-android": "npx cap open android",
