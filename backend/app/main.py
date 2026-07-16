@@ -1,6 +1,7 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
