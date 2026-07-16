@@ -17,6 +17,7 @@ from app.routes import (
     meetings, attendance, uploads, users, face, uniforms,
     achievements, admin_achievements, exports
 )
+from app.routes.face import v1_router as face_v1_router
 
 # Use Python's standard logger instead of hardcoded Windows file paths
 logger = logging.getLogger("icms")
@@ -57,6 +58,37 @@ async def lifespan(app: FastAPI):
             
     except Exception as e:
         logger.warning(f"Supabase connection issue: {e}")
+
+    # ── Face Pipeline V2: model warm-up + pgvector detection ────────────────────
+    from app.core.face_config import FACE_PIPELINE_V2
+    if FACE_PIPELINE_V2:
+        logger.info(f"[Startup] FACE_PIPELINE_V2=True — warming up ML models ...")
+        try:
+            import asyncio
+            from app.core.model_cache import warmup_models
+            from app.services.face.embedding_store import detect_backend
+            from app.services.face.database import cleanup_expired_idempotency_keys
+
+            loop = asyncio.get_event_loop()
+
+            # Warm up ArcFace and MediaPipe in thread pool (CPU-blocking)
+            model_status = await loop.run_in_executor(None, warmup_models)
+            logger.info(f"[Startup] Model warm-up: {model_status}")
+
+            # Detect pgvector availability
+            sb = get_supabase()
+            backend = await loop.run_in_executor(None, detect_backend, sb)
+            logger.info(f"[Startup] Embedding backend: {backend}")
+
+            # Clean up expired idempotency cache rows
+            removed = await loop.run_in_executor(None, cleanup_expired_idempotency_keys)
+            logger.info(f"[Startup] Cleaned up {removed} expired idempotency keys")
+
+        except Exception as face_startup_err:
+            logger.warning(f"[Startup] Face V2 startup tasks failed (non-fatal): {face_startup_err}")
+    else:
+        logger.info("[Startup] FACE_PIPELINE_V2=False — V2 startup tasks skipped")
+
     yield
     # Shutdown
 
@@ -130,6 +162,7 @@ app.include_router(attendance.router)
 app.include_router(uploads.router)
 app.include_router(users.router)
 app.include_router(face.router)
+app.include_router(face_v1_router)          # Face V2 canonical routes
 app.include_router(uniforms.router)
 app.include_router(achievements.router)
 app.include_router(admin_achievements.router)

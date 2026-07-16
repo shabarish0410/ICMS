@@ -566,10 +566,21 @@ class MeetingOut(BaseModel):
         from_attributes = True
 
 
-# ─── Face Schemas ─────────────────────────────────────────────────────────────
+# ─── Face Schemas ──────────────────────────────────────────────────────────────────────────────────
 
 class FaceRegisterRequest(BaseModel):
-    image_base64: str = Field(..., min_length=100)
+    """Request body for POST /api/v1/face/register."""
+    image_base64:    str = Field(..., min_length=100, description="Base64-encoded JPEG/PNG image")
+    liveness_metrics: Optional[Any] = Field(
+        None,
+        description="Liveness signal metrics computed by useFaceDetection.ts"
+    )
+    challenge_type:  Optional[str] = Field(
+        None,
+        pattern="^(blink|turn_left|turn_right|smile)$",
+        description="The liveness challenge that was shown to the user"
+    )
+    idempotency_key: Optional[str] = Field(None, max_length=100)
 
 
 class FaceStatusOut(BaseModel):
@@ -581,8 +592,38 @@ class FaceStatusOut(BaseModel):
 
 
 class FaceUpdateRequest(BaseModel):
-    image_base64: str = Field(..., min_length=100)
-    password: str = Field(..., min_length=1)
+    """Request body for PUT /api/v1/face/update."""
+    image_base64:    str = Field(..., min_length=100)
+    password:        str = Field(..., min_length=1)
+    liveness_metrics: Optional[Any] = None
+    challenge_type:  Optional[str] = Field(
+        None, pattern="^(blink|turn_left|turn_right|smile)$"
+    )
+    idempotency_key: Optional[str] = Field(None, max_length=100)
+
+
+class FaceRegistrationResponse(BaseModel):
+    """Enriched response from the V2 registration pipeline."""
+    success:                  bool
+    request_id:               str
+    student_id:               int
+    drive_file_id:            Optional[str] = None
+    web_view_link:            Optional[str] = None
+    direct_download_link:     Optional[str] = None
+    image_hash:               Optional[str] = None
+    embedding_dimension:      Optional[int] = None
+    embedding_model:          Optional[str] = None
+    embedding_model_version:  Optional[str] = None
+    embedding_version:        Optional[int] = None
+    quality_score:            Optional[float] = None
+    face_confidence:          Optional[float] = None
+    challenge_type:           Optional[str] = None
+    liveness_passed:          Optional[bool] = None
+    registered_at:            Optional[str] = None
+    processing_time_ms:       Optional[int] = None
+    stages:                   Optional[Any] = None
+    duplicate:                Optional[bool] = None
+    message:                  Optional[str] = None
 
 
 class FaceVerifyRequest(BaseModel):

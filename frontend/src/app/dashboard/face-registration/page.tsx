@@ -145,7 +145,7 @@ export default function FaceRegistrationPage() {
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   // ── Capture Logic ──────────────────────────────────────────────────────────
-  const handleCaptureRequest = useCallback(async () => {
+  const handleCaptureRequest = useCallback(async (livenessMetrics: any) => {
     if (isBursting || allCaptured) return;
     setIsBursting(true);
 
@@ -161,15 +161,13 @@ export default function FaceRegistrationPage() {
     const captureCtx = captureCanvas.getContext('2d');
     
     if (captureCtx) {
-      captureCtx.translate(captureCanvas.width, 0);
-      captureCtx.scale(-1, 1);
       captureCtx.drawImage(video, 0, 0);
       
       const isGoodQuality = await scoreImageQuality(captureCanvas);
       if (isGoodQuality) {
         const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.8);
         setAllCaptured(true);
-        submitRegistration(dataUrl, status === 'updating', updatePassword);
+        submitRegistration(dataUrl, status === 'updating', updatePassword, livenessMetrics);
       } else {
         toast.error("Poor lighting or blur detected. Please try again.");
         setIsBursting(false);
@@ -183,15 +181,18 @@ export default function FaceRegistrationPage() {
   const faceState = useFaceDetection(videoRef, canvasRef, handleCaptureRequest);
 
   // ── Submit registration ────────────────────────────────────────────────────
-  const submitRegistration = async (imageBase64: string, isUpdate = false, password = '') => {
+  const submitRegistration = async (imageBase64: string, isUpdate = false, password = '', livenessMetrics: any = null) => {
     setUploading(true);
+    // Generate idempotency key
+    const idempotencyKey = crypto.randomUUID();
+
     try {
       if (isUpdate) {
-        await faceAPI.update(imageBase64, password);
-        toast.success('Face updated successfully!');
+        const res = await faceAPI.update(imageBase64, password, livenessMetrics, 'blink', idempotencyKey);
+        toast.success(res.data.message || 'Face updated successfully!');
       } else {
-        await faceAPI.register(imageBase64);
-        toast.success('Face registered successfully! You can now use Face Attendance.');
+        const res = await faceAPI.register(imageBase64, livenessMetrics, 'blink', idempotencyKey);
+        toast.success(res.data.message || 'Face registered successfully! You can now use Face Attendance.');
       }
       stopCamera();
       setShowUpdateModal(false);

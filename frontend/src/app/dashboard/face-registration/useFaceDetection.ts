@@ -33,14 +33,14 @@ function getEAR(eyeLandmarks: {x:number, y:number}[]) {
 export function useFaceDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
   canvasRef: React.RefObject<HTMLCanvasElement>,
-  onBurstCaptureRequest?: () => void
+  onBurstCaptureRequest?: (livenessMetrics: any) => void
 ) {
   const [faceState, setFaceState] = useState<FaceState>({
     isDetecting: false,
     hasFace: false,
     isCentered: false,
     isGoodSize: false,
-    hasBlinked: true, // Legacy compatibility
+    hasBlinked: false,
     readyForBurst: false,
     guidanceText: 'Initializing AI model...',
     guidanceColor: 'slate',
@@ -51,7 +51,7 @@ export function useFaceDetection(
   const lastProcessTimeMs = useRef<number>(0);
   const detectionStartTimeMs = useRef<number>(0);
   
-  const hasBlinkedRef = useRef(true); // Hardcode true
+  const hasBlinkedRef = useRef(false);
   const burstRequestedRef = useRef(false);
   const isMountedRef = useRef(true);
   
@@ -213,7 +213,13 @@ export function useFaceDetection(
             if (!burstRequestedRef.current) {
               burstRequestedRef.current = true;
               if (onBurstCaptureRequest) {
-                onBurstCaptureRequest();
+                onBurstCaptureRequest({
+                  leftEAR,
+                  rightEAR,
+                  hasBlinked: hasBlinkedRef.current,
+                  faceWidth: width,
+                  faceHeight: height
+                });
               }
             }
           }
@@ -243,7 +249,7 @@ export function useFaceDetection(
           hasFace: false,
           isCentered: false,
           isGoodSize: false,
-          hasBlinked: true,
+          hasBlinked: false,
           readyForBurst: false,
           guidanceText: 'Position your face in the frame',
           guidanceColor: hasTimeout ? 'red' : 'slate',

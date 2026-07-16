@@ -373,29 +373,44 @@ export const attendanceExtAPI = {
   deleteRecord: (id: number) => api.delete(`/attendance/${id}`),
 };
 
-// ─── Face Recognition API ────────────────────────────────────────────────────
+// ─── Face Recognition API (V2) ──────────────────────────────────────────────────
 export const faceAPI = {
   // Face Registration
-  register: (image_base64: string) =>
-    api.post('/face/register', { image_base64 }),
+  register: (
+    image_base64: string,
+    liveness_metrics?: any,
+    challenge_type?: string,
+    idempotency_key?: string
+  ) =>
+    api.post('/v1/face/register', { image_base64, liveness_metrics, challenge_type }, {
+      headers: idempotency_key ? { 'Idempotency-Key': idempotency_key } : undefined
+    }),
 
   // Status
   status: (student_id: number) =>
-    api.get(`/face/status/${student_id}`),
+    api.get(`/v1/face/status/${student_id}`),
 
   myStatus: () =>
-    api.get('/face/my-status'),
+    api.get('/v1/face/my-status'),
 
   // Face Update
-  update: (image_base64: string, password: string) =>
-    api.put('/face/update', { image_base64, password }),
+  update: (
+    image_base64: string,
+    password: string,
+    liveness_metrics?: any,
+    challenge_type?: string,
+    idempotency_key?: string
+  ) =>
+    api.put('/v1/face/update', { image_base64, password, liveness_metrics, challenge_type }, {
+      headers: idempotency_key ? { 'Idempotency-Key': idempotency_key } : undefined
+    }),
 
   /** Admin: reset student face registration */
-  reset: (studentId: number) => api.delete(`/face/reset/${studentId}`),
+  reset: (studentId: number) => api.delete(`/v1/face/reset/${studentId}`),
 
   /** Admin: get all students' face registration status */
   adminAllStatus: (params?: Record<string, any>) =>
-    api.get('/face/admin/all-status', { params }),
+    api.get('/v1/face/admin/all-status', { params }),
 };
 
 // ─── Face Attendance API ─────────────────────────────────────────────────────

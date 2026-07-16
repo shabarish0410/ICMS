@@ -8,6 +8,9 @@ import numpy as np
 
 from app.services.face.utils import decode_base64_image, bytes_to_pil
 from app.services.face.quality import assess_quality
+from app.core.face_config import (
+    LIVENESS_BLINK_THRESHOLD, LIVENESS_YAW_RANGE_MIN, LIVENESS_CHALLENGES
+)
 
 logger = logging.getLogger("icms.face.validation")
 
@@ -21,10 +24,8 @@ _CHIN          = 199
 _LEFT_EAR_LM   = 234
 _RIGHT_EAR_LM  = 454
 
-LIVENESS_BLINK_THRESHOLD = 0.20
 LIVENESS_EAR_RANGE_MIN   = 0.08
-LIVENESS_YAW_RANGE_MIN   = 0.05
-MIN_LIVENESS_FRAMES      = 3
+MIN_LIVENESS_FRAMES       = 3
 
 
 # ── Face Detection ─────────────────────────────────────────────────────────────
@@ -107,13 +108,19 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
                 }
 
             logger.info(
-                f"[Validation] Face validated ✓ quality_score={quality['quality_score']}%"
+                f"[Validation] Face validated ✓ quality_score={quality['quality_score']}% "
+                f"confidence={confidence:.3f} yaw={quality.get('yaw_deg', 0)}°"
             )
             return {
                 "valid": True,
                 "reason": "OK",
                 "face_count": 1,
                 "quality_score": quality["quality_score"],
+                "confidence": confidence,
+                "yaw_deg": quality.get("yaw_deg", 0),
+                "pitch_deg": quality.get("pitch_deg", 0),
+                "blur_score": quality.get("blur_score", 0),
+                "brightness": quality.get("brightness", 0),
                 "facial_area": region,
                 "aligned_face": aligned_face,
             }
@@ -131,9 +138,19 @@ def detect_and_validate_face(image_bytes: bytes) -> Dict[str, Any]:
                     "face_count": 0,
                     "quality_score": 0,
                 }
-            logger.error(f"[Validation] DeepFace error (bypassing): {e}")
-            # Fail-safe: allow through if DeepFace crashes for unexpected reason
-            return {"valid": True, "reason": "OK (validation bypassed)", "face_count": 1, "quality_score": 50.0}
+            logger.error(
+                f"[Validation] Unexpected DeepFace error: {e}",
+                exc_info=True,
+            )
+            # Bug B2 FIX: fail-safe defaults to REJECTION, never false-positive success.
+            # Previously this returned valid=True which allowed unvalidated images through.
+            return {
+                "valid": False,
+                "reason": "Face detection service error. Please retry.",
+                "face_count": 0,
+                "quality_score": 0,
+                "confidence": 0.0,
+            }
 
     except Exception as e:
         logger.error(f"[Validation] Unexpected error in detect_and_validate_face: {e}", exc_info=True)
@@ -259,7 +276,14 @@ def perform_liveness_check(frames_bytes: List[bytes]) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"[Liveness] Unexpected error: {e}", exc_info=True)
-        return {"passed": True, "reason": "Liveness bypassed (service error).", "blink_detected": True, "movement_detected": True}
+        # Bug B3 FIX: fail-safe defaults to REJECTION, never false-positive success.
+        # Previously this returned passed=True which could bypass liveness on MediaPipe crash.
+        return {
+            "passed": False,
+            "reason": "Liveness service error. Please retry.",
+            "blink_detected": False,
+            "movement_detected": False,
+        }
 
 
 def _pixel_liveness_fallback(frames_bytes: List[bytes]) -> Dict[str, Any]:
@@ -290,4 +314,73 @@ def _pixel_liveness_fallback(frames_bytes: List[bytes]) -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"[Liveness] Pixel fallback error: {e}")
-        return {"passed": True, "reason": "Liveness bypassed.", "blink_detected": True, "movement_detected": True}
+        # Fail-safe: reject rather than bypass
+        return {
+            "passed": False,
+            "reason": "Liveness check could not be completed. Please retry.",
+            "blink_detected": False,
+            "movement_detected": False,
+        }
+
+
+# ── Client-side Liveness Metrics Validator ────────────────────────────────────
+
+def validate_liveness_metrics(metrics: dict, challenge_type: str) -> Dict[str, Any]:
+    """
+    Validate liveness metrics computed client-side by useFaceDetection.ts.
+
+    The frontend sends extracted metrics (blink_count, ear_min, yaw_delta, etc.)
+    instead of raw frames to avoid large payloads. The backend re-validates the
+    metrics server-side as a second layer of defence.
+
+    Args:
+        metrics:        Dict from frontend containing liveness signal values.
+        challenge_type: One of LIVENESS_CHALLENGES ('blink', 'turn_left', etc.).
+
+    Returns:
+        {'passed': bool, 'reason': str, 'challenge_type': str}
+    """
+    if not metrics:
+        return {"passed": False, "reason": "No liveness metrics provided.", "challenge_type": challenge_type}
+
+    if challenge_type not in LIVENESS_CHALLENGES:
+        return {"passed": False, "reason": f"Unknown challenge type: {challenge_type}", "challenge_type": challenge_type}
+
+    blink_count    = metrics.get("blink_count", 0)
+    ear_min        = metrics.get("ear_min", 1.0)
+    ear_range      = metrics.get("ear_range", 0.0)
+    yaw_delta      = metrics.get("yaw_delta", 0.0)
+    frames         = metrics.get("frames_collected", 0)
+    challenge_met  = metrics.get("challenge_met", False)
+
+    if frames < MIN_LIVENESS_FRAMES:
+        return {
+            "passed": False,
+            "reason": f"Too few liveness frames collected ({frames}). Please follow the on-screen prompt.",
+            "challenge_type": challenge_type,
+        }
+
+    if challenge_type == "blink":
+        passed = blink_count >= 1 and ear_min < LIVENESS_BLINK_THRESHOLD
+        reason = "Blink detected." if passed else "No blink detected. Please blink naturally."
+
+    elif challenge_type in ("turn_left", "turn_right"):
+        passed = abs(yaw_delta) >= LIVENESS_YAW_RANGE_MIN
+        direction = "left" if challenge_type == "turn_left" else "right"
+        reason = f"Head turn detected." if passed else f"Please turn your head {direction} slowly."
+
+    elif challenge_type == "smile":
+        # Smile is validated client-side via MediaPipe blendshapes.
+        # We trust the challenge_met flag for smile as it requires blendshape access.
+        passed = challenge_met
+        reason = "Smile detected." if passed else "No smile detected. Please smile naturally."
+
+    else:
+        passed = False
+        reason = "Unrecognised challenge type."
+
+    logger.info(
+        f"[Liveness] Metrics validation: challenge={challenge_type} "
+        f"passed={passed} blinks={blink_count} ear_min={ear_min:.3f} yaw_delta={yaw_delta:.3f}"
+    )
+    return {"passed": passed, "reason": reason, "challenge_type": challenge_type}
