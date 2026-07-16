@@ -1,7 +1,8 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
+
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"]="true"
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
