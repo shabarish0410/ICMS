@@ -123,79 +123,96 @@ def get_registration_status(request_id: str, current_user: dict = Depends(get_cu
     return cached
 
 
+import logging
+import traceback
+from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
+
 @v1_router.get("/health")
 async def face_health():
     """
     Face pipeline health check.
     Reports database, Google Drive, model loading status, schema version, and embedding backend.
     """
-    import asyncio
-    from app.core.model_cache import get_startup_status, is_deepface_ready, is_mediapipe_ready
-    from app.services.face.embedding_store import get_backend
-    from app.core.face_config import EMBEDDING_MODEL, EMBEDDING_MODEL_VERSION
-    from app.core.supabase import get_supabase
-
-    db_healthy      = False
-    schema_version  = "unknown"
-    drive_healthy   = False
-    drive_folder_accessible = False
-    drive_folder_writable   = False
-
-    # DB ping + schema version
     try:
-        sb = get_supabase()
-        result = sb.table("schema_migrations").select("version").eq(
-            "version", "V2_face_pipeline"
-        ).execute()
-        db_healthy     = True
-        schema_version = result.data[0]["version"] if result.data else "V1_legacy"
-    except Exception as e:
-        pass
+        import asyncio
+        from app.core.model_cache import get_startup_status
+        from app.services.face.embedding_store import get_backend
+        from app.core.face_config import EMBEDDING_MODEL, EMBEDDING_MODEL_VERSION
+        from app.core.supabase import get_supabase
 
-    # Drive ping
-    try:
-        from app.services.google_drive import drive_service, FOLDER_ID
-        if drive_service:
-            meta = drive_service.files().get(
-                fileId=FOLDER_ID, fields="id"
-            ).execute()
-            drive_healthy = True
-            drive_folder_accessible = bool(meta.get("id"))
-    except Exception:
-        pass
+        db_healthy      = False
+        schema_version  = "unknown"
+        drive_healthy   = False
+        drive_folder_accessible = False
+        drive_folder_writable   = False
 
-    # Drive write-probe (run in executor to avoid blocking)
-    if drive_healthy:
+        # DB ping + schema version
         try:
-            from app.services.face.storage import probe_drive_writable
-            loop = asyncio.get_event_loop()
-            drive_folder_writable = await loop.run_in_executor(None, probe_drive_writable)
+            sb = get_supabase()
+            result = sb.table("schema_migrations").select("version").eq(
+                "version", "V2_face_pipeline"
+            ).execute()
+            db_healthy     = True
+            schema_version = result.data[0]["version"] if result.data else "V1_legacy"
+        except Exception as e:
+            pass
+
+        # Drive ping
+        try:
+            from app.services.google_drive import drive_service, FOLDER_ID
+            if drive_service:
+                meta = drive_service.files().get(
+                    fileId=FOLDER_ID, fields="id"
+                ).execute()
+                drive_healthy = True
+                drive_folder_accessible = bool(meta.get("id"))
         except Exception:
             pass
 
-    model_status = get_startup_status()
-    all_ok = db_healthy and drive_healthy and is_deepface_ready() and is_mediapipe_ready()
+        # Drive write-probe (run in executor to avoid blocking)
+        if drive_healthy:
+            try:
+                from app.services.face.storage import probe_drive_writable
+                loop = asyncio.get_event_loop()
+                drive_folder_writable = await loop.run_in_executor(None, probe_drive_writable)
+            except Exception:
+                pass
 
-    return {
-        "status":                "healthy" if all_ok else "degraded",
-        "pipeline_version":      "2.0" if FACE_PIPELINE_V2 else "1.0 (legacy flag active)",
-        "schema_version":        schema_version,
-        "embedding_backend":     get_backend(),
-        "embedding_model":       EMBEDDING_MODEL,
-        "embedding_model_version": EMBEDDING_MODEL_VERSION,
-        "database":              "healthy" if db_healthy else "error",
-        "google_drive":          "healthy" if drive_healthy else "error",
-        "drive_folder_access":   drive_folder_accessible,
-        "drive_folder_writable": drive_folder_writable,
-        "deepface":              model_status.get("deepface", "unknown"),
-        "mediapipe":             model_status.get("mediapipe", "unknown"),
-        "feature_flag":          {
-            "FACE_PIPELINE_V2": FACE_PIPELINE_V2,
-            "dynamic":          False,
-            "requires_restart": True,
-        },
-        "version":               "1.4.2",
-    }
+        model_status = get_startup_status()
+        all_ok = db_healthy and drive_healthy and model_status.get("startup_complete", False)
+
+        response_data = {
+            "status":                "healthy" if all_ok else "degraded",
+            "pipeline_version":      "2.0" if FACE_PIPELINE_V2 else "1.0 (legacy flag active)",
+            "schema_version":        schema_version,
+            "embedding_backend":     get_backend(),
+            "embedding_model":       EMBEDDING_MODEL,
+            "embedding_model_version": EMBEDDING_MODEL_VERSION,
+            "database":              "healthy" if db_healthy else "error",
+            "google_drive":          "healthy" if drive_healthy else "error",
+            "drive_folder_access":   drive_folder_accessible,
+            "drive_folder_writable": drive_folder_writable,
+            "feature_flag":          {
+                "FACE_PIPELINE_V2": FACE_PIPELINE_V2,
+                "dynamic":          False,
+                "requires_restart": True,
+            },
+            "version":               "1.4.2",
+        }
+        
+        # Merge the startup status info
+        response_data.update(model_status)
+        return response_data
+
+    except Exception as e:
+        logger.exception("Face health failed")
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 
 # ============================================================================

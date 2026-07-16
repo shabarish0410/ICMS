@@ -1,52 +1,79 @@
+# -------------------------
 # Core framework
-fastapi
-uvicorn[standard]
+# -------------------------
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
 
+# -------------------------
 # Pydantic & Config
-pydantic
-pydantic-settings
-python-dotenv
+# -------------------------
+pydantic==2.11.7
+pydantic-settings==2.10.1
+python-dotenv==1.1.1
 
-# Auth & Security
-python-jose[cryptography]
-passlib[bcrypt]
-bcrypt
+# -------------------------
+# Authentication
+# -------------------------
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.3.0
 
-# HTTP & Async (Required by FastAPI & Supabase)
-httpx
-aiofiles
+# -------------------------
+# HTTP
+# -------------------------
+httpx==0.28.1
+aiofiles==24.1.0
 
-# Forms & File Uploads
-python-multipart
-Pillow
+# -------------------------
+# Uploads
+# -------------------------
+python-multipart==0.0.20
+Pillow==11.3.0
 
-# Data Processing
-pandas
-numpy
+# -------------------------
+# Data
+# -------------------------
+numpy==1.26.4
+pandas==2.3.1
 
-# Supabase
-supabase
+# -------------------------
+# Database
+# -------------------------
+supabase==2.17.0
 
+# -------------------------
 # Utilities
-email-validator
-jinja2
-openpyxl
-pdfplumber
-tenacity
-resend
+# -------------------------
+email-validator==2.2.0
+jinja2==3.1.6
+openpyxl==3.1.5
+pdfplumber==0.11.7
+tenacity==9.1.2
+pytz==2025.2
 
-# AI & Timezones (Attendance)
-pytz
-google-genai>=1.0.0
+# -------------------------
+# Email
+# -------------------------
+resend==2.13.0
 
-# AI Face Recognition (ArcFace + Liveness Detection)
-tensorflow-cpu
-deepface
-tf-keras
-mediapipe
-opencv-python-headless
+# -------------------------
+# Gemini
+# -------------------------
+google-genai==1.31.0
 
-# Google Drive API
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
+# -------------------------
+# Face Recognition
+# -------------------------
+tensorflow-cpu==2.19.1
+tf-keras==2.19.0
+deepface==0.0.95
+mediapipe==0.10.21
+opencv-python-headless==4.11.0.86
+
+# -------------------------
+# Google Drive
+# -------------------------
+google-api-python-client==2.177.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.2

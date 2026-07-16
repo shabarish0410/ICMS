@@ -150,7 +150,7 @@ export default function FaceRegistrationPage() {
     setIsBursting(true);
 
     const video = videoRef.current;
-    if (!video) {
+    if (!video || video.readyState !== 4) { // HTMLMediaElement.HAVE_ENOUGH_DATA
         setIsBursting(false);
         return;
     }

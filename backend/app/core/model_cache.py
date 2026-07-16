@@ -7,12 +7,21 @@ weights from memory — eliminates ~2-3 s cold-start latency per request.
 """
 import logging
 import os
-from typing import Optional, Any
+import time
+from typing import Optional, Any, Dict
+
+# Fix: Set TF CPU-only mode before any TF imports
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 logger = logging.getLogger("icms.model_cache")
 
 _arcface_model = None
 _mediapipe_face_mesh = None
+_deepface_error = None
+_mediapipe_error = None
+_startup_time = time.time()
 
 def _log_memory(stage: str):
     try:
@@ -25,14 +34,10 @@ def _log_memory(stage: str):
 
 def get_arcface_model() -> Any:
     """Lazy load the ArcFace model."""
-    global _arcface_model
+    global _arcface_model, _deepface_error
     if _arcface_model is None:
         _log_memory("Before loading DeepFace")
         try:
-            # Fix 3: Disable TensorFlow GPU Detection
-            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-            
             try:
                 import tensorflow as tf
                 tf.config.set_visible_devices([], "GPU")
@@ -44,14 +49,16 @@ def get_arcface_model() -> Any:
             _arcface_model = DeepFace.build_model("ArcFace")
             _log_memory("After loading DeepFace")
         except ImportError:
-            logger.warning("DeepFace not installed.")
+            _deepface_error = "DeepFace not installed."
+            logger.warning(_deepface_error)
         except Exception as e:
+            _deepface_error = str(e)
             logger.error(f"Failed to load ArcFace: {e}", exc_info=True)
     return _arcface_model
 
 def get_mediapipe_face_mesh() -> Any:
     """Lazy load the MediaPipe FaceMesh."""
-    global _mediapipe_face_mesh
+    global _mediapipe_face_mesh, _mediapipe_error
     if _mediapipe_face_mesh is None:
         _log_memory("Before loading MediaPipe")
         try:
@@ -64,8 +71,10 @@ def get_mediapipe_face_mesh() -> Any:
             )
             _log_memory("After loading MediaPipe")
         except ImportError:
-            logger.warning("MediaPipe not installed.")
+            _mediapipe_error = "MediaPipe not installed."
+            logger.warning(_mediapipe_error)
         except Exception as e:
+            _mediapipe_error = str(e)
             logger.error(f"Failed to load MediaPipe: {e}", exc_info=True)
     return _mediapipe_face_mesh
 
@@ -74,3 +83,36 @@ def is_deepface_ready() -> bool:
 
 def is_mediapipe_ready() -> bool:
     return _mediapipe_face_mesh is not None
+
+def get_startup_status() -> Dict:
+    """
+    Returns the current status of the ML models.
+    Used by /api/v1/face/health.
+    """
+    return {
+        "startup_complete": (
+            is_deepface_ready() and
+            is_mediapipe_ready()
+        ),
+        "deepface_ready": is_deepface_ready(),
+        "deepface_error": _deepface_error,
+        "mediapipe_ready": is_mediapipe_ready(),
+        "mediapipe_error": _mediapipe_error,
+        "arcface_loaded": _arcface_model is not None,
+        "mediapipe_loaded": _mediapipe_face_mesh is not None,
+        "startup_time": _startup_time,
+        "embedding_model": "ArcFace",
+        "pipeline_version": "V2_face_pipeline"
+    }
+
+def warmup_models():
+    """
+    Load all heavy ML models during FastAPI startup.
+    """
+    logger.info("Loading ArcFace model...")
+    get_arcface_model()
+
+    logger.info("Loading MediaPipe...")
+    get_mediapipe_face_mesh()
+
+    logger.info("Model warmup completed.")
