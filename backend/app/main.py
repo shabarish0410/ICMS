@@ -83,9 +83,13 @@ async def lifespan(app: FastAPI):
             removed = await loop.run_in_executor(None, cleanup_expired_idempotency_keys)
             logger.info(f"[Startup] Cleaned up {removed} expired idempotency keys")
             
-            # Warm up ML models (ArcFace, MediaPipe) in a separate thread
-            from app.core.model_cache import warmup_models
-            await loop.run_in_executor(None, warmup_models)
+            # Warm up ML models (ArcFace) in a separate thread
+            DISABLE_FACE_WARMUP = os.getenv("DISABLE_FACE_WARMUP", "false").lower() == "true"
+            if not DISABLE_FACE_WARMUP:
+                from app.core.model_cache import warmup_models
+                await loop.run_in_executor(None, warmup_models)
+            else:
+                logger.info("[Startup] DISABLE_FACE_WARMUP=True — skipping ML model warmup")
 
         except Exception as face_startup_err:
             logger.warning(f"[Startup] Face V2 startup tasks failed (non-fatal): {face_startup_err}")

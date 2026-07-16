@@ -112,7 +112,8 @@ def warmup_models():
     logger.info("Loading ArcFace model...")
     get_arcface_model()
 
-    logger.info("Loading MediaPipe...")
-    get_mediapipe_face_mesh()
+    # MediaPipe is no longer warmed up at startup to save memory
+    # logger.info("Loading MediaPipe...")
+    # get_mediapipe_face_mesh()
 
     logger.info("Model warmup completed.")
