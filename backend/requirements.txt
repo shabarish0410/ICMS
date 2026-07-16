@@ -64,7 +64,7 @@ google-genai==1.31.0
 # -------------------------
 # Face Recognition
 # -------------------------
-tensorflow-cpu==2.19.1
+tensorflow-cpu==2.15.0
 tf-keras==2.19.0
 deepface==0.0.95
 mediapipe==0.10.21

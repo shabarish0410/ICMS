@@ -1,14 +1,16 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-import os
 import logging
 import traceback
 
 # Force TensorFlow/DeepFace to run on CPU only to prevent cuInit (CUDA) crashes on Render
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 from app.core.config import settings
 from app.routes import (
