@@ -18,10 +18,9 @@ from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
     notifications, forms, weekly_reports, announcements,
-    meetings, attendance, uploads, users, face, uniforms,
+    meetings, attendance, uploads, users, uniforms,
     achievements, admin_achievements, exports
 )
-from app.routes.face import v1_router as face_v1_router
 
 # Use Python's standard logger instead of hardcoded Windows file paths
 logger = logging.getLogger("icms")
@@ -168,8 +167,6 @@ app.include_router(meetings.router)
 app.include_router(attendance.router)
 app.include_router(uploads.router)
 app.include_router(users.router)
-app.include_router(face.router)
-app.include_router(face_v1_router)          # Face V2 canonical routes
 app.include_router(uniforms.router)
 app.include_router(achievements.router)
 app.include_router(admin_achievements.router)

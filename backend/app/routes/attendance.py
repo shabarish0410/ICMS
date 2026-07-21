@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from app.core.security import get_current_user, require_roles
 from app.schemas import (
     AttendanceMarkRequest, AdminAttendanceMarkRequest, AttendanceOut,
-    PaginatedResponse, FaceMarkAttendanceRequest
+    PaginatedResponse
 )
 from app.services import attendance_service
 import math
@@ -19,13 +19,7 @@ def mark_attendance(
     return attendance_service.mark_attendance(req, current_user)
 
 
-@router.post("/face", status_code=201)
-def face_attendance(
-    req: FaceMarkAttendanceRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Mark attendance using Face Recognition."""
-    return attendance_service.face_attendance(req, current_user)
+
 
 
 @router.get("", response_model=PaginatedResponse)
