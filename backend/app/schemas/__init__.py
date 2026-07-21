@@ -567,41 +567,7 @@ class MeetingOut(BaseModel):
 
 
 
-class AttendanceLogOut(BaseModel):
-    id: int
-    student_id: int
-    validation_step: str
-    result: str
-    message: Optional[str] = None
-    timestamp: Optional[datetime] = None
-    class Config:
-        from_attributes = True
 
-
-# ─── Attendance Schemas ───────────────────────────────────────────────────────
-
-class AttendanceMarkRequest(BaseModel):
-    method: str = "manual"  # manual or face
-    photo_url: Optional[str] = None
-
-
-class AdminAttendanceMarkRequest(BaseModel):
-    student_id: int
-    date: date
-    status: str  # present, absent, late
-    method: Optional[str] = "manual"
-
-
-class AttendanceOut(BaseModel):
-    id: int
-    student_id: int
-    date: date
-    check_in_time: Optional[datetime] = None
-    method: str
-    status: str
-    student: Optional[StudentOut] = None
-    class Config:
-        from_attributes = True
 
 
 # ─── Event Schemas ────────────────────────────────────────────────────────────

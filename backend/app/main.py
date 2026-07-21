@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
     notifications, forms, weekly_reports, announcements,
-    meetings, attendance, uploads, users, uniforms,
+    meetings, uploads, users, uniforms,
     achievements, admin_achievements, exports
 )
 
@@ -164,7 +164,6 @@ app.include_router(forms.router)
 app.include_router(weekly_reports.router)
 app.include_router(announcements.router)
 app.include_router(meetings.router)
-app.include_router(attendance.router)
 app.include_router(uploads.router)
 app.include_router(users.router)
 app.include_router(uniforms.router)
