@@ -5,14 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { usersAPI } from '@/services/api';
 import toast from 'react-hot-toast';
-import { User, Shield, ScanFace, Lock, Loader2, Smartphone, CheckCircle2, ChevronRight, FileBadge } from 'lucide-react';
-import FaceRegistrationPage from '../face-registration/page';
+import { User, Shield, Lock, Loader2, Smartphone, CheckCircle2, ChevronRight, FileBadge } from 'lucide-react';
 import AchievementsTab from './AchievementsTab';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'face' | 'achievements'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'achievements'>('profile');
 
   // Profile Form State
   const [fullName, setFullName] = useState('');
@@ -109,16 +108,7 @@ export default function SettingsPage() {
       >
         <Shield className="w-4 h-4" /> Account Security
       </button>
-      <button
-        onClick={() => setActiveTab('face')}
-        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-          activeTab === 'face' 
-            ? 'bg-dark-50 dark:bg-white/10 text-dark-900 dark:text-white border border-dark-200 dark:border-white/10 shadow-sm' 
-            : 'text-dark-500 hover:text-dark-900 dark:text-dark-400 dark:hover:text-white hover:bg-dark-50 dark:hover:bg-white/5'
-        }`}
-      >
-        <ScanFace className="w-4 h-4" /> Face Registration
-      </button>
+
       {user?.role?.name === 'student' && (
         <button
           onClick={() => setActiveTab('achievements')}
@@ -342,18 +332,7 @@ export default function SettingsPage() {
           </motion.div>
         )}
 
-        {activeTab === 'face' && (
-          <motion.div
-            key="face"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="w-full"
-          >
-            {/* Render Face Registration Page internally */}
-            <div className="-mx-4 sm:mx-0">
-              <FaceRegistrationPage />
-            </div>
-          </motion.div>
-        )}
+
 
         {activeTab === 'achievements' && (
           <motion.div

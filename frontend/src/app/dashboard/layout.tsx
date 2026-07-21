@@ -102,7 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
     { label: 'Meetings', href: '/dashboard/meetings', icon: Video },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-    ...(!isAdmin ? [{ label: 'Face Registration', href: '/dashboard/face-registration', icon: Shield }] : []),
+
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 
@@ -121,30 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="lg:pl-[280px] flex-1 flex flex-col transition-all duration-300 relative z-10">
         <TopNav onMenuToggle={() => setIsDrawerOpen(true)} />
 
-        {/* Face Registration Warning Banner */}
-        {isStudent && faceRegistered === false && pathname !== '/dashboard/face-registration' && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mx-4 md:mx-8 mt-4 p-4 bg-amber-900/40 border border-amber-500/40 rounded-2xl flex items-center gap-4 shadow-lg shadow-amber-900/20"
-          >
-            <div className="p-2 bg-amber-500/20 rounded-xl flex-shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-amber-300 font-semibold text-sm">Face Registration Required</p>
-              <p className="text-amber-400/70 text-xs mt-0.5">
-                You must register your face before marking attendance.
-              </p>
-            </div>
-            <Link
-              href="/dashboard/face-registration"
-              className="flex-shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold rounded-xl transition-colors"
-            >
-              Register Now
-            </Link>
-          </motion.div>
-        )}
+
 
         <motion.main 
           initial={{ opacity: 0, y: 10 }}
