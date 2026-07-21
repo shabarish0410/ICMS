@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
-import { teamsAPI, projectsAPI, weeklyReportsAPI, attendanceAPI, meetingsAPI } from '@/services/api';
+import { teamsAPI, projectsAPI, weeklyReportsAPI, meetingsAPI } from '@/services/api';
 import { 
   Users2, FolderKanban, Calendar, Clock, FileText, 
   ArrowLeft, Plus, Loader2, Save, Trash, CalendarClock,
@@ -63,10 +63,7 @@ export default function TeamDetailsPage() {
     queryFn: () => weeklyReportsAPI.list({ size: 100 }),
   });
 
-  const { data: attendanceData } = useQuery({
-    queryKey: ['team-attendance', teamId],
-    queryFn: () => attendanceAPI.list({ team_id: teamId, size: 50 }),
-  });
+
 
   // Project Mutation
   const saveProjectMutation = useMutation({
@@ -122,7 +119,7 @@ export default function TeamDetailsPage() {
   const members = membersData?.data || [];
   const project = projectsListData?.data?.items?.find((p: any) => p.team_id === teamId);
   const reports = (reportsData?.data?.items || []).filter((r: any) => r.student?.team_id === teamId);
-  const attendance = attendanceData?.data?.items || [];
+
 
   const openProjectModal = () => {
     if (project) {
@@ -272,7 +269,7 @@ export default function TeamDetailsPage() {
           </div>
         </div>
 
-        {/* Right column: Action list, Attendance logs & Weekly Logs list */}
+        {/* Right column: Action list & Weekly Logs list */}
         <div className="space-y-6">
           {/* Quick Actions */}
           {isAdmin && (
@@ -314,28 +311,7 @@ export default function TeamDetailsPage() {
             </div>
           </div>
 
-          {/* Team Attendance Logs */}
-          <div className="bg-white dark:bg-dark-800 rounded-2xl p-6 border border-dark-200 dark:border-dark-700 shadow-sm flex flex-col justify-between min-h-[200px]">
-            <div>
-              <h3 className="font-bold text-dark-900 dark:text-white text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-indigo-500" /> Today's Check-ins ({attendance.length})
-              </h3>
-              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                {attendance.map((r: any) => (
-                  <div key={r.id} className="p-2.5 bg-dark-50 dark:bg-dark-850 border border-dark-150 rounded-xl text-xs flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-dark-850 dark:text-dark-200">{r.student?.user?.full_name}</span>
-                      <span className="text-dark-450 block text-[10px]">{new Date(r.date).toLocaleDateString()}</span>
-                    </div>
-                    <span className="text-[10px] font-semibold text-green-600 dark:text-green-400 capitalize">{r.status}</span>
-                  </div>
-                ))}
-                {attendance.length === 0 && (
-                  <p className="text-xs text-dark-450 italic py-4">No recent check-ins recorded.</p>
-                )}
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
 

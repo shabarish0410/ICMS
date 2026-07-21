@@ -8,7 +8,7 @@ import TopNav from '@/components/layout/TopNav';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { faceAPI } from '@/services/api';
+import { dashboardAPI } from '@/services/api';
 import { 
   LayoutDashboard, UserCheck, FolderKanban, Calendar, Menu, X, 
   GraduationCap, Users2, ClipboardList, FileText, Megaphone, Video, 
@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [faceRegistered, setFaceRegistered] = useState<boolean | null>(null);
+
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -38,14 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isLoading, user, router]);
 
-  // Check face registration status for students
-  useEffect(() => {
-    if (!isLoading && user && isStudent) {
-      faceAPI.myStatus()
-        .then((res) => setFaceRegistered(Boolean(res.data?.face_registered)))
-        .catch(() => setFaceRegistered(null));
-    }
-  }, [isLoading, user, isStudent]);
+
 
   // Handle drawer close when pathname changes
   useEffect(() => {

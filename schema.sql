@@ -72,8 +72,6 @@ create table students (
     team_id integer references teams(id),
     resume_url text,
     resume_data jsonb,
-    face_registered boolean default false,
-    face_registered_at timestamptz,
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );
@@ -193,18 +191,6 @@ create table meeting_invites (
     primary key (meeting_id, user_id)
 );
 
--- 14. Attendance
-create table attendance (
-    id serial primary key,
-    student_id integer references students(id) on delete cascade not null,
-    date date not null,
-    check_in_time timestamptz,
-    check_out_time timestamptz,
-    method varchar(50) default 'manual',
-    status varchar(20) default 'present',
-    photo_url text
-);
-
 -- 15. Events
 create table events (
     id serial primary key,
@@ -279,28 +265,6 @@ create table otp_verifications (
     expires_at timestamptz not null,
     created_at timestamptz default now(),
     updated_at timestamptz default now()
-);
-
--- 21. Student Faces
-create table student_faces (
-    id serial primary key,
-    student_id integer references students(id) on delete cascade unique not null,
-    face_embedding jsonb not null,
-    face_image_url text,
-    drive_file_id text,
-    model_version varchar(50) default 'ArcFace',
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-);
-
--- 22. Attendance Logs
-create table attendance_logs (
-    id serial primary key,
-    student_id integer references students(id) on delete set null,
-    validation_step varchar(100),
-    result varchar(50),
-    message text,
-    timestamp timestamptz default now()
 );
 
 -- SEED DATA
