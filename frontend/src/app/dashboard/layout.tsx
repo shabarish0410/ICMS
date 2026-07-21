@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Secondary items shown in the bottom drawer
   const drawerItems = [
     ...(isAdmin ? [{ label: 'Students', href: '/dashboard/students', icon: GraduationCap }] : []),
-    ...(isAdmin ? [{ label: 'Face Management', href: '/dashboard/admins/face-management', icon: Shield }] : []),
+
     ...(isAdmin ? [{ label: 'Uniform Management', href: '/dashboard/admins/uniform-management', icon: Cpu }] : []),
     { label: 'Teams', href: '/dashboard/teams', icon: Users2 },
     { label: 'Forms', href: '/dashboard/forms', icon: ClipboardList },

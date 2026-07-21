@@ -208,19 +208,7 @@ export default function AdminsPage() {
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
-        <Link
-          href="/dashboard/admins/face-management"
-          className="flex items-center gap-3 p-4 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl hover:bg-brand-cyan/20 transition-colors group"
-        >
-          <div className="p-2.5 bg-brand-cyan/10 rounded-xl">
-            <Shield className="w-5 h-5 text-brand-cyan" />
-          </div>
-          <div className="flex-1">
-            <p className="text-brand-cyan font-semibold text-sm">Face Registration Dashboard</p>
-            <p className="text-dark-600 dark:text-dark-400 text-xs mt-0.5">Monitor all students' face registration status</p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-brand-cyan group-hover:translate-x-1 transition-transform" />
-        </Link>
+
         <Link
           href="/dashboard/admins/uniform-management"
           className="flex items-center gap-3 p-4 bg-brand-indigo/10 border border-brand-indigo/20 rounded-2xl hover:bg-brand-indigo/20 transition-colors group"

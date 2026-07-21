@@ -25,7 +25,7 @@ const adminMenu = [
   { label: 'Events', href: '/dashboard/events', icon: Calendar },
   { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { label: 'Admins', href: '/dashboard/admins', icon: Shield },
-  { label: 'Face Management', href: '/dashboard/admins/face-management', icon: Cpu },
+
   { label: 'Uniform Mgmt', href: '/dashboard/admins/uniform-management', icon: Shirt },
   { label: 'Approvals', href: '/dashboard/admins/achievements', icon: FileBadge },
 ];
