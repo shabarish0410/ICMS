@@ -55,7 +55,7 @@ export default function Sidebar() {
       initial={false}
       animate={{ width: collapsed ? 80 : 260 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-white dark:bg-dark-950/95 backdrop-blur-2xl border-r border-dark-200 dark:border-white/5 shadow-xl shadow-brand-indigo/5 dark:shadow-2xl"
+      className="fixed top-0 left-0 h-screen z-40 hidden lg:flex flex-col bg-primary backdrop-blur-2xl border-r border-primary-hover shadow-xl shadow-primary/5 dark:shadow-2xl"
     >
       {/* Premium Glowing Logo */}
       <div className="h-24 flex items-center gap-3 px-6 shrink-0 relative overflow-hidden">
@@ -97,8 +97,8 @@ export default function Sidebar() {
                 whileTap={{ scale: 0.98 }}
                 className={`relative flex items-center h-10 rounded-xl group transition-all duration-300 ${
                   isActive 
-                    ? 'bg-brand-indigo/10 dark:bg-brand-indigo/10 text-brand-indigo dark:text-white font-semibold' 
-                    : 'text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-white/5 hover:text-dark-900 dark:hover:text-white'
+                    ? 'bg-accent/10 text-accent font-semibold' 
+                    : 'text-white/60 hover:bg-white/5 hover:text-white'
                 } ${collapsed ? 'justify-center w-12 mx-auto px-0' : 'px-3'}`}
                 title={collapsed ? item.label : undefined}
               >
@@ -106,14 +106,14 @@ export default function Sidebar() {
                 {isActive && (
                   <motion.div
                     layoutId="activePill"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-indigo dark:bg-brand-cyan rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)] dark:shadow-[0_0_10px_rgba(6,182,212,0.8)]"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-accent rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   />
                 )}
 
-                <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-brand-indigo dark:text-brand-cyan drop-shadow-[0_0_5px_rgba(99,102,241,0.3)] dark:drop-shadow-[0_0_5px_rgba(6,182,212,0.5)]' : 'group-hover:text-brand-indigo dark:group-hover:text-white'}`} />
+                <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-accent drop-shadow-[0_0_5px_rgba(212,175,55,0.3)]' : 'group-hover:text-white'}`} />
                 
                 <AnimatePresence>
                   {!collapsed && (
@@ -135,7 +135,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer Area */}
-      <div className="p-3 space-y-1 relative z-10 bg-gradient-to-t from-white via-white dark:from-dark-950 dark:via-dark-950 to-transparent pt-8">
+      <div className="p-3 space-y-1 relative z-10 bg-gradient-to-t from-primary via-primary to-transparent pt-8">
         {/* Settings Link */}
         <Link href="/dashboard/settings">
           <motion.div

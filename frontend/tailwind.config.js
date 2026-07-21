@@ -5,16 +5,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        primary: "#7A0019",
+        'primary-hover': "#600014",
+        accent: "#D4AF37",
+        background: "#F8F6F2",
+        surface: "#FFFFFF",
+        border: "#E2D7C8",
+        text: "#222222",
+        muted: "#666666",
         brand: {
-          indigo: '#7A0019', // Primary (Maroon) mapped from indigo for backward compatibility
-          cyan: '#A61E4D',   // Secondary
+          indigo: '#7A0019', // Maroon
+          cyan: '#D4AF37',   // Gold
           emerald: '#10B981', // Success
-          amber: '#D4AF37',   // Accent
+          amber: '#D4AF37',   // Gold
           red: '#EF4444',     // Error
-          blue: '#3B82F6',
-          purple: '#8B5CF6',
+          blue: '#7A0019',    // Maroon
+          purple: '#7A0019',  // Maroon
         },
-        primary: {
+        primary_old: {
           50: '#fcf3f5',
           100: '#f8e6eb',
           200: '#efc1cd',
@@ -27,18 +35,18 @@ module.exports = {
           900: '#3d000c',
           950: '#210006',
         },
-                dark: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
-          400: '#a1a1aa',
-          500: '#71717a',
-          600: '#52525b',
-          700: '#3f3f46',
-          800: '#27272a',
-          900: '#18181b', // Zinc 900
-          950: '#09090b', // Zinc 950 (Background)
+        dark: {
+          50: '#F8F6F2',
+          100: '#F8F6F2',
+          200: '#E2D7C8',
+          300: '#D4AF37',
+          400: '#666666',
+          500: '#666666',
+          600: '#222222',
+          700: '#222222',
+          800: '#600014',
+          900: '#7A0019', // Maroon
+          950: '#7A0019', // Maroon (Sidebar background)
         },
       },
       fontFamily: {
