@@ -205,7 +205,7 @@ export const authAPI = {
 export const dashboardAPI = {
   admin: () => api.get('/dashboard/admin'),
   student: () => api.get('/dashboard/student'),
-  attendanceTrend: () => api.get('/dashboard/charts/attendance-trend'),
+
   projectStatus: () => api.get('/dashboard/charts/project-status'),
   departmentChart: () => api.get('/dashboard/charts/department-distribution'),
 };

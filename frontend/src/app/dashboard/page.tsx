@@ -42,10 +42,7 @@ function AdminDashboard() {
     queryKey: ['project-chart'], 
     queryFn: () => dashboardAPI.projectStatus() 
   });
-  const { data: attendanceChart } = useQuery({ 
-    queryKey: ['attendance-chart'], 
-    queryFn: () => dashboardAPI.attendanceTrend() 
-  });
+
   const { data: deptChart } = useQuery({
     queryKey: ['dept-chart'],
     queryFn: () => dashboardAPI.departmentChart()
@@ -59,8 +56,7 @@ function AdminDashboard() {
     { label: 'Teams', value: s?.total_teams || 0, icon: Users2, color: 'text-brand-cyan', bg: 'bg-brand-cyan/10', link: '/dashboard/teams' },
     { label: 'Projects', value: s?.active_projects || 0, icon: FolderKanban, color: 'text-brand-purple', bg: 'bg-brand-purple/10', link: '/dashboard/projects' },
     { label: 'Completed', value: s?.completed_projects || 0, icon: CheckCircle, color: 'text-brand-emerald', bg: 'bg-brand-emerald/10', link: '/dashboard/projects' },
-    { label: 'Present Today', value: s?.students_present_today || 0, icon: UserCheck, color: 'text-brand-emerald', bg: 'bg-brand-emerald/10', link: '/dashboard/attendance', sub: `${s?.attendance_percentage || 0}% rate` },
-    { label: 'Absent Today', value: s?.students_absent_today || 0, icon: UserX, color: 'text-brand-amber', bg: 'bg-brand-amber/10', link: '/dashboard/attendance' },
+
     { label: 'Reviews', value: s?.pending_reviews || 0, icon: AlertCircle, color: 'text-brand-amber', bg: 'bg-brand-amber/10', link: '/dashboard/weekly-reports', sub: 'Action required' },
     { label: 'Meetings', value: s?.upcoming_meetings || 0, icon: Video, color: 'text-brand-red', bg: 'bg-brand-red/10', link: '/dashboard/meetings' },
   ];
@@ -120,38 +116,7 @@ function AdminDashboard() {
 
       {/* Charts Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
-        {/* Attendance Bar Chart */}
-        <motion.div 
-          {...fadeUp} 
-          transition={{ delay: 0.2 }}
-          className="lg:col-span-2 glass-card p-6"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-heading font-bold text-dark-900 dark:text-white">Attendance Flow</h3>
-            <span className="px-3 py-1 bg-dark-50 dark:bg-white/5 border border-dark-200 dark:border-white/10 rounded-full text-xs font-medium text-dark-600 dark:text-dark-300">Last 7 Days</span>
-          </div>
-          {attendanceChart?.data ? (
-            <div className="h-[280px] w-full">
-              <Bar 
-                data={attendanceChart.data} 
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: { 
-                    legend: { position: 'top', align: 'end', labels: { boxWidth: 8, usePointStyle: true, font: { family: 'Inter' } } },
-                    tooltip: { backgroundColor: theme === 'dark' ? '#1E293B' : '#FFFFFF', titleColor: theme === 'dark' ? '#fff' : '#0F172A', bodyColor: theme === 'dark' ? '#cbd5e1' : '#475569', borderColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', borderWidth: 1, padding: 12 }
-                  },
-                  scales: { 
-                    x: { stacked: true, grid: { display: false }, border: { display: false } }, 
-                    y: { stacked: true, grid: { color: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }, border: { display: false } } 
-                  },
-                }} 
-              />
-            </div>
-          ) : (
-            <div className="h-[280px] flex items-center justify-center text-dark-400 font-medium">No attendance data available</div>
-          )}
-        </motion.div>
+
 
         {/* Project Status Doughnut Chart */}
         <motion.div 
@@ -269,22 +234,7 @@ function StudentDashboard() {
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <motion.div 
-          {...fadeUp}
-          onClick={() => router.push('/dashboard/attendance')}
-          className="glass-card p-6 cursor-pointer hover:shadow-md transition-shadow group"
-        >
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-semibold text-dark-500 dark:text-dark-400 uppercase tracking-wider">Attendance</span>
-            <div className="p-2.5 rounded-xl bg-brand-emerald/10">
-              <UserCheck className="w-5 h-5 text-brand-emerald" />
-            </div>
-          </div>
-          <p className="text-4xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">{d?.attendance_percentage || 0}<span className="text-xl text-dark-400 font-medium ml-1">%</span></p>
-          <div className="w-full bg-dark-100 dark:bg-dark-800 rounded-full h-1.5 mt-5 overflow-hidden">
-            <div className="bg-brand-emerald h-1.5 rounded-full transition-all duration-1000 ease-out" style={{ width: `${d?.attendance_percentage || 0}%` }} />
-          </div>
-        </motion.div>
+
 
         <motion.div 
           {...fadeUp} 

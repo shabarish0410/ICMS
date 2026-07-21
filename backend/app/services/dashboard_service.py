@@ -34,9 +34,6 @@ def admin_dashboard(current_user: dict) -> dict:
     def q_events():
         return supabase.table("events").select("id", count="exact").execute()
 
-    def q_attendance():
-        return supabase.table("attendance").select("status").eq("date", today).in_("status", ["present", "late"]).execute()
-
     def q_new_registrations():
         return supabase.table("students").select("id", count="exact").gte("created_at", today).execute()
 
@@ -52,7 +49,7 @@ def admin_dashboard(current_user: dict) -> dict:
         f_fs          = ex.submit(q_form_submissions)
         f_meetings    = ex.submit(q_meetings)
         f_events      = ex.submit(q_events)
-        f_attendance  = ex.submit(q_attendance)
+
         f_new_regs    = ex.submit(q_new_registrations)
         f_unread_notif= ex.submit(q_unread_notifications)
 
@@ -69,10 +66,9 @@ def admin_dashboard(current_user: dict) -> dict:
     upcoming_meetings = f_meetings.result().count or 0
     total_events    = f_events.result().count or 0
 
-    present_today   = len(f_attendance.result().data)
-    absent_today    = total_students - present_today
-    attendance_pct  = round(present_today / total_students * 100, 1) if total_students > 0 else 0.0
-
+    present_today   = 0
+    absent_today    = 0
+    attendance_pct  = 0.0
     new_registrations_today = f_new_regs.result().count or 0
     unread_notifications = f_unread_notif.result().count or 0
 
@@ -112,10 +108,6 @@ def student_dashboard(current_user: dict) -> dict:
         res = supabase.table("projects").select("*").eq("team_id", team_id).execute()
         return res.data[0] if res.data else None
 
-    def q_attendance():
-        if not student_id:
-            return []
-        return supabase.table("attendance").select("status").eq("student_id", student_id).execute().data
 
     def q_forms_total():
         return supabase.table("dynamic_forms").select("id", count="exact").eq("is_active", True).execute()
@@ -137,18 +129,14 @@ def student_dashboard(current_user: dict) -> dict:
 
     with ThreadPoolExecutor(max_workers=7) as ex:
         f_project      = ex.submit(q_project)
-        f_attendance   = ex.submit(q_attendance)
+
         f_forms_total  = ex.submit(q_forms_total)
         f_forms_sub    = ex.submit(q_forms_submitted)
         f_invites      = ex.submit(q_meeting_invites)
         f_notifs       = ex.submit(q_notifications)
         f_report       = ex.submit(q_latest_report)
 
-    att_data    = f_attendance.result()
-    att_total   = len(att_data)
-    att_present = sum(1 for a in att_data if a.get("status") in ["present", "late"])
-    att_pct     = round(att_present / att_total * 100, 1) if att_total > 0 else 0.0
-
+    att_pct     = 0.0
     pending_forms   = f_forms_total.result().count or 0
     submitted_forms = f_forms_sub.result().count or 0
 
@@ -170,44 +158,6 @@ def student_dashboard(current_user: dict) -> dict:
         "pending_forms": pending_forms - submitted_forms,
         "upcoming_meetings": upcoming_meetings,
         "recent_notifications": f_notifs.result().data,
-    }
-
-
-def attendance_trend(current_user: dict) -> dict:
-    supabase = get_supabase()
-    today = date.today()
-
-    start_date = (today - timedelta(days=6)).isoformat()
-    end_date   = today.isoformat()
-
-    students_res = supabase.table("users").select("id", count="exact").eq("is_active", True).eq("role_id", 2).execute()
-    total_students = students_res.count or 0
-
-    att_res = supabase.table("attendance").select("date, status").gte("date", start_date).lte("date", end_date).in_("status", ["present", "late"]).execute()
-
-    present_by_date: dict = {}
-    for record in att_res.data:
-        d = record.get("date")
-        if d:
-            present_by_date[d] = present_by_date.get(d, 0) + 1
-
-    labels = []
-    present_data = []
-    absent_data  = []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        d_iso = d.isoformat()
-        labels.append(d.strftime("%a"))
-        present = present_by_date.get(d_iso, 0)
-        present_data.append(present)
-        absent_data.append(total_students - present)
-
-    return {
-        "labels": labels,
-        "datasets": [
-            {"label": "Present", "data": present_data, "backgroundColor": "#10b981"},
-            {"label": "Absent",  "data": absent_data,  "backgroundColor": "#ef4444"},
-        ]
     }
 
 

@@ -18,13 +18,7 @@ def student_dashboard(current_user: dict = Depends(get_current_user)):
     """Student's personal dashboard data."""
     return dashboard_service.student_dashboard(current_user)
 
-@router.get("/charts/attendance-trend")
-def attendance_trend(current_user: dict = Depends(get_current_user)):
-    """Attendance trend for last 7 days."""
-    data = dashboard_service.attendance_trend(current_user)
-    response = JSONResponse(content=data)
-    response.headers["Cache-Control"] = "public, max-age=60"
-    return response
+
 
 @router.get("/charts/project-status")
 def project_status_chart(current_user: dict = Depends(get_current_user)):
