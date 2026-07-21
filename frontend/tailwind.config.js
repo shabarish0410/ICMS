@@ -6,26 +6,26 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          indigo: '#6366F1', // Primary
-          cyan: '#06B6D4',   // Secondary
+          indigo: '#7A0019', // Primary (Maroon) mapped from indigo for backward compatibility
+          cyan: '#A61E4D',   // Secondary
           emerald: '#10B981', // Success
-          amber: '#F59E0B',   // Warning
+          amber: '#D4AF37',   // Accent
           red: '#EF4444',     // Error
           blue: '#3B82F6',
           purple: '#8B5CF6',
         },
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1', // Indigo
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: '#fcf3f5',
+          100: '#f8e6eb',
+          200: '#efc1cd',
+          300: '#e59caf',
+          400: '#cf5a73',
+          500: '#7A0019', // Primary Maroon
+          600: '#6e0017',
+          700: '#5c0013',
+          800: '#49000f',
+          900: '#3d000c',
+          950: '#210006',
         },
                 dark: {
           50: '#fafafa',
