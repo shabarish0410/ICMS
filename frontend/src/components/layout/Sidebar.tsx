@@ -143,20 +143,20 @@ export default function Sidebar() {
             whileTap={{ scale: 0.98 }}
             className={`relative flex items-center h-10 rounded-xl group transition-all duration-300 ${
               pathname.startsWith('/dashboard/settings') 
-                ? 'bg-dark-100 dark:bg-white/10 text-dark-900 dark:text-white font-semibold' 
-                : 'text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-white/5 hover:text-dark-900 dark:hover:text-white'
+                ? 'bg-white/20 text-white font-semibold' 
+                : 'text-white/70 hover:bg-white/10 hover:text-white'
             } ${collapsed ? 'justify-center w-12 mx-auto px-0' : 'px-3'}`}
             title={collapsed ? 'Settings' : undefined}
           >
             {pathname.startsWith('/dashboard/settings') && (
               <motion.div
                 layoutId="activePill"
-                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-dark-900 dark:bg-white rounded-r-full shadow-[0_0_10px_rgba(15,23,42,0.2)] dark:shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white rounded-r-full shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               />
             )}
-            <Settings className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-300 ${pathname.startsWith('/dashboard/settings') ? 'text-dark-900 dark:text-white drop-shadow-[0_0_5px_rgba(15,23,42,0.2)] dark:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'group-hover:text-dark-900 dark:group-hover:text-white'}`} />
+            <Settings className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-300 ${pathname.startsWith('/dashboard/settings') ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'group-hover:text-white'}`} />
             <AnimatePresence>
               {!collapsed && (
                 <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="ml-3 text-sm whitespace-nowrap">
@@ -170,7 +170,7 @@ export default function Sidebar() {
         {/* Collapse Button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className={`relative flex items-center w-full h-10 rounded-xl group transition-all duration-300 text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-white/5 hover:text-dark-900 dark:hover:text-white ${collapsed ? 'justify-center w-12 mx-auto px-0' : 'px-3'}`}
+          className={`relative flex items-center w-full h-10 rounded-xl group transition-all duration-300 text-white/70 hover:bg-white/10 hover:text-white ${collapsed ? 'justify-center w-12 mx-auto px-0' : 'px-3'}`}
           title={collapsed ? 'Expand' : 'Collapse'}
         >
           {collapsed ? <ChevronRight className="w-[18px] h-[18px] flex-shrink-0" /> : <ChevronLeft className="w-[18px] h-[18px] flex-shrink-0" />}
@@ -188,16 +188,16 @@ export default function Sidebar() {
           {user && (
             <motion.div
               layout
-              className={`mt-2 p-1.5 flex items-center justify-between bg-dark-50 dark:bg-white/5 border border-dark-100 dark:border-white/10 rounded-2xl hover:bg-dark-100 dark:hover:bg-white/10 transition-colors ${collapsed ? 'flex-col gap-2 rounded-[24px]' : 'flex-row'}`}
+              className={`mt-2 p-1.5 flex items-center justify-between bg-white/10 border border-white/20 rounded-2xl hover:bg-white/20 transition-colors overflow-hidden ${collapsed ? 'flex-col gap-2 rounded-[24px]' : 'flex-row'}`}
             >
-              <div className={`flex items-center gap-2 ${collapsed ? 'flex-col' : ''}`}>
-                <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-brand-indigo to-brand-cyan flex items-center justify-center text-white font-bold text-sm shadow-inner border border-white/20">
+              <div className={`flex items-center gap-2 overflow-hidden ${collapsed ? 'flex-col' : ''}`}>
+                <div className="w-9 h-9 shrink-0 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm shadow-inner border border-white/20">
                   {user.full_name.charAt(0).toUpperCase()}
                 </div>
                 {!collapsed && (
-                  <div className="min-w-0 pr-2">
-                    <p className="text-sm font-semibold text-dark-900 dark:text-white truncate leading-tight">{user.full_name}</p>
-                    <p className="text-[10px] text-brand-indigo dark:text-brand-cyan uppercase tracking-wider font-semibold truncate leading-tight">{user.role?.name}</p>
+                  <div className="min-w-0 pr-2 overflow-hidden">
+                    <p className="text-sm font-semibold text-white truncate leading-tight">{user.full_name}</p>
+                    <p className="text-[10px] text-white/70 uppercase tracking-wider font-semibold truncate leading-tight">{user.role?.name}</p>
                   </div>
                 )}
               </div>
@@ -205,7 +205,7 @@ export default function Sidebar() {
               <button 
                 onClick={logout}
                 title="Logout"
-                className={`p-2 rounded-xl text-dark-500 dark:text-dark-400 hover:text-brand-red hover:bg-brand-red/10 transition-colors ${collapsed ? 'w-9 h-9 flex justify-center items-center' : ''}`}
+                className={`p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/20 transition-colors shrink-0 ${collapsed ? 'w-9 h-9 flex justify-center items-center' : ''}`}
               >
                 <LogOut className="w-[18px] h-[18px]" />
               </button>

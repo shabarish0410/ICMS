@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col pb-[72px] lg:pb-0 selection:bg-brand-blue/30 relative">
+    <div className="min-h-screen bg-background text-text dark:bg-background dark:text-text flex flex-col pb-[72px] lg:pb-0 selection:bg-primary/30 relative">
       {/* Global Background Elements */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] bg-brand-blue/10 rounded-full mix-blend-screen filter blur-[120px]" />

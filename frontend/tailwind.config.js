@@ -5,48 +5,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#7A0019",
-        'primary-hover': "#600014",
-        accent: "#D4AF37",
-        background: "#F8F6F2",
+        primary: "#2563EB",
+        primaryHover: "#1D4ED8",
+        'primary-hover': "#1D4ED8",
+        secondary: "#3B82F6",
+        accent: "#06B6D4",
+        sidebar: "#0F172A",
+        background: "#F8FAFC",
         surface: "#FFFFFF",
-        border: "#E2D7C8",
-        text: "#222222",
-        muted: "#666666",
+        border: "#E2E8F0",
+        text: "#1E293B",
+        muted: "#64748B",
+        success: "#22C55E",
+        warning: "#F59E0B",
+        error: "#EF4444",
         brand: {
-          indigo: '#7A0019', // Maroon
-          cyan: '#D4AF37',   // Gold
-          emerald: '#10B981', // Success
-          amber: '#D4AF37',   // Gold
-          red: '#EF4444',     // Error
-          blue: '#7A0019',    // Maroon
-          purple: '#7A0019',  // Maroon
-        },
-        primary_old: {
-          50: '#fcf3f5',
-          100: '#f8e6eb',
-          200: '#efc1cd',
-          300: '#e59caf',
-          400: '#cf5a73',
-          500: '#7A0019', // Primary Maroon
-          600: '#6e0017',
-          700: '#5c0013',
-          800: '#49000f',
-          900: '#3d000c',
-          950: '#210006',
+          indigo: '#2563EB',
+          cyan: '#06B6D4',
+          emerald: '#22C55E',
+          amber: '#F59E0B',
+          red: '#EF4444',
+          blue: '#2563EB',
+          purple: '#8B5CF6',
         },
         dark: {
-          50: '#F8F6F2',
-          100: '#F8F6F2',
-          200: '#E2D7C8',
-          300: '#D4AF37',
-          400: '#666666',
-          500: '#666666',
-          600: '#222222',
-          700: '#222222',
-          800: '#600014',
-          900: '#7A0019', // Maroon
-          950: '#7A0019', // Maroon (Sidebar background)
+          50: '#F8FAFC',
+          100: '#F1F5F9',
+          200: '#E2E8F0',
+          300: '#CBD5E1',
+          400: '#94A3B8',
+          500: '#64748B',
+          600: '#475569',
+          700: '#334155',
+          800: '#1E293B',
+          900: '#0F172A',
+          950: '#020617',
         },
       },
       fontFamily: {

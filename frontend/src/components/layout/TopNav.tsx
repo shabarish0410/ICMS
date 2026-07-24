@@ -64,7 +64,7 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle?: () => void }) 
 
   return (
     <header className={`sticky top-0 z-30 h-20 flex items-center justify-between gap-4 px-6 transition-all duration-300 ${
-      scrolled ? 'bg-primary/90 backdrop-blur-xl shadow-md border-b border-primary-hover' : 'bg-primary border-b border-transparent'
+      scrolled ? 'bg-white/80 dark:bg-dark-950/80 backdrop-blur-xl shadow-sm border-b border-dark-200 dark:border-white/10' : 'bg-transparent border-b border-transparent'
     }`}>
       {/* Left: Mobile menu + Search */}
       <div className="flex items-center gap-4 flex-1">
