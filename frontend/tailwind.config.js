@@ -20,13 +20,14 @@ module.exports = {
         warning: "#F59E0B",
         error: "#EF4444",
         brand: {
-          indigo: '#2563EB',
+          indigo: '#6366F1',
           cyan: '#06B6D4',
           emerald: '#22C55E',
           amber: '#F59E0B',
           red: '#EF4444',
-          blue: '#2563EB',
+          blue: '#3B82F6',
           purple: '#8B5CF6',
+          pink: '#EC4899',
         },
         dark: {
           50: '#F8FAFC',
@@ -87,5 +88,15 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function ({ addUtilities }: any) {
+      addUtilities({
+        '.scrollbar-hide': {
+          '-ms-overflow-style': 'none',
+          'scrollbar-width': 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        },
+      });
+    },
+  ],
 };

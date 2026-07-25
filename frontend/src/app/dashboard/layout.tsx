@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import TopNav from '@/components/layout/TopNav';
+import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <motion.div 
             animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            className="w-24 h-24 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(37,99,235,0.3)] bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center relative"
+            className="w-24 h-24 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.3)] bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center relative"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue/20 to-brand-purple/20 animate-pulse" />
             <Image 
@@ -65,10 +66,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
           </motion.div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-brand-blue animate-bounce shadow-[0_0_10px_rgba(37,99,235,0.8)]" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full bg-brand-purple animate-bounce shadow-[0_0_10px_rgba(124,58,237,0.8)]" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 rounded-full bg-brand-blue animate-bounce shadow-[0_0_10px_rgba(59,130,246,0.8)]" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 rounded-full bg-brand-purple animate-bounce shadow-[0_0_10px_rgba(139,92,246,0.8)]" style={{ animationDelay: '150ms' }} />
             <div className="w-2 h-2 rounded-full bg-brand-pink animate-bounce shadow-[0_0_10px_rgba(236,72,153,0.8)]" style={{ animationDelay: '300ms' }} />
           </div>
+          <p className="text-dark-400 text-xs font-medium tracking-wider uppercase">Loading Spark IC...</p>
         </div>
       </div>
     );
@@ -111,8 +113,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
 
       {/* Main Container */}
-      <div className="lg:pl-[280px] flex-1 flex flex-col transition-all duration-300 relative z-10">
+      <div className="lg:pl-[256px] flex-1 flex flex-col transition-all duration-300 relative z-10">
         <TopNav onMenuToggle={() => setIsDrawerOpen(true)} />
+        <Breadcrumbs />
 
 
 
@@ -134,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return (
             <Link key={item.href} href={item.href} className="flex flex-col items-center justify-center flex-1 h-full py-2">
               <div className={`p-1.5 rounded-xl transition-all duration-300 ${isActive ? 'bg-gradient-to-br from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 scale-110 text-white' : 'text-dark-400 hover:text-white hover:bg-white/5'}`}>
-                <Icon className="w-5.5 h-5.5" />
+                <Icon className="w-[22px] h-[22px]" />
               </div>
               <span className={`text-[10px] font-medium transition-colors mt-1 ${isActive ? 'text-white' : 'text-dark-400'}`}>
                 {item.label}
@@ -149,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           className="flex flex-col items-center justify-center flex-1 h-full py-2 text-dark-400 hover:text-white"
         >
           <div className="p-1.5 rounded-xl transition-all duration-300 hover:bg-white/5">
-            <Menu className="w-5.5 h-5.5" />
+            <Menu className="w-[22px] h-[22px]" />
           </div>
           <span className="text-[10px] font-medium mt-1">More</span>
         </button>

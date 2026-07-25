@@ -67,6 +67,12 @@
     transform: translateY(-2px);
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
   }
+  .dark .glass-card {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  .dark .glass-card:hover {
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  }
 
   .stat-card {
     @apply glass-card p-6 relative overflow-hidden transition-all duration-200;
@@ -179,6 +185,10 @@
     background-color: #F1F5F9;
     color: #1E293B;
   }
+  .dark .table-container thead {
+    background-color: #1E293B;
+    color: #F8FAFC;
+  }
 
   .table-container th {
     @apply px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider sticky top-0;
@@ -191,11 +201,14 @@
 
   .table-container tbody tr {
     background-color: var(--surface);
+    transition: background-color 0.15s ease;
   }
 
   .table-container tbody tr:hover {
     background-color: #EFF6FF;
-    transition: all 0.2s ease;
+  }
+  .dark .table-container tbody tr:hover {
+    background-color: rgba(99, 102, 241, 0.08);
   }
 
   /* Form Labels & Floating Labels Setup */
@@ -229,12 +242,14 @@
     color: var(--primary);
   }
 
-  /* Links */
+  /* Links — only apply underline on plain prose content links, not nav/button styled ones */
   a {
-    transition: all 0.2s ease;
+    transition: color 0.2s ease;
   }
-  
-  a:hover {
+
+  /* Scope underline to explicit content/prose areas */
+  .prose a:hover,
+  .content-link:hover {
     text-decoration: underline;
     text-decoration-color: var(--accent);
     color: var(--primary-hover);
