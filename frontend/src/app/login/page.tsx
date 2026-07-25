@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { IdCard, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -53,191 +53,159 @@ export default function LoginPage() {
     }
   };
 
-
-  // Pre-compute stable particle configs (runs once on client, never on server)
-  const particles = useMemo(() =>
-    Array.from({ length: 15 }, () => ({
-      x: Math.random() * 700,
-      y: Math.random() * 800,
-      animY: Math.random() * -100 - 50,
-      animX: Math.random() * 100 - 50,
-      duration: Math.random() * 5 + 5,
-    }))
-  , []);
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen flex bg-dark-900 overflow-hidden font-sans">
-      {/* Left Panel - Premium Animated Background */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-brand-blue via-[#0f172a] to-brand-purple">
-        {/* Animated Glow Orbs */}
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-blue/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-brand-purple/30 rounded-full mix-blend-screen filter blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
-        
-        {/* Floating Particles — client-only to avoid SSR hydration mismatch */}
-        {mounted && particles.map((p, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 rounded-full bg-white/20 blur-[1px]"
-            initial={{ x: p.x, y: p.y }}
-            animate={{
-              y: [null, p.animY],
-              x: [null, p.animX],
-              opacity: [0.2, 0.8, 0],
-            }}
-            transition={{
-              duration: p.duration,
-              repeat: Infinity,
-              ease: "linear"
-            }}
-          />
-        ))}
-
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white w-full">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            <motion.div 
-              className="w-24 h-24 mb-10 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(37,99,235,0.4)] border border-white/20 bg-white/10 backdrop-blur-md flex items-center justify-center relative group"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue/20 to-brand-purple/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <Image 
-                src="/logo.jpg" 
-                alt="Spark Innovation Cell Logo" 
-                width={96} 
-                height={96}
-                priority
-                className="object-contain w-full h-full p-2 drop-shadow-2xl mix-blend-screen"
-              />
-            </motion.div>
-            <h1 className="text-5xl font-heading font-extrabold mb-6 leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-              Spark Innovation Center
-            </h1>
-            <p className="text-xl text-white/70 mb-12 max-w-lg font-medium leading-relaxed">
-              Empowering the next generation of innovators.
-              Manage projects, track progress, and build the future.
-            </p>
-            <div className="flex gap-10">
-              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
-                <div className="text-3xl font-mono font-bold text-brand-cyan">500+</div>
-                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Students</div>
-              </motion.div>
-              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
-                <div className="text-3xl font-mono font-bold text-brand-emerald">120+</div>
-                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Projects</div>
-              </motion.div>
-              <motion.div whileHover={{ y: -5 }} className="glass-card p-4 bg-white/5 border-white/10 rounded-xl">
-                <div className="text-3xl font-mono font-bold text-brand-pink">50+</div>
-                <div className="text-sm font-medium text-white/60 uppercase tracking-wider mt-1">Events</div>
-              </motion.div>
+    <div className="min-h-screen flex bg-[#0F172A] overflow-hidden font-sans">
+      {/* Left Panel - Clean Gradient Background */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 relative flex-col justify-center px-16 text-white"
+        style={{
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 45%, #2563EB 100%)'
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="max-w-xl"
+        >
+          <div className="flex items-center gap-4 mb-8">
+            <Image 
+              src="/logo.jpg" 
+              alt="Spark Innovation Cell Logo" 
+              width={72} 
+              height={72}
+              priority
+              className="rounded-xl object-contain shadow-sm bg-white"
+            />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight tracking-tight text-white">
+            Spark Innovation Center
+          </h1>
+          <p className="text-lg md:text-xl text-[#94A3B8] mb-12 font-medium leading-relaxed max-w-md">
+            Empowering innovation through projects, research, collaboration, and technology.
+          </p>
+          
+          <div className="flex gap-6">
+            <div className="p-5 bg-[#1E293B] border border-[#334155] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.1)] w-32 flex flex-col justify-center">
+              <div className="text-2xl font-bold text-white mb-1">500+</div>
+              <div className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">Students</div>
             </div>
-          </motion.div>
-        </div>
+            <div className="p-5 bg-[#1E293B] border border-[#334155] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.1)] w-32 flex flex-col justify-center">
+              <div className="text-2xl font-bold text-white mb-1">120+</div>
+              <div className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">Projects</div>
+            </div>
+            <div className="p-5 bg-[#1E293B] border border-[#334155] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.1)] w-32 flex flex-col justify-center">
+              <div className="text-2xl font-bold text-white mb-1">50+</div>
+              <div className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider">Events</div>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Right Panel - Login Form in a Glass Card */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 relative bg-[#0f172a]">
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
-        
+      {/* Right Panel - Clean Login Form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-[#0F172A]">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-          className="w-full max-w-md"
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="w-full max-w-[420px]"
         >
-          <div className="glass-card p-10 bg-white/5 border-white/10 shadow-2xl relative overflow-hidden">
-            {/* Top border highlight */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-blue via-brand-purple to-brand-pink" />
-            
-            <div className="flex items-center gap-3 mb-8">
-              <Sparkles className="w-8 h-8 text-brand-blue" />
-              <div>
-                <h2 className="text-3xl font-heading font-bold text-white tracking-tight">Welcome back</h2>
-                <p className="text-dark-400 mt-1">Sign in to your account to continue</p>
-              </div>
+          <div 
+            className="p-8 sm:p-10 relative overflow-hidden"
+            style={{
+              backgroundColor: '#1E293B',
+              border: '1px solid #334155',
+              borderRadius: '20px',
+              boxShadow: '0 10px 30px rgba(0,0,0,.25)'
+            }}
+          >
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-white tracking-tight mb-2">Welcome back</h2>
+              <p className="text-[#94A3B8] text-sm">Sign in to your account to continue</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 relative z-10">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {/* IC Number */}
-              <div className="form-group">
+              <div>
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5" htmlFor="login-ic">
+                  IC Number
+                </label>
                 <div className="relative">
-                  <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 z-20" />
+                  <IdCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8] pointer-events-none" />
                   <input
                     {...register('ic_number', {
                       required: 'IC Number is required',
                       pattern: { value: /^IC\d{7}$/, message: 'Format: IC followed by 7 digits' }
                     })}
-                    placeholder=" "
-                    className="peer input-field pl-12 bg-dark-900/50 border-white/10 focus:border-brand-blue/50 focus:bg-dark-900/80 h-12 text-lg rounded-xl"
+                    placeholder="e.g. IC2024004"
+                    className="w-full pl-11 pr-4 py-3 bg-[#334155] border border-transparent text-white rounded-xl focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all duration-200"
                     id="login-ic"
                     autoComplete="username"
                   />
-                  <label htmlFor="login-ic" className="floating-label left-10">IC Number</label>
                 </div>
-                {errors.ic_number && <p className="text-xs text-red-400 mt-1.5 font-medium ml-1 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-400"/>{errors.ic_number.message}</p>}
+                {errors.ic_number && <p className="text-xs text-red-400 mt-1.5">{errors.ic_number.message}</p>}
               </div>
 
               {/* Password */}
-              <div className="form-group">
+              <div>
+                <label className="block text-sm font-medium text-[#94A3B8] mb-1.5" htmlFor="login-password">
+                  Password
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400 z-20" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8] pointer-events-none" />
                   <input
                     {...register('password', { required: 'Password is required' })}
                     type={showPassword ? 'text' : 'password'}
-                    placeholder=" "
-                    className="peer input-field pl-12 pr-12 bg-dark-900/50 border-white/10 focus:border-brand-blue/50 focus:bg-dark-900/80 h-12 text-lg rounded-xl"
+                    placeholder="Enter your password"
+                    className="w-full pl-11 pr-11 py-3 bg-[#334155] border border-transparent text-white rounded-xl focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all duration-200"
                     id="login-password"
                     autoComplete="current-password"
                   />
-                  <label htmlFor="login-password" className="floating-label left-10">Password</label>
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-400 hover:text-white transition-colors z-20">
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-white transition-colors duration-200">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                {errors.password && <p className="text-xs text-red-400 mt-1.5 font-medium ml-1 flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-red-400"/>{errors.password.message}</p>}
+                {errors.password && <p className="text-xs text-red-400 mt-1.5">{errors.password.message}</p>}
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-between pt-2">
-                <label className="flex items-center gap-2.5 text-sm text-dark-300 hover:text-white cursor-pointer transition-colors group">
+              <div className="flex items-center justify-between pt-1 pb-1">
+                <label className="flex items-center gap-2.5 text-sm text-[#94A3B8] hover:text-white cursor-pointer transition-colors duration-200 group">
                   <div className="relative flex items-center justify-center">
                     <input type="checkbox" className="peer sr-only" />
-                    <div className="w-5 h-5 border-2 border-dark-400 rounded group-hover:border-brand-blue peer-checked:bg-brand-blue peer-checked:border-brand-blue transition-all" />
-                    <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 14 14" fill="none">
+                    <div className="w-4 h-4 border-2 border-[#94A3B8] rounded bg-transparent group-hover:border-[#2563EB] peer-checked:bg-[#2563EB] peer-checked:border-[#2563EB] transition-all duration-200" />
+                    <svg className="absolute w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity duration-200" viewBox="0 0 14 14" fill="none">
                       <path d="M3 8L6 11L11 3.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" stroke="currentColor" />
                     </svg>
                   </div>
                   Remember me
                 </label>
-                <Link href="/forgot-password" className="text-sm text-brand-blue hover:text-brand-cyan font-semibold transition-colors">
+                <Link href="/forgot-password" className="text-sm text-[#2563EB] hover:text-[#1D4ED8] font-medium transition-colors duration-200">
                   Forgot password?
                 </Link>
               </div>
 
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
+              <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn-primary w-full h-12 rounded-xl text-base font-bold tracking-wide mt-4 relative group overflow-hidden"
+                className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl font-semibold text-sm transition-colors duration-200 flex items-center justify-center disabled:opacity-70 disabled:pointer-events-none"
                 id="login-submit"
               >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
                 {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <span className="flex items-center justify-center gap-2 relative z-10">Sign In <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+                  <span className="flex items-center gap-2">Sign In <ArrowRight className="w-4 h-4" /></span>
                 )}
-                </motion.button>
-              </form>
+              </button>
+            </form>
           </div>
 
-          <p className="mt-8 text-center text-sm text-dark-400">
+          <p className="mt-6 text-center text-sm text-[#94A3B8]">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-brand-blue hover:text-brand-cyan font-bold transition-colors">
+            <Link href="/register" className="text-[#2563EB] hover:text-[#1D4ED8] font-medium transition-colors duration-200">
               Register here
             </Link>
           </p>
