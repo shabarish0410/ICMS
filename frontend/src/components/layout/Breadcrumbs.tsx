@@ -13,7 +13,6 @@ const labelMap: Record<string, string> = {
   projects: 'Projects',
   forms: 'Forms',
   attendance: 'Attendance',
-  snapshots: 'Snapshots',
   'weekly-reports': 'Weekly Reports',
   announcements: 'Announcements',
   meetings: 'Meetings',

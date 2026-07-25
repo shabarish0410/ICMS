@@ -86,16 +86,25 @@ export default function MeetingsPage() {
                 initial={{ opacity: 0, y: 10 }} 
                 animate={{ opacity: 1, y: 0 }} 
                 transition={{ delay: i * 0.05 }}
-                className={`bg-white dark:bg-dark-800 rounded-2xl p-5 border flex flex-col justify-between shadow-sm transition-all hover:shadow-md ${past ? 'border-dark-200 dark:border-dark-750 opacity-70' : 'border-indigo-150 dark:border-indigo-950/60'}`}
+                className={`glass-card p-5 flex flex-col justify-between shadow-sm transition-all hover:shadow-md ${
+                  past 
+                    ? 'opacity-60' 
+                    : 'border-brand-indigo/20 dark:border-brand-indigo/20'
+                }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] uppercase font-bold text-indigo-500 bg-indigo-55 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full tracking-wider">
-                      Built-in secured
+                    <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-full tracking-wider ${
+                      past
+                        ? 'bg-dark-100 dark:bg-white/5 text-dark-400'
+                        : 'bg-brand-indigo/10 text-brand-indigo dark:text-brand-cyan border border-brand-indigo/20'
+                    }`}>
+                      {past ? 'Ended' : 'Built-in Secure Room'}
                     </span>
-                    {past && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-dark-100 dark:bg-dark-750 text-dark-500 uppercase tracking-wider">
-                        Ended / Past
+                    {!past && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-brand-emerald">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand-emerald animate-pulse" />
+                        Upcoming
                       </span>
                     )}
                   </div>
@@ -103,20 +112,20 @@ export default function MeetingsPage() {
                   <h3 className="font-semibold text-dark-900 dark:text-white text-base line-clamp-1">{m.title}</h3>
                   {m.agenda && <p className="text-xs text-dark-500 mt-1 line-clamp-2 min-h-[32px]">{m.agenda}</p>}
                   
-                  <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-dark-450 font-medium">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" /> 
+                  <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-dark-500 dark:text-dark-400 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-brand-cyan" /> 
                       {new Date(m.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" /> 
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-brand-indigo" /> 
                       {new Date(m.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · {m.duration_minutes}m
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-5 pt-4 border-t border-dark-100 dark:border-dark-750">
-                  <span className="text-[10px] text-dark-400">
+                <div className="flex items-center justify-between mt-5 pt-4 border-t border-dark-100 dark:border-white/5">
+                  <span className="text-[10px] text-dark-400 font-medium">
                     Host: {m.creator?.full_name || 'Innovation Center Admin'}
                   </span>
                   
@@ -124,7 +133,7 @@ export default function MeetingsPage() {
                     {!past && (
                       <button 
                         onClick={() => router.push(`/dashboard/meetings/${m.id}`)}
-                        className="btn-primary text-xs py-1.5 px-4 flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-cyan text-white text-xs font-bold shadow-md shadow-brand-indigo/30 hover:shadow-brand-indigo/50 hover:-translate-y-0.5 transition-all duration-200"
                       >
                         <Video className="w-3.5 h-3.5" /> Join Room
                       </button>
@@ -132,7 +141,7 @@ export default function MeetingsPage() {
                     {isAdmin && (
                       <button 
                         onClick={() => { if (confirm('Are you sure you want to delete this meeting?')) deleteMutation.mutate(m.id); }} 
-                        className="p-1.5 rounded-lg bg-dark-50 dark:bg-dark-750 hover:bg-red-50 dark:hover:bg-red-950/20 text-dark-400 hover:text-red-500"
+                        className="p-1.5 rounded-xl bg-dark-50 dark:bg-white/5 hover:bg-brand-red/10 text-dark-400 hover:text-brand-red transition-all"
                         title="Cancel Meeting"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -145,9 +154,14 @@ export default function MeetingsPage() {
           })}
           
           {meetings.length === 0 && (
-            <div className="col-span-full py-20 text-center text-dark-400 bg-white dark:bg-dark-800 border border-dark-200 dark:border-dark-700 rounded-2xl">
-              <Video className="w-16 h-16 mx-auto mb-4 opacity-30" />
-              <p className="font-medium">No video calls scheduled yet.</p>
+            <div className="col-span-full py-20 text-center">
+              <div className="w-20 h-20 rounded-3xl bg-dark-50 dark:bg-white/5 border border-dark-100 dark:border-white/10 flex items-center justify-center mx-auto mb-5">
+                <Video className="w-10 h-10 text-dark-300 dark:text-dark-600" />
+              </div>
+              <p className="text-base font-bold text-dark-900 dark:text-white">No calls scheduled yet</p>
+              <p className="text-sm text-dark-500 mt-1">
+                {isAdmin ? 'Schedule a call using the button above.' : 'Check back for upcoming meetings.'}
+              </p>
             </div>
           )}
         </div>

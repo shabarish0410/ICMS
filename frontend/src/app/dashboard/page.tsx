@@ -170,23 +170,20 @@ function AdminDashboard() {
     <div className="space-y-6">
       {/* ── Welcome Banner ── */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="rounded-[24px] p-7 bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden"
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="card p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden"
       >
-        {/* Background accent */}
-        <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-brand-indigo/5 to-transparent pointer-events-none rounded-r-[24px]" />
-
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             {greeting}, {firstName} 👋
           </h1>
-          <p className="text-dark-500 dark:text-dark-400 mt-1.5 text-sm max-w-xl leading-relaxed">
+          <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm max-w-xl leading-relaxed">
             Here's your institution overview. Everything's running smoothly today.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-emerald/8 dark:bg-brand-emerald/10 border border-brand-emerald/20 text-sm font-semibold text-brand-emerald shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/50 text-sm font-semibold text-green-700 dark:text-green-400 shrink-0">
           <Server className="w-4 h-4" />
           All systems operational
         </div>
@@ -198,27 +195,27 @@ function AdminDashboard() {
           <motion.div
             key={card.label}
             {...fadeUp}
-            transition={{ delay: i * 0.06, duration: 0.35 }}
+            transition={{ delay: i * 0.05, duration: 0.3 }}
             onClick={() => router.push(card.link)}
-            className="glass-card p-5 cursor-pointer group flex flex-col justify-between xl:col-span-2 last:xl:col-span-2"
+            className="card p-5 cursor-pointer group flex flex-col justify-between xl:col-span-2 last:xl:col-span-2 hover:shadow-md"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[11px] font-bold text-dark-500 dark:text-dark-400 uppercase tracking-wider">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {card.label}
                 </p>
-                <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center transition-transform group-hover:scale-110 duration-200`}>
-                  <card.icon className={`w-4.5 h-4.5 ${card.color}`} />
+                <div className={`w-9 h-9 rounded-xl ${card.bg.replace('brand-', '').replace('dark', 'slate')} flex items-center justify-center transition-transform group-hover:scale-105 duration-200`}>
+                  <card.icon className={`w-4.5 h-4.5 ${card.color.replace('brand-', '')}`} />
                 </div>
               </div>
-              <p className="text-4xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
+              <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
                 <AnimatedNumber value={card.value} />
               </p>
             </div>
 
-            <div className="flex items-center justify-between mt-5 pt-4 border-t border-dark-100 dark:border-white/5">
+            <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
               <TrendChip value={card.trend} />
-              <ArrowRight className="w-3.5 h-3.5 text-dark-400 group-hover:text-brand-indigo group-hover:translate-x-1 transition-all duration-200" />
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
             </div>
           </motion.div>
         ))}
@@ -230,14 +227,14 @@ function AdminDashboard() {
         {/* Attendance Bar Chart — 3 cols */}
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.35 }}
-          className="lg:col-span-3 glass-card p-6"
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-3 card p-6"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-heading font-bold text-dark-900 dark:text-white">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Weekly Attendance
             </h3>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-brand-indigo/10 text-brand-indigo border border-brand-indigo/20">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
               This Week
             </span>
           </div>
@@ -267,10 +264,10 @@ function AdminDashboard() {
         {/* Project Status Doughnut — 2 cols */}
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2 glass-card p-6"
+          transition={{ delay: 0.25 }}
+          className="lg:col-span-2 card p-6"
         >
-          <h3 className="text-base font-heading font-bold text-dark-900 dark:text-white mb-6">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-6">
             Project Status
           </h3>
           {projectChart?.data ? (
@@ -302,10 +299,10 @@ function AdminDashboard() {
       {deptChart?.data && (
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.45 }}
-          className="glass-card p-6"
+          transition={{ delay: 0.3 }}
+          className="card p-6"
         >
-          <h3 className="text-base font-heading font-bold text-dark-900 dark:text-white mb-6">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-6">
             Department Distribution
           </h3>
           <div className="h-[280px] flex justify-center">
@@ -357,16 +354,15 @@ function StudentDashboard() {
     <div className="space-y-6">
       {/* ── Welcome Banner ── */}
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="rounded-[24px] p-7 bg-white dark:bg-dark-900 border border-dark-200 dark:border-white/5 shadow-sm relative overflow-hidden"
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="card p-7 relative overflow-hidden"
       >
-        <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-brand-emerald/5 to-transparent pointer-events-none rounded-r-[24px]" />
-        <h1 className="text-2xl sm:text-3xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
           Welcome back, {d?.user?.full_name?.split(' ')[0] || 'Student'} 👋
         </h1>
-        <p className="text-dark-500 dark:text-dark-400 mt-1.5 text-sm max-w-xl leading-relaxed">
+        <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm max-w-xl leading-relaxed">
           Here is your summary for today. Keep up the great work!
         </p>
       </motion.div>
@@ -404,58 +400,58 @@ function StudentDashboard() {
           {...fadeUp}
           transition={{ delay: 0.1 }}
           onClick={() => router.push('/dashboard/teams')}
-          className="glass-card p-6 cursor-pointer hover:shadow-md transition-shadow group"
+          className="card p-6 cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[11px] font-bold text-dark-500 dark:text-dark-400 uppercase tracking-wider">Active Team</span>
-            <div className="p-2.5 rounded-xl bg-brand-indigo/10">
-              <Users2 className="w-5 h-5 text-brand-indigo" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active Team</span>
+            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/30">
+              <Users2 className="w-5 h-5 text-blue-600" />
             </div>
           </div>
-          <p className="text-xl font-bold text-dark-900 dark:text-white truncate mt-2">
+          <p className="text-xl font-bold text-slate-900 dark:text-white truncate mt-2">
             {d?.team?.name || 'Not assigned'}
           </p>
-          <p className="text-xs text-dark-500 dark:text-dark-400 mt-2 font-medium">
+          <p className="text-xs text-slate-500 mt-2 font-medium">
             {d?.team?.mentor_name ? `Mentor: ${d.team.mentor_name}` : 'No mentor assigned'}
           </p>
         </motion.div>
 
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.15 }}
           onClick={() => router.push('/dashboard/forms')}
-          className="glass-card p-6 cursor-pointer hover:shadow-md transition-shadow group"
+          className="card p-6 cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[11px] font-bold text-dark-500 dark:text-dark-400 uppercase tracking-wider">Pending Forms</span>
-            <div className="p-2.5 rounded-xl bg-brand-amber/10">
-              <ClipboardList className="w-5 h-5 text-brand-amber" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Forms</span>
+            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/30">
+              <ClipboardList className="w-5 h-5 text-amber-600" />
             </div>
           </div>
-          <p className="text-4xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
+          <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             <AnimatedNumber value={d?.pending_forms || 0} />
           </p>
-          <p className="text-xs text-brand-amber mt-4 font-semibold group-hover:translate-x-1 transition-transform">
+          <p className="text-xs text-amber-600 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
             Action Required →
           </p>
         </motion.div>
 
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.2 }}
           onClick={() => router.push('/dashboard/meetings')}
-          className="glass-card p-6 cursor-pointer hover:shadow-md transition-shadow group"
+          className="card p-6 cursor-pointer hover:shadow-md transition-shadow group"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[11px] font-bold text-dark-500 dark:text-dark-400 uppercase tracking-wider">Upcoming Calls</span>
-            <div className="p-2.5 rounded-xl bg-brand-cyan/10">
-              <Video className="w-5 h-5 text-brand-cyan" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Upcoming Calls</span>
+            <div className="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-900/30">
+              <Video className="w-5 h-5 text-cyan-600" />
             </div>
           </div>
-          <p className="text-4xl font-heading font-bold text-dark-900 dark:text-white tracking-tight">
+          <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             <AnimatedNumber value={d?.upcoming_meetings || 0} />
           </p>
-          <p className="text-xs text-brand-cyan mt-4 font-semibold group-hover:translate-x-1 transition-transform">
+          <p className="text-xs text-cyan-600 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
             View Schedule →
           </p>
         </motion.div>
@@ -466,13 +462,13 @@ function StudentDashboard() {
         {/* Active Project card */}
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2 glass-card p-7 flex flex-col"
+          transition={{ delay: 0.25 }}
+          className="lg:col-span-2 card p-7 flex flex-col"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-heading font-bold text-dark-900 dark:text-white flex items-center gap-3">
-              <div className="p-2 bg-brand-indigo/10 rounded-xl">
-                <FolderKanban className="w-5 h-5 text-brand-indigo" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-3">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                <FolderKanban className="w-5 h-5 text-blue-600" />
               </div>
               Active Project
             </h3>
@@ -544,14 +540,14 @@ function StudentDashboard() {
         {/* Recent Activity card */}
         <motion.div
           {...fadeUp}
-          transition={{ delay: 0.5 }}
-          className="glass-card p-6 flex flex-col"
+          transition={{ delay: 0.3 }}
+          className="card p-6 flex flex-col"
         >
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2 bg-brand-amber/10 rounded-xl">
-              <Megaphone className="w-5 h-5 text-brand-amber" />
+            <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-xl">
+              <Megaphone className="w-5 h-5 text-amber-600" />
             </div>
-            <h3 className="text-base font-heading font-bold text-dark-900 dark:text-white">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Recent Activity
             </h3>
           </div>

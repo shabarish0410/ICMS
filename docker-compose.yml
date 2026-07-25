@@ -1,0 +1,129 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# ICMS — Docker Compose
+# Production-ready configuration for Spark Innovation Center
+#
+# Usage:
+#   docker compose up -d           → start all services
+#   docker compose logs -f         → follow logs
+#   docker compose down            → stop all services
+#   docker compose build --no-cache → rebuild images
+#
+# Requirements:
+#   backend/.env  (see backend/.env.example)
+#   frontend/.env.local (see frontend/.env.example)
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: icms
+
+services:
+
+  # ── Backend — FastAPI ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # Enable BuildKit cache mounts (docker buildx or DOCKER_BUILDKIT=1)
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    image: icms-backend:latest
+    container_name: icms-backend
+
+    # Load secrets from file — never bake secrets into the image
+    env_file:
+      - ./backend/.env
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      # Persist uploaded files between restarts
+      - uploads_data:/app/uploads
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Frontend — Next.js ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    image: icms-frontend:latest
+    container_name: icms-frontend
+
+    env_file:
+      - ./frontend/.env.local
+
+    environment:
+      - NODE_ENV=production
+      # Point to the backend container by service name inside Docker network
+      - NEXT_PUBLIC_API_URL=http://backend:8000/api
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  uploads_data:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+# Both services share a private network; only exposed ports are accessible
+networks:
+  default:
+    name: icms-network
+    driver: bridge

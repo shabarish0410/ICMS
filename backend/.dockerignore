@@ -1,0 +1,65 @@
+# ── Backend .dockerignore ───────────────────────────────────────────────────
+# Prevents unnecessary files from being sent to the Docker build context.
+
+# Version control
+.git
+.gitignore
+.github
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Python virtual environments
+.venv
+venv
+env
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Test & coverage
+.pytest_cache
+.coverage
+coverage/
+htmlcov/
+tests/
+*.test.py
+
+# Logs
+*.log
+logs/
+
+# Uploads (runtime data — use volumes in production)
+uploads/
+
+# Environment files (inject at runtime)
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+docs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/

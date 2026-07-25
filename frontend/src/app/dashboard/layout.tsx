@@ -102,28 +102,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <div className="min-h-screen bg-background text-text dark:bg-background dark:text-text flex flex-col pb-[72px] lg:pb-0 selection:bg-primary/30 relative">
-      {/* Global Background Elements */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[40%] bg-brand-blue/10 rounded-full mix-blend-screen filter blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[40%] bg-brand-purple/10 rounded-full mix-blend-screen filter blur-[120px]" />
-      </div>
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-900 dark:text-slate-100 flex flex-col pb-[72px] lg:pb-0">
 
-      {/* Sidebar for Desktop */}
+      {/* Sidebar */}
       <Sidebar />
 
       {/* Main Container */}
-      <div className="lg:pl-[256px] flex-1 flex flex-col transition-all duration-300 relative z-10">
+      <div className="lg:pl-[248px] flex-1 flex flex-col">
         <TopNav onMenuToggle={() => setIsDrawerOpen(true)} />
         <Breadcrumbs />
 
-
-
-        <motion.main 
-          initial={{ opacity: 0, y: 10 }}
+        <motion.main
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="p-4 md:p-8 flex-1 w-full max-w-7xl mx-auto"
+          transition={{ duration: 0.3 }}
+          className="flex-1 p-6 md:p-8 w-full max-w-7xl mx-auto"
         >
           {children}
         </motion.main>
