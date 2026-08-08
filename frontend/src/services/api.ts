@@ -418,6 +418,8 @@ export const adminAchievementsAPI = {
 export const exportsAPI = {
   students: () => api.get('/exports/students', { responseType: 'blob' }),
   attendance: (eventId?: number) => api.get('/exports/attendance', { params: { event_id: eventId }, responseType: 'blob' }),
+  formResponses: (formId: number, format: 'csv' | 'excel' = 'csv') => 
+    api.get(`/exports/forms/${formId}`, { params: { format }, responseType: 'blob' }),
 };
 
 export default api;

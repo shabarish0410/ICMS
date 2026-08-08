@@ -431,7 +431,7 @@ function StudentDashboard() {
           <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             <AnimatedNumber value={d?.pending_forms || 0} />
           </p>
-          <p className="text-xs text-amber-600 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
+          <p className="text-xs text-amber-700 dark:text-amber-500 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
             Action Required →
           </p>
         </motion.div>
@@ -451,7 +451,7 @@ function StudentDashboard() {
           <p className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             <AnimatedNumber value={d?.upcoming_meetings || 0} />
           </p>
-          <p className="text-xs text-cyan-600 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
+          <p className="text-xs text-cyan-700 dark:text-cyan-500 mt-4 font-semibold group-hover:translate-x-1 transition-transform">
             View Schedule →
           </p>
         </motion.div>

@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
-import { formsAPI } from '@/services/api';
+import { formsAPI, exportsAPI } from '@/services/api';
 import { Loader2, ArrowLeft, Download, FileText, CheckCircle, Clock } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function FormResponsesPage() {
   const { id } = useParams();
@@ -12,7 +13,28 @@ export default function FormResponsesPage() {
   
   const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'individual'
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const size = 20;
+
+  const handleExport = async (format: 'csv' | 'excel') => {
+    try {
+      setIsExporting(true);
+      const res = await exportsAPI.formResponses(Number(id), format);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Form_${id}_Responses.${format === 'csv' ? 'csv' : 'xlsx'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (err: any) {
+      console.error('Export error:', err);
+      toast.error('Failed to export responses');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data: formData, isLoading: formLoading } = useQuery({
     queryKey: ['forms', id],
@@ -46,8 +68,20 @@ export default function FormResponsesPage() {
           <p className="text-sm text-dark-500 mt-1">{totalResponses} total responses</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-secondary flex items-center gap-2 text-sm"><Download className="w-4 h-4" /> CSV</button>
-          <button className="btn-secondary flex items-center gap-2 text-sm text-green-600 border-green-200 bg-green-50"><FileText className="w-4 h-4" /> Excel</button>
+          <button 
+            onClick={() => handleExport('csv')} 
+            disabled={isExporting}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} CSV
+          </button>
+          <button 
+            onClick={() => handleExport('excel')} 
+            disabled={isExporting}
+            className="btn-secondary flex items-center gap-2 text-sm text-green-600 border-green-200 bg-green-50"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Excel
+          </button>
         </div>
       </div>
 

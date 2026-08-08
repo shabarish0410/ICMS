@@ -13,7 +13,7 @@ import { dashboardAPI } from '@/services/api';
 import { 
   LayoutDashboard, UserCheck, FolderKanban, Calendar, Menu, X, 
   GraduationCap, Users2, ClipboardList, FileText, Megaphone, Video, 
-  Bell, Settings, LogOut, Cpu, Sparkles, Shield, AlertTriangle
+  Bell, Settings, LogOut, Cpu, Sparkles, Shield, AlertTriangle, UserCircle
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -97,8 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: 'Announcements', href: '/dashboard/announcements', icon: Megaphone },
     { label: 'Meetings', href: '/dashboard/meetings', icon: Video },
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-
-    { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { label: 'Profile & Settings', href: '/dashboard/profile', icon: UserCircle },
   ];
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
@@ -25,6 +26,7 @@ import {
   FileBadge,
   Shirt,
   Sparkles,
+  UserCircle,
 } from 'lucide-react';
 
 // ─── Menu Definitions ─────────────────────────────────────────────────────────
@@ -179,8 +181,8 @@ export default function Sidebar() {
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
         {/* Logo mark */}
-        <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center flex-shrink-0 shadow-md">
-          <Sparkles className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md overflow-hidden bg-white">
+          <Image src="/logo.jpg" alt="Spark Logo" width={32} height={32} className="object-cover w-full h-full" />
         </div>
 
         <AnimatePresence>
@@ -209,7 +211,7 @@ export default function Sidebar() {
           <div key={gIdx} className={gIdx > 0 ? 'mt-3' : ''}>
             {/* Section label */}
             {group.label && !collapsed && (
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-600 select-none">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 select-none">
                 {group.label}
               </p>
             )}
@@ -235,11 +237,11 @@ export default function Sidebar() {
         className="flex-shrink-0 p-3 space-y-1"
         style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
       >
-        {/* Settings */}
+        {/* Profile */}
         <NavItem
-          item={{ label: 'Settings', href: '/dashboard/settings', icon: Settings }}
+          item={{ label: 'Profile & Settings', href: '/dashboard/profile', icon: UserCircle }}
           collapsed={collapsed}
-          isActive={isActive('/dashboard/settings')}
+          isActive={isActive('/dashboard/profile')}
         />
 
         {/* Collapse toggle */}
@@ -306,7 +308,7 @@ export default function Sidebar() {
                   <p className="text-xs font-semibold text-white truncate leading-tight">
                     {user.full_name}
                   </p>
-                  <p className="text-[10px] text-slate-500 capitalize truncate">
+                  <p className="text-[10px] text-slate-400 capitalize truncate">
                     {user.role?.name?.replace('_', ' ') || '—'}
                   </p>
                 </motion.div>

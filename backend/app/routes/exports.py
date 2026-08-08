@@ -14,3 +14,11 @@ def export_attendance(
     current_user: dict = Depends(require_roles("admin", "super_admin"))
 ):
     return export_service.export_attendance(event_id, current_user)
+
+@router.get("/forms/{form_id}")
+def export_form_responses(
+    form_id: int,
+    format: str = "csv",
+    current_user: dict = Depends(require_roles("admin", "super_admin"))
+):
+    return export_service.export_form_responses(form_id, format, current_user)
