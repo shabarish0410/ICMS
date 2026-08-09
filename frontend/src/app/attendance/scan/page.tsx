@@ -192,6 +192,29 @@ function ScanAttendanceContent() {
   // Step 2: Trigger WebAuthn biometric prompt, then mark attendance
   const handleBiometric = async () => {
     if (!sessionId) return;
+
+    // Diagnostic logging requested in Phase 13
+    console.table({
+      origin: window.location.origin,
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+      secureContext: window.isSecureContext,
+      rpIdExpected: process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID
+    });
+
+    // Phase 4 - Verify Secure Context
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        setStatusMessage('Biometric attendance requires HTTPS. Please open the official ICMS secure URL.');
+        setStep('error');
+        return;
+    }
+    
+    if (!window.isSecureContext) {
+        setStatusMessage('Device security requires a secure context (HTTPS). Please use the secure site URL.');
+        setStep('error');
+        return;
+    }
+
     setStep('processing');
 
     try {
