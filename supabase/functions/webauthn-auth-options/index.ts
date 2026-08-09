@@ -1,47 +1,46 @@
 /**
  * webauthn-auth-options
  *
- * Returns PublicKeyCredentialRequestOptions for a returning student.
- * Includes all known credential IDs for this student so the browser
- * can select the right one (works across multiple registered devices).
+ * Public endpoint — no JWT required.
+ * Returns challenge + all known credential IDs for this student.
+ * Returns 404 with NO_CREDENTIALS if student has no registered credentials (trigger registration).
  *
  * POST /functions/v1/webauthn-auth-options
- * Headers: Authorization: Bearer <ICMS_JWT>
- * Body: { "session_id": "<uuid>" }
+ * Body: { "session_id": "<uuid>", "ic_number": "IC2024004" }
  */
 import { serve } from 'https://deno.land/std@0.192.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { verifyICMSJWT, corsHeaders } from '../_shared/auth.ts';
+import { corsHeaders } from '../_shared/auth.ts';
 import { generateChallenge } from '../_shared/webauthn.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // 1. Verify ICMS JWT — student identity comes from the token
-    const jwtUser = await verifyICMSJWT(req);
-    const userId = jwtUser.id;
-
-    const { session_id } = await req.json();
-    if (!session_id) throw new Error('session_id is required');
+    const { session_id, ic_number } = await req.json();
+    if (!session_id || !ic_number) throw new Error('session_id and ic_number are required');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // 2. Resolve student_id from JWT user id
-    const { data: student, error: studentErr } = await supabase
-      .from('students')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+    // 1. Resolve student by ic_number (flexible matching)
+    const ic = ic_number.trim().toUpperCase();
+    const { data: users } = await supabase.from('users').select('id, ic_number, full_name').execute();
+    const icClean = ic.replace(/-/g, '').replace(/ /g, '');
+    const matched = (users || []).filter((u: any) => {
+      const uIc = (u.ic_number || '').replace(/-/g, '').replace(/ /g, '').toUpperCase();
+      const uName = (u.full_name || '').trim().toUpperCase();
+      return uIc === icClean || uName === ic;
+    });
+    if (!matched.length) throw new Error(`No student found with ID '${ic}'.`);
 
+    const { data: student, error: studentErr } = await supabase
+      .from('students').select('id').eq('user_id', matched[0].id).single();
     if (studentErr || !student) throw new Error('Student profile not found.');
 
-    // 3. Look up all credential IDs registered for this student.
-    //    A student may have Credential A (Phone 1), Credential B (Phone 2), etc.
-    //    The browser will use whichever it has access to.
+    // 2. Look up all credentials for this student
     const { data: credentials, error: credsErr } = await supabase
       .from('biometric_credentials')
       .select('credential_id')
@@ -49,7 +48,7 @@ serve(async (req) => {
 
     if (credsErr) throw credsErr;
 
-    // If no credentials registered yet, tell the frontend to switch to registration flow
+    // Signal frontend to switch to registration flow
     if (!credentials || credentials.length === 0) {
       return new Response(
         JSON.stringify({ error: 'NO_CREDENTIALS', message: 'No biometric registered. Please register first.' }),
@@ -57,33 +56,24 @@ serve(async (req) => {
       );
     }
 
-    // 4. Generate a fresh challenge
+    // 3. Generate challenge
     const challenge = generateChallenge();
-
-    // 5. Store challenge in DB (single-use, 2-minute TTL)
     const { error: challengeErr } = await supabase
       .from('webauthn_challenges')
-      .insert({
-        challenge,
-        student_id: student.id,
-        session_id,
-        purpose: 'authenticate',
-      });
+      .insert({ challenge, student_id: student.id, session_id, purpose: 'authenticate' });
 
     if (challengeErr) throw challengeErr;
 
     const rpId = Deno.env.get('WEBAUTHN_RP_ID') || 'localhost';
-
-    // 6. Return PublicKeyCredentialRequestOptions
     const options = {
       challenge,
       rpId,
       allowCredentials: credentials.map((c) => ({
         id: c.credential_id,
         type: 'public-key',
-        transports: ['internal'], // platform authenticator (built-in biometric)
+        transports: ['internal'],
       })),
-      userVerification: 'required', // biometric mandatory — no PIN bypass
+      userVerification: 'required',
       timeout: 60000,
     };
 
@@ -93,7 +83,7 @@ serve(async (req) => {
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: err.message.includes('JWT') ? 401 : 400,
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -1,35 +1,55 @@
 /**
  * webauthn-register-options
  *
- * Returns PublicKeyCredentialCreationOptions for a first-time biometric registration.
- * The student must be authenticated with a valid ICMS JWT.
+ * Public endpoint — no ICMS JWT required.
+ * Student is identified by ic_number (same as the existing mark-attendance edge function).
  *
  * POST /functions/v1/webauthn-register-options
- * Headers: Authorization: Bearer <ICMS_JWT>
- * Body: { "session_id": "<uuid>" }
+ * Body: { "session_id": "<uuid>", "ic_number": "IC2024004" }
  */
 import { serve } from 'https://deno.land/std@0.192.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { verifyICMSJWT, corsHeaders } from '../_shared/auth.ts';
+import { corsHeaders } from '../_shared/auth.ts';
 import { generateChallenge, encodeBase64url } from '../_shared/webauthn.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // 1. Verify ICMS JWT — identity comes from the token, never from the request body
-    const jwtUser = await verifyICMSJWT(req);
-    const userId = jwtUser.id;
-
-    const { session_id } = await req.json();
-    if (!session_id) throw new Error('session_id is required');
+    const { session_id, ic_number } = await req.json();
+    if (!session_id || !ic_number) throw new Error('session_id and ic_number are required');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // 2. Resolve student_id from JWT user id
+    // 1. Look up user by IC number (with flexible matching, same as mark-attendance)
+    const ic = ic_number.trim().toUpperCase();
+    let userId: number | null = null;
+    let studentId: number | null = null;
+    let displayName = 'ICMS Student';
+    let displayIc = ic;
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name, ic_number')
+      .execute();
+
+    const icClean = ic.replace(/-/g, '').replace(/ /g, '');
+    const matched = (users || []).filter((u: any) => {
+      const uIc = (u.ic_number || '').replace(/-/g, '').replace(/ /g, '').toUpperCase();
+      const uName = (u.full_name || '').trim().toUpperCase();
+      return uIc === icClean || uName === ic;
+    });
+
+    if (!matched.length) throw new Error(`No student found with ID or name '${ic}'.`);
+    const user = matched[0];
+    userId = user.id;
+    displayName = user.full_name || 'ICMS Student';
+    displayIc = user.ic_number || ic;
+
+    // 2. Resolve student_id
     const { data: student, error: studentErr } = await supabase
       .from('students')
       .select('id')
@@ -37,57 +57,37 @@ serve(async (req) => {
       .single();
 
     if (studentErr || !student) throw new Error('Student profile not found.');
+    studentId = student.id;
 
-    // 3. Look up student's display name for the credential UI
-    const { data: user } = await supabase
-      .from('users')
-      .select('full_name, ic_number')
-      .eq('id', userId)
-      .single();
-
-    // 4. Generate a fresh cryptographic challenge
+    // 3. Generate challenge and store it
     const challenge = generateChallenge();
-
-    // 5. Store challenge in DB — single-use, expires in 2 minutes
     const { error: challengeErr } = await supabase
       .from('webauthn_challenges')
-      .insert({
-        challenge,
-        student_id: student.id,
-        session_id,
-        purpose: 'register',
-      });
+      .insert({ challenge, student_id: studentId, session_id, purpose: 'register' });
 
     if (challengeErr) throw challengeErr;
 
-    // 6. Build and return PublicKeyCredentialCreationOptions
+    // 4. Return PublicKeyCredentialCreationOptions
     const rpId = Deno.env.get('WEBAUTHN_RP_ID') || 'localhost';
-
     const options = {
       challenge,
-      rp: {
-        id: rpId,
-        name: 'ICMS — Innovation Center',
-      },
+      rp: { id: rpId, name: 'ICMS — Innovation Center' },
       user: {
-        // user.id must be base64url — we use the student's integer id
-        id: encodeBase64url(new TextEncoder().encode(String(student.id))),
-        name: user?.ic_number || String(userId),
-        displayName: user?.full_name || 'ICMS Student',
+        id: encodeBase64url(new TextEncoder().encode(String(studentId))),
+        name: displayIc,
+        displayName,
       },
       pubKeyCredParams: [
-        { alg: -7, type: 'public-key' },   // ES256 (ECDSA P-256) — universal support
-        { alg: -257, type: 'public-key' }, // RS256 — Windows Hello fallback
+        { alg: -7, type: 'public-key' },   // ES256
+        { alg: -257, type: 'public-key' }, // RS256 fallback
       ],
       authenticatorSelection: {
-        // 'platform' = built-in authenticator (fingerprint / Face ID / Windows Hello)
         authenticatorAttachment: 'platform',
-        // 'required' means the device MUST verify the user biometrically (no PIN fallback)
         userVerification: 'required',
         residentKey: 'preferred',
       },
       timeout: 60000,
-      attestation: 'none', // we don't need attestation certificates for this use case
+      attestation: 'none',
     };
 
     return new Response(JSON.stringify(options), {
@@ -96,7 +96,7 @@ serve(async (req) => {
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: err.message.includes('JWT') ? 401 : 400,
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

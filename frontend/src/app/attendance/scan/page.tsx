@@ -176,22 +176,31 @@ function ScanAttendanceContent() {
     setStep('processing');
 
     try {
+      // GPS — only request if the session explicitly requires it AND it is already loaded
       let coords: { lat: number; lng: number } | null = null;
       if (sessionInfo?.gps_radius) {
         setStatusMessage('Requesting GPS location...');
-        coords = await getBrowserLocation();
+        try {
+          coords = await getBrowserLocation();
+        } catch (gpsErr: any) {
+          // GPS failure is only fatal if the session requires it
+          throw gpsErr;
+        }
       }
 
-      setStatusMessage('Checking your registered biometrics...');
+      setStatusMessage('Checking your registered credentials...');
 
       // Try authentication first (returning student)
       let authOptions: any;
       let isFirstTime = false;
 
       try {
-        authOptions = await callEdgeFunction('webauthn-auth-options', { session_id: sessionId });
+        authOptions = await callEdgeFunction('webauthn-auth-options', {
+          session_id: sessionId,
+          ic_number: icNumber.trim().toUpperCase(),
+        });
       } catch (err: any) {
-        if (err.message.includes('No biometric') || err.message.includes('NO_CREDENTIALS')) {
+        if (err.message.includes('No biometric') || err.message.includes('NO_CREDENTIALS') || err.message.includes('not found')) {
           isFirstTime = true;
         } else {
           throw err;
@@ -203,22 +212,29 @@ function ScanAttendanceContent() {
       if (isFirstTime) {
         // First-time registration
         setStatusMessage('Setting up your device security for the first time...');
-        const regOptions = await callEdgeFunction('webauthn-register-options', { session_id: sessionId });
+        const regOptions = await callEdgeFunction('webauthn-register-options', {
+          session_id: sessionId,
+          ic_number: icNumber.trim().toUpperCase(),
+        });
         setStatusMessage('Follow the device prompt to register (fingerprint, Face ID, or PIN)...');
 
         const regCred = await registerBiometric(regOptions);
         credentialSerialized = serializeCredential(regCred, 'create');
 
-        setStatusMessage('Saving your biometric credential...');
+        setStatusMessage('Saving your security credential...');
         await callEdgeFunction('webauthn-register-verify', {
           challenge: regOptions.challenge,
+          ic_number: icNumber.trim().toUpperCase(),
           credential: credentialSerialized,
           device_label: navigator.platform || 'Mobile Device',
         });
 
-        // Now run auth flow immediately after registration
-        setStatusMessage('Verifying biometric to mark attendance...');
-        authOptions = await callEdgeFunction('webauthn-auth-options', { session_id: sessionId });
+        // Now authenticate immediately after registration
+        setStatusMessage('Verifying identity to mark attendance...');
+        authOptions = await callEdgeFunction('webauthn-auth-options', {
+          session_id: sessionId,
+          ic_number: icNumber.trim().toUpperCase(),
+        });
         const authCred = await authenticateBiometric(authOptions);
         credentialSerialized = serializeCredential(authCred, 'get');
       } else {
@@ -232,6 +248,7 @@ function ScanAttendanceContent() {
       await callEdgeFunction('webauthn-auth-verify', {
         challenge: authOptions.challenge,
         session_id: sessionId,
+        ic_number: icNumber.trim().toUpperCase(),
         credential: credentialSerialized,
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
@@ -241,9 +258,11 @@ function ScanAttendanceContent() {
     } catch (err: any) {
       console.error(err);
       const msg = err.name === 'NotAllowedError'
-        ? 'Biometric authentication was cancelled or timed out. Please try again.'
+        ? 'Verification was cancelled or timed out. Please try again.'
         : err.name === 'SecurityError'
-        ? 'Biometric authentication requires HTTPS. Please use the secure site URL.'
+        ? 'Device security requires HTTPS. Please use the secure site URL.'
+        : err.name === 'NotSupportedError'
+        ? 'Your device does not support biometric verification. Please contact your administrator.'
         : err.message || 'An error occurred. Please try again.';
       setStatusMessage(msg);
       setStep('error');
