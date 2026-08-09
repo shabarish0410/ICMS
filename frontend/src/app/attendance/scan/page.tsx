@@ -29,6 +29,8 @@ async function callEdgeFunction(name: string, body: object): Promise<any> {
             const errJson = await error.context.json();
             if (errJson && errJson.error) {
                 errorMessage = errJson.error;
+            } else if (errJson && errJson.message) {
+                errorMessage = errJson.message;
             }
         } catch (e) {
             // Context is not JSON, fallback to generic
