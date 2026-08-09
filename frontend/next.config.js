@@ -22,10 +22,14 @@ const nextConfig = {
   ...(!isCapacitorBuild
     ? {
         async rewrites() {
+          // In production/Vercel, point to the live backend URL set in Vercel environment variables.
+          // Fall back to local backend for local development.
+          const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+          
           return [
             {
               source: '/api/:path*',
-              destination: 'http://127.0.0.1:8000/api/:path*',
+              destination: `${backendApiUrl}/:path*`,
             },
           ];
         },

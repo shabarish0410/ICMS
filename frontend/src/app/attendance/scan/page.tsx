@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 // Use Next.js API proxy to avoid Windows Firewall blocking port 8000 on mobile
@@ -8,7 +8,7 @@ function getBackendBase(): string {
   return '';
 }
 
-export default function ScanAttendancePage() {
+function ScanAttendanceContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
 
@@ -225,5 +225,20 @@ export default function ScanAttendancePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ScanAttendancePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading scanner...</p>
+        </div>
+      </div>
+    }>
+      <ScanAttendanceContent />
+    </Suspense>
   );
 }
