@@ -2,37 +2,44 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { tokenStorage } from '@/services/api';
+import { createClient } from '@/utils/supabase/client';
 
 // ─── Supabase Edge Function caller ───────────────────────────────────────────
 // Calls a Supabase Edge Function directly (not through FastAPI proxy).
 // Auth token from ICMS JWT is passed as Bearer header.
+
 async function callEdgeFunction(name: string, body: object): Promise<any> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fjdmijjsixtbamhwourc.supabase.co';
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZG1pampzaXh0YmFtaHdvdXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMTg2MjgsImV4cCI6MjA5Nzc5NDYyOH0.KxnxPw2tT5FX5O7NBJWjIha2YYRspeIlKVZKCAdlxiA';
+  const supabase = createClient();
   const token = tokenStorage.getToken(); // ICMS custom JWT
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': anonKey,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
+  console.log(`[WebAuthn] Calling function:`, name);
+
+  const { data, error } = await supabase.functions.invoke(name, {
+    body,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });
 
-  // Safe JSON parse — edge functions crashing return HTML 500, not JSON
-  const text = await res.text();
-  let data: any;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    // Response wasn't JSON — likely an edge function crash or network error
-    console.error(`Edge function ${name} returned non-JSON:`, text.slice(0, 200));
-    throw new Error(`Server error in ${name}. Please try again.`);
+  if (error) {
+    console.error(`Edge function ${name} error:`, error);
+    
+    // Attempt to extract the inner JSON error message if possible
+    let errorMessage = `Server error in ${name}. Please try again.`;
+    if (error.context && typeof error.context.json === 'function') {
+        try {
+            const errJson = await error.context.json();
+            if (errJson && errJson.error) {
+                errorMessage = errJson.error;
+            }
+        } catch (e) {
+            // Context is not JSON, fallback to generic
+        }
+    } else if (error.message && error.message !== 'Edge Function returned a non-2xx status code') {
+        errorMessage = error.message;
+    }
+    
+    throw new Error(errorMessage);
   }
 
-  if (!res.ok) throw new Error(data?.error || `Edge function error: ${res.status}`);
   return data;
 }
 
