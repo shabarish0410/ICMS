@@ -1,9 +1,7 @@
 /**
- * webauthn-register-options
+ * webauthn-register-options  (v3 — efficient ic_number lookup, graceful errors)
  *
- * Public endpoint — no ICMS JWT required.
- * Student is identified by ic_number (same as the existing mark-attendance edge function).
- *
+ * Public endpoint — no JWT required.
  * POST /functions/v1/webauthn-register-options
  * Body: { "session_id": "<uuid>", "ic_number": "IC2024004" }
  */
@@ -24,57 +22,57 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // 1. Look up user by IC number (with flexible matching, same as mark-attendance)
     const ic = ic_number.trim().toUpperCase();
-    let userId: number | null = null;
-    let studentId: number | null = null;
-    let displayName = 'ICMS Student';
-    let displayIc = ic;
 
-    const { data: users } = await supabase
+    // 1. Efficient lookup — try exact ic_number first, then name
+    let dbUser: any = null;
+
+    const { data: byIc } = await supabase
       .from('users')
-      .select('id, full_name, ic_number');
+      .select('id, full_name, ic_number')
+      .ilike('ic_number', ic)
+      .maybeSingle();
 
-    const icClean = ic.replace(/-/g, '').replace(/ /g, '');
-    const matched = (users || []).filter((u: any) => {
-      const uIc = (u.ic_number || '').replace(/-/g, '').replace(/ /g, '').toUpperCase();
-      const uName = (u.full_name || '').trim().toUpperCase();
-      return uIc === icClean || uName === ic;
-    });
+    if (byIc) {
+      dbUser = byIc;
+    } else {
+      const { data: byName } = await supabase
+        .from('users')
+        .select('id, full_name, ic_number')
+        .ilike('full_name', ic)
+        .maybeSingle();
+      if (byName) dbUser = byName;
+    }
 
-    if (!matched.length) throw new Error(`No student found with ID or name '${ic}'.`);
-    const user = matched[0];
-    userId = user.id;
-    displayName = user.full_name || 'ICMS Student';
-    displayIc = user.ic_number || ic;
+    if (!dbUser) throw new Error(`No student found with ID or name '${ic}'.`);
 
     // 2. Resolve student_id
     const { data: student, error: studentErr } = await supabase
       .from('students')
       .select('id')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', dbUser.id)
+      .maybeSingle();
 
-    if (studentErr || !student) throw new Error('Student profile not found.');
-    studentId = student.id;
+    if (studentErr) throw new Error(`Database error: ${studentErr.message}`);
+    if (!student) throw new Error('Student profile not found for this user.');
 
-    // 3. Generate challenge and store it
+    // 3. Generate and store challenge
     const challenge = generateChallenge();
     const { error: challengeErr } = await supabase
       .from('webauthn_challenges')
-      .insert({ challenge, student_id: studentId, session_id, purpose: 'register' });
+      .insert({ challenge, student_id: student.id, session_id, purpose: 'register' });
 
-    if (challengeErr) throw challengeErr;
+    if (challengeErr) throw new Error(`Could not create challenge: ${challengeErr.message}`);
 
-    // 4. Return PublicKeyCredentialCreationOptions
     const rpId = Deno.env.get('WEBAUTHN_RP_ID') || 'localhost';
+
     const options = {
       challenge,
       rp: { id: rpId, name: 'ICMS — Innovation Center' },
       user: {
-        id: encodeBase64url(new TextEncoder().encode(String(studentId))),
-        name: displayIc,
-        displayName,
+        id: encodeBase64url(new TextEncoder().encode(String(student.id))),
+        name: dbUser.ic_number || ic,
+        displayName: dbUser.full_name || 'ICMS Student',
       },
       pubKeyCredParams: [
         { alg: -7, type: 'public-key' },   // ES256
@@ -94,6 +92,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
+    console.error('[webauthn-register-options]', err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
