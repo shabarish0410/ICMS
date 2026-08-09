@@ -33,8 +33,7 @@ serve(async (req) => {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, full_name, ic_number')
-      .execute();
+      .select('id, full_name, ic_number');
 
     const icClean = ic.replace(/-/g, '').replace(/ /g, '');
     const matched = (users || []).filter((u: any) => {

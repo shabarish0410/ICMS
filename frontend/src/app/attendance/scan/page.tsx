@@ -21,8 +21,18 @@ async function callEdgeFunction(name: string, body: object): Promise<any> {
     body: JSON.stringify(body),
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `Edge function error: ${res.status}`);
+  // Safe JSON parse — edge functions crashing return HTML 500, not JSON
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // Response wasn't JSON — likely an edge function crash or network error
+    console.error(`Edge function ${name} returned non-JSON:`, text.slice(0, 200));
+    throw new Error(`Server error in ${name}. Please try again.`);
+  }
+
+  if (!res.ok) throw new Error(data?.error || `Edge function error: ${res.status}`);
   return data;
 }
 

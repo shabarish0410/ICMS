@@ -39,7 +39,7 @@ serve(async (req) => {
 
     // 1. Resolve student by ic_number
     const ic = ic_number.trim().toUpperCase();
-    const { data: users } = await supabase.from('users').select('id, ic_number, full_name').execute();
+    const { data: users } = await supabase.from('users').select('id, ic_number, full_name');
     const icClean = ic.replace(/-/g, '').replace(/ /g, '');
     const matched = (users || []).filter((u: any) => {
       const uIc = (u.ic_number || '').replace(/-/g, '').replace(/ /g, '').toUpperCase();
