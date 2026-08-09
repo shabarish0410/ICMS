@@ -206,24 +206,6 @@ export default function AdminsPage() {
   return (
     <div className="space-y-6">
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
-
-        <Link
-          href="/dashboard/admins/uniform-management"
-          className="flex items-center gap-3 p-4 bg-brand-indigo/10 border border-brand-indigo/20 rounded-2xl hover:bg-brand-indigo/20 transition-colors group"
-        >
-          <div className="p-2.5 bg-brand-indigo/10 rounded-xl">
-            <Shirt className="w-5 h-5 text-brand-indigo" />
-          </div>
-          <div className="flex-1">
-            <p className="text-brand-indigo font-semibold text-sm">Uniform Management</p>
-            <p className="text-dark-600 dark:text-dark-400 text-xs mt-0.5">Upload reference uniform images for AI detection</p>
-          </div>
-          <ArrowRight className="w-4 h-4 text-brand-indigo group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

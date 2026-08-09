@@ -24,26 +24,34 @@ serve(async (req) => {
   }
 
   try {
-    const user = await verifyICMSJWT(req);
-    
-    // A student is required to mark attendance
-    if (user.role !== 'student') {
-      return new Response(JSON.stringify({ error: 'Only students can mark attendance' }), {
-        status: 403,
+    const { session_id, latitude, longitude, device_id, ic_number } = await req.json();
+
+    if (!ic_number) {
+      return new Response(JSON.stringify({ error: 'IC Number is required' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const { session_id, latitude, longitude, device_id } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Get the student from users.id
+    // 1. Get the user by ic_number
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role_id')
+      .eq('ic_number', ic_number.toUpperCase())
+      .single();
+
+    if (userError || !user) {
+      throw new Error('Invalid IC Number or user not found');
+    }
+
+    // 2. Get the student from users.id
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, first_name, last_name, roll_number')
+      .select('id')
       .eq('user_id', user.id)
       .single();
 
@@ -51,7 +59,7 @@ serve(async (req) => {
       throw new Error('Student profile not found for this user');
     }
 
-    // 2. Get the session
+    // 3. Get the session
     const { data: session, error: sessionError } = await supabase
       .from('attendance_sessions')
       .select('*')
@@ -70,7 +78,7 @@ serve(async (req) => {
       throw new Error('This attendance session has expired.');
     }
 
-    // 3. Verify GPS if configured
+    // 4. Verify GPS if configured
     if (session.gps_latitude && session.gps_longitude && session.gps_radius) {
       if (!latitude || !longitude) {
         throw new Error('Please enable location access to mark attendance.');
@@ -84,14 +92,14 @@ serve(async (req) => {
       }
     }
 
-    // 4. Insert Attendance Record
+    // 5. Insert Attendance Record
     const { data: record, error: insertError } = await supabase
       .from('attendance_records')
       .insert({
         session_id,
         student_id: student.id,
-        student_name: `${student.first_name} ${student.last_name}`.trim(),
-        student_identifier: student.roll_number,
+        student_name: user.full_name || 'Unknown Student',
+        student_identifier: ic_number.toUpperCase(),
         latitude,
         longitude,
         device_id

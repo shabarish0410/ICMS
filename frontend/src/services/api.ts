@@ -46,24 +46,26 @@ export const secureStorage = {
 
 // ─── Base URL ────────────────────────────────────────────────────────────────
 const getBaseURL = (): string => {
-  // Priority: NEXT_PUBLIC_API_URL (full URL with /api) → NEXT_PUBLIC_BACKEND_URL (base URL)
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window === 'undefined') {
+    // SSR context - use direct backend URL
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   }
-
-  if (typeof window === 'undefined') return 'https://spark-innovation.onrender.com/api';
-
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://spark-innovation.onrender.com';
 
   // Capacitor native app
   const cap = (window as any).Capacitor;
   if (cap) {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://spark-innovation.onrender.com';
     const isAndroid = /android/i.test(navigator.userAgent);
     return isAndroid ? 'http://10.0.2.2:8000/api' : `${backendUrl}/api`;
   }
 
-  // Browser (web) — hit backend directly
-  return `${backendUrl}/api`;
+  // Browser (web)
+  if (process.env.NEXT_PUBLIC_API_URL?.includes('localhost')) {
+    // If local dev, use the Next.js API rewrite proxy to bypass Windows Firewall & CORS
+    return '/api';
+  }
+
+  return process.env.NEXT_PUBLIC_API_URL || 'https://spark-innovation.onrender.com/api';
 };
 
 const api = axios.create({
@@ -205,9 +207,21 @@ export const authAPI = {
 export const dashboardAPI = {
   admin: () => api.get('/dashboard/admin'),
   student: () => api.get('/dashboard/student'),
+  activeAttendanceSessions: () => api.get('/dashboard/active-attendance-sessions'),
+  myActiveAttendanceSession: () => api.get('/dashboard/my-active-attendance-session'),
 
   projectStatus: () => api.get('/dashboard/charts/project-status'),
   departmentChart: () => api.get('/dashboard/charts/department-distribution'),
+};
+
+// ─── Attendance QR API ───────────────────────────────────────────────────────
+export const attendanceAPI = {
+  getSession: (sessionId: string) => api.get(`/attendance/session/${sessionId}`),
+  markAttendance: (data: { session_id: string; ic_number: string; latitude?: number; longitude?: number; device_id?: string }) => 
+    api.post('/attendance/mark', data),
+  getRecords: (sessionId: string) => api.get(`/attendance/session/${sessionId}/records`),
+  createSession: (data: any) => api.post('/attendance/session/create', data),
+  closeSession: (sessionId: string) => api.post(`/attendance/session/${sessionId}/close`),
 };
 
 // ─── Students API ────────────────────────────────────────────────────────────
@@ -356,48 +370,6 @@ export const usersAPI = {
 
 
 
-
-// ─── Uniforms API ─────────────────────────────────────────────────────────────
-export const uniformsAPI = {
-  /** List all uniforms (admin only) */
-  list: (params?: Record<string, any>) => api.get('/uniforms', { params }),
-
-  /** Get active uniforms for detection */
-  active: () => api.get('/uniforms/active'),
-
-  /** Create new uniform entry */
-  create: (data: {
-    department: string;
-    gender: string;
-    season: string;
-    label?: string;
-    front_image_url?: string;
-    back_image_url?: string;
-    side_image_url?: string;
-    logo_image_url?: string;
-    is_active?: boolean;
-  }) => api.post('/uniforms', data),
-
-  /** Update a uniform entry */
-  update: (id: number, data: Record<string, any>) => api.put(`/uniforms/${id}`, data),
-
-  /** Delete a uniform entry */
-  delete: (id: number) => api.delete(`/uniforms/${id}`),
-
-  /** Upload a uniform reference image — returns { url } */
-  uploadImage: (file: File, imageType: 'front' | 'back' | 'side' | 'logo') => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('image_type', imageType);
-    return api.post('/uniforms/upload-image', formData, {
-      headers: { 'Content-Type': undefined },
-    });
-  },
-
-  /** Test uniform detection against a base64 image (admin) */
-  testDetection: (imageBase64: string, department?: string) =>
-    api.post('/uniforms/test', { image_base64: imageBase64, department: department || 'all' }),
-};
 
 // ─── Achievements & Certifications API ───────────────────────────────────────
 export const achievementsAPI = {

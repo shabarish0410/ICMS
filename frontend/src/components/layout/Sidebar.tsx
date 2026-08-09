@@ -56,7 +56,6 @@ const adminGroups = [
     label: 'Operations',
     items: [
       { label: 'Attendance', href: '/dashboard/attendance', icon: UserCheck },
-      { label: 'Uniform Mgmt', href: '/dashboard/admins/uniform-management', icon: Shirt },
       { label: 'Approvals', href: '/dashboard/admins/achievements', icon: FileBadge },
     ],
   },

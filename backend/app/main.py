@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.routes import (
     auth, students, teams, projects, events, dashboard,
     notifications, forms, weekly_reports, announcements,
-    meetings, uploads, users, uniforms,
+    meetings, uploads, users, attendance,
     achievements, admin_achievements, exports
 )
 
@@ -48,8 +48,8 @@ app = FastAPI(
 # CORS — must be added BEFORE all routers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -74,6 +74,9 @@ async def icms_exception_handler(request: Request, exc: ICMSException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    with open("error_log.txt", "a") as f:
+        f.write(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}\n")
     logger.error(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
@@ -105,11 +108,10 @@ app.include_router(announcements.router)
 app.include_router(meetings.router)
 app.include_router(uploads.router)
 app.include_router(users.router)
-app.include_router(uniforms.router)
 app.include_router(achievements.router)
 app.include_router(admin_achievements.router)
 app.include_router(exports.router)
-
+app.include_router(attendance.router)
 
 @app.get("/api/health")
 def health_check():

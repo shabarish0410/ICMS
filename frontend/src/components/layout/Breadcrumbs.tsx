@@ -19,7 +19,6 @@ const labelMap: Record<string, string> = {
   events: 'Events',
   notifications: 'Notifications',
   admins: 'Admins',
-  'uniform-management': 'Uniform Management',
   achievements: 'Approvals',
   settings: 'Settings',
   logs: 'Logs',

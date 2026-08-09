@@ -63,15 +63,15 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow border">
-      <h3 className="text-xl font-semibold mb-4">Create Attendance Session</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-slate-800 p-6 rounded-lg shadow border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-gray-100">
+      <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Create Attendance Session</h3>
       
       <div>
-        <label className="block text-sm font-medium mb-1">Subject Name</label>
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Subject Name</label>
         <input 
           required 
           type="text"
-          className="w-full p-2 border rounded" 
+          className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
           value={formData.subject_name}
           onChange={(e) => setFormData({...formData, subject_name: e.target.value})}
           placeholder="e.g., Data Structures"
@@ -79,10 +79,10 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Section (Optional)</label>
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Section (Optional)</label>
         <input 
           type="text"
-          className="w-full p-2 border rounded" 
+          className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
           value={formData.section}
           onChange={(e) => setFormData({...formData, section: e.target.value})}
           placeholder="e.g., CSE-A"
@@ -90,12 +90,12 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Duration (Minutes)</label>
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Duration (Minutes)</label>
         <input 
           required 
           type="number"
           min="1"
-          className="w-full p-2 border rounded" 
+          className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
           value={formData.duration_minutes}
           onChange={(e) => setFormData({...formData, duration_minutes: Number(e.target.value)})}
         />
@@ -107,18 +107,19 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
           id="gps_enabled"
           checked={formData.gps_enabled}
           onChange={(e) => setFormData({...formData, gps_enabled: e.target.checked})}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
-        <label htmlFor="gps_enabled" className="text-sm font-medium">Enable GPS Restriction</label>
+        <label htmlFor="gps_enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable GPS Restriction</label>
       </div>
 
       {formData.gps_enabled && (
         <div>
-          <label className="block text-sm font-medium mb-1">GPS Radius (meters)</label>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">GPS Radius (meters)</label>
           <input 
             required 
             type="number"
             min="10"
-            className="w-full p-2 border rounded" 
+            className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
             value={formData.gps_radius}
             onChange={(e) => setFormData({...formData, gps_radius: Number(e.target.value)})}
           />
