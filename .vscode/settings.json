@@ -5,5 +5,13 @@
   "tailwindCSS.emmetCompletions": true,
   "files.associations": {
     "*.css": "tailwindcss"
+  },
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.lint": true,
+  "deno.unstable": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
   }
 }
