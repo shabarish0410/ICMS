@@ -141,6 +141,79 @@ export function parseAuthData(authData: Uint8Array): ParsedAuthData {
 // ─── Signature Verification ───────────────────────────────────────────────────
 
 /**
+ * Parse an ASN.1 DER-encoded ECDSA signature and return a raw 64-byte r||s (IEEE P1363)
+ * required by Web Crypto.
+ */
+function parseEcdsaSignature(signature: Uint8Array): Uint8Array {
+  // If it's already exactly 64 bytes, it might be raw P1363 (though browsers usually send DER)
+  if (signature.length === 64) {
+    return signature;
+  }
+
+  // Basic DER parser for SEQUENCE { r INTEGER, s INTEGER }
+  // 0x30 = SEQUENCE
+  if (signature[0] !== 0x30) throw new Error('Signature is not a DER SEQUENCE');
+
+  let offset = 2; // skip SEQUENCE and length (assuming length < 128 for ES256)
+  if (signature[1] & 0x80) {
+    // long form length
+    const lenBytes = signature[1] & 0x7f;
+    offset += lenBytes;
+  }
+
+  // 0x02 = INTEGER (r)
+  if (signature[offset++] !== 0x02) throw new Error('Expected INTEGER for r');
+  let rLen = signature[offset++];
+  if (rLen & 0x80) {
+    const lenBytes = rLen & 0x7f;
+    rLen = 0;
+    for (let i = 0; i < lenBytes; i++) rLen = (rLen << 8) | signature[offset++];
+  }
+  const rBytes = signature.slice(offset, offset + rLen);
+  offset += rLen;
+
+  // 0x02 = INTEGER (s)
+  if (signature[offset++] !== 0x02) throw new Error('Expected INTEGER for s');
+  let sLen = signature[offset++];
+  if (sLen & 0x80) {
+    const lenBytes = sLen & 0x7f;
+    sLen = 0;
+    for (let i = 0; i < lenBytes; i++) sLen = (sLen << 8) | signature[offset++];
+  }
+  const sBytes = signature.slice(offset, offset + sLen);
+
+  // Convert to exactly 32-byte buffers (pad left or strip leading zeros)
+  const formatComponent = (comp: Uint8Array) => {
+    if (comp.length === 32) return comp;
+    if (comp.length > 32) {
+      // Strip leading zeros (usually added in DER to prevent negative integers)
+      let stripped = comp;
+      while (stripped.length > 32 && stripped[0] === 0) {
+        stripped = stripped.slice(1);
+      }
+      if (stripped.length > 32) throw new Error('Integer too large for P-256');
+      const padded = new Uint8Array(32);
+      padded.set(stripped, 32 - stripped.length);
+      return padded;
+    } else {
+      // Pad with leading zeros
+      const padded = new Uint8Array(32);
+      padded.set(comp, 32 - comp.length);
+      return padded;
+    }
+  };
+
+  const r32 = formatComponent(rBytes);
+  const s32 = formatComponent(sBytes);
+
+  const rawSig = new Uint8Array(64);
+  rawSig.set(r32, 0);
+  rawSig.set(s32, 32);
+
+  return rawSig;
+}
+
+/**
  * Verify an ES256 WebAuthn assertion signature.
  *
  * signedData = authenticatorData || SHA-256(clientDataJSON)
@@ -150,18 +223,44 @@ export async function verifyAssertionSignature(
   signature: Uint8Array,
   authenticatorData: Uint8Array,
   clientDataJSON: Uint8Array,
-): Promise<boolean> {
+): Promise<{ valid: boolean; debug: any }> {
+  let sigToVerify = signature;
+  let signatureFormat = 'unknown';
+  let sigError = '';
+
+  try {
+    sigToVerify = parseEcdsaSignature(signature);
+    signatureFormat = sigToVerify.length === 64 ? 'P1363' : 'unknown';
+  } catch (e: any) {
+    sigError = e.message;
+  }
+
   const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON));
   const signedData = new Uint8Array(authenticatorData.length + clientDataHash.length);
   signedData.set(authenticatorData, 0);
   signedData.set(clientDataHash, authenticatorData.length);
 
-  return crypto.subtle.verify(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    publicKey,
-    signature,
-    signedData,
-  );
+  let valid = false;
+  try {
+      valid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        publicKey,
+        sigToVerify,
+        signedData,
+      );
+  } catch (e) {
+      valid = false;
+  }
+
+  return {
+      valid,
+      debug: {
+          signatureFormat,
+          originalSignatureLength: signature.length,
+          parsedSignatureLength: sigToVerify.length,
+          sigParseError: sigError,
+      }
+  };
 }
 
 // ─── RP ID Hash Verification ──────────────────────────────────────────────────

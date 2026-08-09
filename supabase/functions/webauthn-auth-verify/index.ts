@@ -105,12 +105,36 @@ serve(async (req) => {
 
     const authData = parseAuthData(authenticatorData);
     const rpId = Deno.env.get('WEBAUTHN_RP_ID') || 'localhost';
-    if (!(await verifyRpIdHash(authData.rpIdHash, rpId))) throw new Error('RP ID mismatch.');
-    if (!(authData.flags & 0x04)) throw new Error('User verification not performed.');
+    
+    const isRpIdValid = await verifyRpIdHash(authData.rpIdHash, rpId);
+    const isUvValid = (authData.flags & 0x04) !== 0;
+    const isUpValid = (authData.flags & 0x01) !== 0;
 
     const publicKey = await parseCoseKey(storedCred.public_key);
-    const valid = await verifyAssertionSignature(publicKey, signatureBytes, authenticatorData, clientDataJSON);
-    if (!valid) throw new Error('Signature verification failed — please try again.');
+    const sigResult = await verifyAssertionSignature(publicKey, signatureBytes, authenticatorData, clientDataJSON);
+
+    // Phase 2: Add SAFE diagnostic logging
+    console.log('[WebAuthn DEBUG]', JSON.stringify({
+      algorithm: -7,
+      kty: 2,
+      crv: 1,
+      authenticatorDataLength: authenticatorData.length,
+      signatureLength: signatureBytes.length,
+      clientDataTypeValid: clientData.type === 'webauthn.get',
+      originValid: clientData.origin === expectedOrigin,
+      challengeValid: clientData.challenge === challenge,
+      rpIdHashValid: isRpIdValid,
+      up: isUpValid,
+      uv: isUvValid,
+      signatureFormat: sigResult.debug.signatureFormat,
+      parsedSignatureLength: sigResult.debug.parsedSignatureLength,
+      sigParseError: sigResult.debug.sigParseError,
+      signatureValid: sigResult.valid
+    }));
+
+    if (!isRpIdValid) throw new Error('RP ID mismatch.');
+    if (!isUvValid) throw new Error('User verification not performed.');
+    if (!sigResult.valid) throw new Error('Signature verification failed — please try again.');
 
     if (authData.signCount > 0 && authData.signCount <= storedCred.sign_count) {
       throw new Error('Sign counter invalid — possible replay attack detected.');
