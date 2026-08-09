@@ -7,8 +7,8 @@ import { tokenStorage } from '@/services/api';
 // Calls a Supabase Edge Function directly (not through FastAPI proxy).
 // Auth token from ICMS JWT is passed as Bearer header.
 async function callEdgeFunction(name: string, body: object): Promise<any> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fjdmijjsixtbamhwourc.supabase.co';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZG1pampzaXh0YmFtaHdvdXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMTg2MjgsImV4cCI6MjA5Nzc5NDYyOH0.KxnxPw2tT5FX5O7NBJWjIha2YYRspeIlKVZKCAdlxiA';
   const token = tokenStorage.getToken(); // ICMS custom JWT
 
   const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
