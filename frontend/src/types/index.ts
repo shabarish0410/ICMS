@@ -196,6 +196,127 @@ export interface AttendanceStats {
   attendance_percentage?: number;
 }
 
+// ─── Attendance Reporting ─────────────────────────────────────────────────────
+
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'NO_SESSION' | 'PARTIAL';
+
+export interface AttendanceSessionInfo {
+  id: string;
+  subject_name: string;
+  section: string | null;
+  faculty_id?: number;
+  is_active?: boolean;
+  created_at: string;
+  expires_at?: string;
+  gps_radius?: number | null;
+  record_count?: number;
+  session_date?: string;
+  session_date_iso?: string;
+}
+
+export interface DailyAttendanceRow {
+  session_id: string;
+  subject_name: string;
+  section: string;
+  date: string;
+  date_display: string;
+  student_id: number;
+  student_name: string;
+  ic_number: string;
+  status: AttendanceStatus;
+  marked_at: string | null;
+  present_time: string | null;
+  present_time_full: string | null;
+}
+
+export interface DailyReportResponse {
+  date: string;
+  sessions: Array<{ id: string; subject_name: string; section: string | null; session_date: string }>;
+  rows: DailyAttendanceRow[];
+  total_present: number;
+  total_absent: number;
+}
+
+export interface MonthlySessionCell {
+  session_id: string;
+  subject: string;
+  status: AttendanceStatus;
+  marked_at: string | null;
+  present_time: string | null;
+}
+
+export interface MonthlyDayCell {
+  status: AttendanceStatus;
+  sessions: MonthlySessionCell[];
+  present_time: string | null;
+}
+
+export interface MonthlyAttendanceRow {
+  student_id: number;
+  student_name: string;
+  ic_number: string;
+  section: string;
+  days: Record<string, MonthlyDayCell>;
+  present: number;
+  absent: number;
+  applicable_sessions: number;
+  percentage: number;
+}
+
+export interface MonthlyReportResponse {
+  month: number;
+  year: number;
+  section: string | null;
+  subject: string | null;
+  active_dates: string[];
+  sessions_by_date: Record<string, Array<{ id: string; subject_name: string; section: string | null }>>;
+  rows: MonthlyAttendanceRow[];
+  summary: {
+    total_students: number;
+    total_sessions: number;
+    total_present: number;
+    total_absent: number;
+    avg_percentage: number;
+  };
+}
+
+export interface StudentAttendanceDay {
+  session_id: string;
+  date: string;
+  date_display: string;
+  subject_name: string;
+  section: string;
+  status: AttendanceStatus;
+  marked_at: string | null;
+  present_time: string | null;
+  present_time_full: string | null;
+}
+
+export interface StudentAttendanceSummary {
+  present: number;
+  absent: number;
+  applicable_sessions: number;
+  percentage: number;
+}
+
+export interface StudentAttendanceResponse {
+  student_name: string;
+  ic_number: string;
+  section: string;
+  month: number;
+  year: number;
+  rows: StudentAttendanceDay[];
+  summary: StudentAttendanceSummary;
+}
+
+export interface SubjectAttendanceSummary {
+  subject: string;
+  total: number;
+  present: number;
+  absent: number;
+  percentage: number;
+}
+
 // ─── Events ──────────────────────────────────────────────────────────────────
 
 export interface Event {

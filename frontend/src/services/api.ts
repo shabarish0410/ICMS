@@ -217,11 +217,38 @@ export const dashboardAPI = {
 // ─── Attendance QR API ───────────────────────────────────────────────────────
 export const attendanceAPI = {
   getSession: (sessionId: string) => api.get(`/attendance/session/${sessionId}`),
-  markAttendance: (data: { session_id: string; ic_number: string; latitude?: number; longitude?: number; device_id?: string }) => 
+  markAttendance: (data: { session_id: string; ic_number: string; latitude?: number; longitude?: number; device_id?: string }) =>
     api.post('/attendance/mark', data),
   getRecords: (sessionId: string) => api.get(`/attendance/session/${sessionId}/records`),
-  createSession: (data: any) => api.post('/attendance/session/create', data),
+  createSession: (data: {
+    subject_name: string;
+    section: string;
+    duration_minutes: number;
+    gps_latitude?: number;
+    gps_longitude?: number;
+    gps_radius?: number;
+  }) => api.post('/attendance/session/create', data),
   closeSession: (sessionId: string) => api.post(`/attendance/session/${sessionId}/close`),
+
+  // ── Reporting ──────────────────────────────────────────────────────────────
+  getSessions: (params: { date?: string; section?: string; subject?: string }) =>
+    api.get('/attendance/report/sessions', { params }),
+
+  getDailyReport: (params: { date: string; section?: string; subject?: string }) =>
+    api.get('/attendance/report/daily', { params }),
+
+  getMonthlyReport: (params: { month: number; year: number; section?: string; subject?: string }) =>
+    api.get('/attendance/report/monthly', { params }),
+
+  getSubjectSummary: (params: { month: number; year: number; section?: string }) =>
+    api.get('/attendance/report/subject-summary', { params }),
+
+  // ── Student (identity derived from JWT on server) ──────────────────────────
+  getMyAttendance: (params: { month: number; year: number; date?: string }) =>
+    api.get('/attendance/report/my', { params }),
+
+  getMySubjects: (params: { month: number; year: number }) =>
+    api.get('/attendance/report/my/subjects', { params }),
 };
 
 // ─── Students API ────────────────────────────────────────────────────────────

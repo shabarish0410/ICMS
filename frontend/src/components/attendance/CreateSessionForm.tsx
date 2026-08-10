@@ -86,7 +86,9 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Section (Optional)</label>
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+          Section <span className="text-xs text-amber-600 dark:text-amber-400 font-normal">(required for ABSENT tracking)</span>
+        </label>
         <input 
           type="text"
           className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
@@ -94,7 +96,9 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
           onChange={(e) => setFormData({...formData, section: e.target.value})}
           placeholder="e.g., CSE-A"
         />
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Must match the section set on student profiles for ABSENT detection.</p>
       </div>
+
 
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Duration (Minutes)</label>
