@@ -27,7 +27,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { ic_number, challenge, session_id, credential, latitude, longitude, accuracy } = await req.json();
+    const { ic_number, challenge, session_id, credential, latitude, longitude } = await req.json();
     if (!ic_number || !challenge || !session_id || !credential) {
       throw new Error('ic_number, challenge, session_id, and credential are required');
     }
@@ -152,46 +152,10 @@ serve(async (req) => {
     if (new Date(session.expires_at) < new Date()) throw new Error('This attendance session has expired.');
 
     // ── 7. GPS check ──────────────────────────────────────────────────────────
-    if (session.generator_latitude && session.generator_longitude && session.allowed_radius_meters) {
-      if (typeof latitude !== "number" || typeof longitude !== "number" || typeof accuracy !== "number") {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "INVALID_LOCATION",
-            message: "Valid student GPS information is required.",
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const MAX_ACCEPTABLE_ACCURACY = 100;
-      if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "LOW_LOCATION_ACCURACY",
-            message: `GPS accuracy is too low (${Math.round(accuracy)}m). Please enable precise location and try again.`,
-            accuracy,
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const dist = haversine(session.generator_latitude, session.generator_longitude, latitude, longitude);
-      const allowedRadius = session.allowed_radius_meters ?? 100;
-
-      if (dist > allowedRadius) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "OUTSIDE_ATTENDANCE_RADIUS",
-            message: `You are ${Math.round(dist)}m away. Allowed radius is ${allowedRadius}m.`,
-            distance_meters: Math.round(dist),
-            allowed_radius_meters: allowedRadius,
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (session.gps_latitude && session.gps_longitude && session.gps_radius) {
+      if (!latitude || !longitude) throw new Error('Please enable location access to mark attendance.');
+      const dist = haversine(session.gps_latitude, session.gps_longitude, latitude, longitude);
+      if (dist > session.gps_radius) throw new Error('You are outside the permitted attendance location.');
     }
 
     // ── 8. Insert attendance record ───────────────────────────────────────────
@@ -204,7 +168,6 @@ serve(async (req) => {
         student_identifier: dbUser.ic_number || ic,
         latitude: latitude ?? null,
         longitude: longitude ?? null,
-        accuracy: accuracy ?? null,
         device_id: `webauthn:${credentialId.slice(0, 16)}`,
       })
       .select()

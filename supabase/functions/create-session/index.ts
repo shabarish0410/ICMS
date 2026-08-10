@@ -16,47 +16,7 @@ serve(async (req) => {
       });
     }
 
-    const {
-      subject_name,
-      section,
-      duration_minutes,
-      generator_latitude,
-      generator_longitude,
-      generator_accuracy_meters,
-      allowed_radius_meters,
-      location_captured_at
-    } = await req.json();
-
-    if (
-      typeof generator_latitude !== "number" ||
-      typeof generator_longitude !== "number"
-    ) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "INVALID_GENERATOR_LOCATION",
-          message: "Valid generator location is required.",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (generator_latitude < -90 || generator_latitude > 90) {
-      return new Response(
-        JSON.stringify({ success: false, error: "INVALID_LATITUDE" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (generator_longitude < -180 || generator_longitude > 180) {
-      return new Response(
-        JSON.stringify({ success: false, error: "INVALID_LONGITUDE" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const { subject_name, section, duration_minutes, gps_latitude, gps_longitude, gps_radius } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -72,11 +32,9 @@ serve(async (req) => {
         faculty_id: user.id,
         expires_at,
         is_active: true,
-        generator_latitude,
-        generator_longitude,
-        generator_accuracy_meters,
-        allowed_radius_meters,
-        location_captured_at
+        gps_latitude,
+        gps_longitude,
+        gps_radius
       })
       .select()
       .single();

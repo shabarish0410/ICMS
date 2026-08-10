@@ -24,17 +24,13 @@ async function callEdgeFunction(name: string, body: object): Promise<any> {
     
     // Attempt to extract the inner JSON error message if possible
     let errorMessage = `Server error in ${name}. Please try again.`;
-    let errorCode = undefined;
     if (error.context && typeof error.context.json === 'function') {
         try {
             const errJson = await error.context.json();
             if (errJson && errJson.error) {
-                errorCode = errJson.error;
-            }
-            if (errJson && errJson.message) {
-                errorMessage = errJson.message;
-            } else if (errJson && errJson.error) {
                 errorMessage = errJson.error;
+            } else if (errJson && errJson.message) {
+                errorMessage = errJson.message;
             }
         } catch (e) {
             // Context is not JSON, fallback to generic
@@ -43,9 +39,7 @@ async function callEdgeFunction(name: string, body: object): Promise<any> {
         errorMessage = error.message;
     }
     
-    const err = new Error(errorMessage);
-    (err as any).code = errorCode;
-    throw err;
+    throw new Error(errorMessage);
   }
 
   return data;
@@ -145,7 +139,6 @@ function ScanAttendanceContent() {
   const [icNumber, setIcNumber] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [statusMessage, setStatusMessage] = useState('');
-  const [statusTitle, setStatusTitle] = useState('Failed');
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
@@ -172,12 +165,12 @@ function ScanAttendanceContent() {
       .finally(() => setSessionLoading(false));
   }, [sessionId]);
 
-  const getBrowserLocation = async (): Promise<{ lat: number; lng: number, accuracy: number } | null> => {
+  const getBrowserLocation = async (): Promise<{ lat: number; lng: number } | null> => {
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
       );
-      return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude };
     } catch (err: any) {
       if (err.code === 1) throw new Error('Please enable location access to mark attendance.');
       return null;
@@ -226,8 +219,8 @@ function ScanAttendanceContent() {
 
     try {
       // GPS — only request if the session explicitly requires it AND it is already loaded
-      let coords: { lat: number; lng: number, accuracy: number } | null = null;
-      if (sessionInfo?.allowed_radius_meters) {
+      let coords: { lat: number; lng: number } | null = null;
+      if (sessionInfo?.gps_radius) {
         setStatusMessage('Requesting GPS location...');
         try {
           coords = await getBrowserLocation();
@@ -301,27 +294,19 @@ function ScanAttendanceContent() {
         credential: credentialSerialized,
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
-        accuracy: coords?.accuracy ?? null,
       });
 
       setStep('success');
     } catch (err: any) {
       console.error(err);
-      let msg = err.message || 'An error occurred. Please try again.';
-      let title = 'Failed';
-      
-      if (err.name === 'NotAllowedError') msg = 'Verification was cancelled or timed out. Please try again.';
-      else if (err.name === 'SecurityError') msg = 'Device security requires HTTPS. Please use the secure site URL.';
-      else if (err.name === 'NotSupportedError') msg = 'Your device does not support biometric verification. Please contact your administrator.';
-      
-      if (err.code === 'OUTSIDE_ATTENDANCE_RADIUS') {
-        title = 'Outside Attendance Zone';
-      } else if (err.code === 'LOW_LOCATION_ACCURACY') {
-        title = 'Location accuracy too low';
-      }
-
+      const msg = err.name === 'NotAllowedError'
+        ? 'Verification was cancelled or timed out. Please try again.'
+        : err.name === 'SecurityError'
+        ? 'Device security requires HTTPS. Please use the secure site URL.'
+        : err.name === 'NotSupportedError'
+        ? 'Your device does not support biometric verification. Please contact your administrator.'
+        : err.message || 'An error occurred. Please try again.';
       setStatusMessage(msg);
-      setStatusTitle(title);
       setStep('error');
     }
   };
@@ -482,8 +467,8 @@ function ScanAttendanceContent() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{statusTitle}</h3>
-                <p className="text-red-600 dark:text-red-400 font-medium mt-1 whitespace-pre-line">{statusMessage}</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Failed</h3>
+                <p className="text-red-600 dark:text-red-400 font-medium mt-1">{statusMessage}</p>
               </div>
               <button
                 onClick={() => { setStep('input'); setStatusMessage(''); }}
