@@ -6,9 +6,11 @@ interface CreateSessionProps {
     subject_name: string;
     section: string;
     duration_minutes: number;
-    gps_latitude?: number;
-    gps_longitude?: number;
-    gps_radius?: number;
+    generator_latitude?: number;
+    generator_longitude?: number;
+    generator_accuracy_meters?: number;
+    allowed_radius_meters?: number;
+    location_captured_at?: string;
   }) => Promise<void>;
 }
 
@@ -18,45 +20,93 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
     subject_name: '',
     section: '',
     duration_minutes: 15,
-    gps_enabled: false,
-    gps_radius: 100,
   });
-  const [locationError, setLocationError] = useState('');
+
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    capturedAt: string;
+  } | null>(null);
+  
+  const [allowedRadius, setAllowedRadius] = useState(100);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const captureCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setLocation({
+          latitude,
+          longitude,
+          accuracy,
+          capturedAt: new Date().toISOString(),
+        });
+        setLocationLoading(false);
+      },
+      (error) => {
+        setLocationLoading(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError("Location permission was denied. Please allow location access.");
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError("Unable to determine your current location.");
+            break;
+          case error.TIMEOUT:
+            setLocationError("Location request timed out. Please try again.");
+            break;
+          default:
+            setLocationError("Unable to capture your location.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!location) {
+      setLocationError("Please capture the current location before generating the QR.");
+      return;
+    }
+
+    if (location.accuracy > 100) {
+      setLocationError(`GPS accuracy is too low (${Math.round(location.accuracy)}m). Please move to an area with better GPS signal.`);
+      return;
+    }
+
     setLoading(true);
-    setLocationError('');
+    setLocationError(null);
 
     try {
-      let lat, lng;
-      if (formData.gps_enabled) {
-        // Get browser location
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-          });
-        });
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
-      }
-
       await onCreate({
         subject_name: formData.subject_name,
         section: formData.section,
         duration_minutes: formData.duration_minutes,
-        gps_latitude: lat,
-        gps_longitude: lng,
-        gps_radius: formData.gps_enabled ? formData.gps_radius : undefined,
+        generator_latitude: location.latitude,
+        generator_longitude: location.longitude,
+        generator_accuracy_meters: location.accuracy,
+        allowed_radius_meters: allowedRadius,
+        location_captured_at: location.capturedAt,
       });
     } catch (err: any) {
       console.error(err);
-      if (err.code === 1 || err.message?.includes('User denied')) {
-        setLocationError('Location permission denied. Cannot create GPS-enabled session.');
-      } else {
-        setLocationError('Failed to create session. ' + (err.message || ''));
-      }
+      setLocationError('Failed to create session. ' + (err.message || ''));
     } finally {
       setLoading(false);
     }
@@ -101,30 +151,51 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
         />
       </div>
 
-      <div className="flex items-center space-x-2">
-        <input 
-          type="checkbox"
-          id="gps_enabled"
-          checked={formData.gps_enabled}
-          onChange={(e) => setFormData({...formData, gps_enabled: e.target.checked})}
-          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-        />
-        <label htmlFor="gps_enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable GPS Restriction</label>
-      </div>
+      <div className="border-t border-gray-200 dark:border-slate-700 pt-4 mt-4">
+        <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Location Restriction</label>
+        
+        <button
+          type="button"
+          onClick={captureCurrentLocation}
+          disabled={locationLoading}
+          className="w-full mb-4 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-gray-200 p-2 rounded border border-gray-300 dark:border-slate-600 transition flex justify-center items-center gap-2"
+        >
+          <span>📍</span>
+          {locationLoading ? 'Capturing...' : 'Capture Current Location'}
+        </button>
 
-      {formData.gps_enabled && (
+        {location && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded p-3 mb-4 text-sm">
+            <div className="flex items-start text-blue-800 dark:text-blue-200">
+              <span className="mr-2">✓</span>
+              <div>
+                <p>Location: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>
+                <p>Accuracy: {Math.round(location.accuracy)} meters</p>
+                <p className="text-xs mt-1 opacity-75">Captured: {new Date(location.capturedAt).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">GPS Radius (meters)</label>
-          <input 
-            required 
-            type="number"
-            min="10"
-            className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
-            value={formData.gps_radius}
-            onChange={(e) => setFormData({...formData, gps_radius: Number(e.target.value)})}
-          />
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Allowed Radius</label>
+          <div className="flex flex-wrap gap-4">
+            {[25, 50, 100, 150, 200].map((radius) => (
+              <label key={radius} className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="radius"
+                  value={radius}
+                  checked={allowedRadius === radius}
+                  onChange={() => setAllowedRadius(radius)}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{radius}m</span>
+              </label>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
       {locationError && (
         <div className="text-red-500 text-sm mt-2">{locationError}</div>
@@ -133,7 +204,7 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
       <button 
         type="submit" 
         disabled={loading}
-        className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"
+        className="w-full mt-6 bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
       >
         {loading ? 'Creating...' : 'Generate QR'}
       </button>
