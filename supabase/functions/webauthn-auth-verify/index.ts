@@ -27,7 +27,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { ic_number, challenge, session_id, credential, latitude, longitude } = await req.json();
+    const { ic_number, challenge, session_id, credential, latitude, longitude, accuracy } = await req.json();
     if (!ic_number || !challenge || !session_id || !credential) {
       throw new Error('ic_number, challenge, session_id, and credential are required');
     }
@@ -155,7 +155,48 @@ serve(async (req) => {
     if (session.gps_latitude && session.gps_longitude && session.gps_radius) {
       if (!latitude || !longitude) throw new Error('Please enable location access to mark attendance.');
       const dist = haversine(session.gps_latitude, session.gps_longitude, latitude, longitude);
-      if (dist > session.gps_radius) throw new Error('You are outside the permitted attendance location.');
+
+      console.log("========== LOCATION VERIFICATION ==========");
+      console.log("Generator latitude:", session.gps_latitude);
+      console.log("Generator longitude:", session.gps_longitude);
+      
+      console.log("Student latitude:", latitude);
+      console.log("Student longitude:", longitude);
+      
+      console.log("Generator accuracy:", session.gps_accuracy);
+      console.log("Student accuracy:", accuracy);
+      
+      console.log("Allowed radius:", session.gps_radius);
+      console.log("Calculated distance:", dist);
+      
+      console.log("============================================");
+
+      if (dist > session.gps_radius) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "OUTSIDE_ATTENDANCE_RADIUS",
+            message: `You are ${Math.round(dist)}m away. Allowed radius is ${session.gps_radius}m.`,
+            debug: {
+              generator_latitude: session.gps_latitude,
+              generator_longitude: session.gps_longitude,
+              generator_accuracy: session.gps_accuracy,
+              student_latitude: latitude,
+              student_longitude: longitude,
+              student_accuracy: accuracy,
+              distance_meters: Math.round(dist),
+              allowed_radius_meters: session.gps_radius
+            }
+          }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+      }
     }
 
     // ── 8. Insert attendance record ───────────────────────────────────────────

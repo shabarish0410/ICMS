@@ -40,6 +40,13 @@ export default function CreateSessionForm({ onCreate }: CreateSessionProps) {
         });
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
+        
+        console.log("========== GENERATOR LOCATION ==========");
+        console.log("Latitude:", pos.coords.latitude);
+        console.log("Longitude:", pos.coords.longitude);
+        console.log("Accuracy:", pos.coords.accuracy);
+        console.log("Captured At:", new Date().toISOString());
+        console.log("========================================");
       }
 
       await onCreate({

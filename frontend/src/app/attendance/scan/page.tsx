@@ -165,12 +165,19 @@ function ScanAttendanceContent() {
       .finally(() => setSessionLoading(false));
   }, [sessionId]);
 
-  const getBrowserLocation = async (): Promise<{ lat: number; lng: number } | null> => {
+  const getBrowserLocation = async (): Promise<{ lat: number; lng: number; accuracy: number } | null> => {
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 })
       );
-      return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      
+      console.log("========== STUDENT LOCATION ==========");
+      console.log("Latitude:", pos.coords.latitude);
+      console.log("Longitude:", pos.coords.longitude);
+      console.log("Accuracy:", pos.coords.accuracy);
+      console.log("=======================================");
+
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
     } catch (err: any) {
       if (err.code === 1) throw new Error('Please enable location access to mark attendance.');
       return null;
@@ -219,7 +226,7 @@ function ScanAttendanceContent() {
 
     try {
       // GPS — only request if the session explicitly requires it AND it is already loaded
-      let coords: { lat: number; lng: number } | null = null;
+      let coords: { lat: number; lng: number; accuracy: number } | null = null;
       if (sessionInfo?.gps_radius) {
         setStatusMessage('Requesting GPS location...');
         try {
@@ -294,6 +301,7 @@ function ScanAttendanceContent() {
         credential: credentialSerialized,
         latitude: coords?.lat ?? null,
         longitude: coords?.lng ?? null,
+        accuracy: coords?.accuracy ?? null,
       });
 
       setStep('success');
