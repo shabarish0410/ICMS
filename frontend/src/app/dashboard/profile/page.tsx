@@ -10,6 +10,7 @@ import {
   X, Upload, CheckCircle2, AlertCircle, Edit2, Loader2, ChevronRight
 } from 'lucide-react';
 import AchievementsTab from './AchievementsTab';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -19,6 +20,7 @@ export default function ProfilePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Fallbacks if user is not fully loaded yet
   const userName = user?.full_name || 'Member';
@@ -446,7 +448,7 @@ export default function ProfilePage() {
                   <h3 className="text-lg font-bold text-dark-900 dark:text-white">Password & Authentication</h3>
                   <p className="text-sm text-dark-500 dark:text-dark-300 mt-1 mb-6">Manage your password and security preferences.</p>
                   
-                  <button onClick={() => toast('Password change logic requires OTP as implemented previously.')} className="btn-secondary">
+                  <button onClick={() => setIsPasswordModalOpen(true)} className="btn-secondary">
                     Change Password <ChevronRight className="w-4 h-4 text-dark-400" />
                   </button>
                 </div>
@@ -608,6 +610,11 @@ export default function ProfilePage() {
           </div>
         )}
       </AnimatePresence>
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
     </div>
   );
 }

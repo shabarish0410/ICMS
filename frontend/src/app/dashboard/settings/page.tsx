@@ -7,11 +7,13 @@ import { usersAPI } from '@/services/api';
 import toast from 'react-hot-toast';
 import { User, Shield, Lock, Loader2, Smartphone, CheckCircle2, ChevronRight, FileBadge } from 'lucide-react';
 import AchievementsTab from './AchievementsTab';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'achievements'>('profile');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Profile Form State
   const [fullName, setFullName] = useState('');
@@ -303,7 +305,7 @@ export default function SettingsPage() {
                   <h3 className="text-lg font-bold text-dark-900 dark:text-white">Password & Authentication</h3>
                   <p className="text-sm text-dark-500 dark:text-dark-300 mt-1 mb-6">Manage your password and security preferences.</p>
                   
-                  <button onClick={() => toast('Password change logic requires OTP as implemented previously.')} className="px-5 py-2.5 bg-dark-50 dark:bg-white/5 hover:bg-dark-100 dark:hover:bg-white/10 border border-dark-200 dark:border-white/10 text-dark-900 dark:text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2">
+                  <button onClick={() => setIsPasswordModalOpen(true)} className="px-5 py-2.5 bg-dark-50 dark:bg-white/5 hover:bg-dark-100 dark:hover:bg-white/10 border border-dark-200 dark:border-white/10 text-dark-900 dark:text-white font-medium rounded-xl transition-all shadow-sm flex items-center gap-2">
                     Change Password <ChevronRight className="w-4 h-4 text-dark-400" />
                   </button>
                 </div>
@@ -344,6 +346,11 @@ export default function SettingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
     </div>
   );
 }
