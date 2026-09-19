@@ -51,13 +51,21 @@ def complete_profile(
     )
 
 
+@router.post("/change-password/request-otp")
+def request_change_password_otp(
+    current_user: dict = Depends(get_current_user)
+):
+    """Request OTP for changing password."""
+    return auth_service.request_change_password_otp(current_user["id"])
+
+
 @router.put("/change-password")
 def change_password(
     req: ChangePasswordRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """Change password (required on first login)."""
-    auth_service.change_user_password(current_user["id"], req.new_password)
+    auth_service.change_user_password(current_user["id"], req.new_password, req.otp)
     return {"message": "Password changed successfully"}
 
 

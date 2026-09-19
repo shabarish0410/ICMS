@@ -83,6 +83,7 @@ class CompleteProfileRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     new_password: str
+    otp: str
 
     @field_validator('new_password')
     @classmethod

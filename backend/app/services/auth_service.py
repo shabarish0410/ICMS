@@ -90,9 +90,80 @@ def complete_user_profile(user_id: int, full_name: str, email: str, mobile: str,
     return res.data[0]
 
 
-def change_user_password(user_id: int, new_password: str) -> None:
+def request_change_password_otp(user_id: int) -> Dict[str, Any]:
+    """Request OTP for changing password."""
+    supabase = get_supabase()
+    res = supabase.table("users").select("mobile").eq("id", user_id).execute()
+    if not res.data or not res.data[0].get("mobile"):
+        raise ValidationError("User does not have a registered mobile number.")
+    
+    mobile = res.data[0]["mobile"]
+    identifier = f"change_pwd_{user_id}"
+    
+    now = datetime.now(timezone.utc)
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    
+    if otp_res.data:
+        otp_record = otp_res.data[0]
+        created_at = datetime.fromisoformat(otp_record["created_at"].replace("Z", "+00:00"))
+        if now - created_at < timedelta(seconds=30):
+            cooldown_left = 30 - int((now - created_at).total_seconds())
+            raise BusinessLogicError(f"Please wait {cooldown_left} seconds before requesting a new OTP.", status_code=429)
+            
+    otp = generate_otp()
+    expires_at = (now + timedelta(minutes=5)).isoformat()
+    
+    otp_data = {
+        "identifier": identifier,
+        "otp_hash": hash_password(otp),
+        "attempts": 0,
+        "expires_at": expires_at,
+        "created_at": now.isoformat()
+    }
+    
+    if otp_res.data:
+        supabase.table("otp_verifications").update(otp_data).eq("identifier", identifier).execute()
+    else:
+        supabase.table("otp_verifications").insert(otp_data).execute()
+        
+    if not send_otp_sms(mobile, otp):
+        raise BusinessLogicError("Failed to dispatch SMS OTP. Please try again.")
+        
+    response = {"message": "OTP sent successfully"}
+    if settings.SMS_PROVIDER.lower() == "mock":
+        response["demo_otp"] = otp
+        
+    return response
+
+
+def change_user_password(user_id: int, new_password: str, otp: str) -> None:
     """Change the user's password."""
     supabase = get_supabase()
+    
+    identifier = f"change_pwd_{user_id}"
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    if not otp_res.data:
+        raise ValidationError("No OTP requested for this action")
+        
+    otp_record = otp_res.data[0]
+    now = datetime.now(timezone.utc)
+    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    
+    if now > expires_at:
+        supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+        raise ValidationError("OTP has expired")
+        
+    if otp_record["attempts"] >= 3:
+        supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+        raise ValidationError("Maximum OTP verification attempts exceeded.")
+        
+    if not verify_password(otp, otp_record["otp_hash"]):
+        attempts = otp_record["attempts"] + 1
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", identifier).execute()
+        raise ValidationError(f"Invalid OTP. {3 - attempts} attempts remaining.")
+        
+    supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+
     supabase.table("users").update({
         "password_hash": hash_password(new_password),
         "must_change_password": False

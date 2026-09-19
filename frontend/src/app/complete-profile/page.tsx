@@ -17,10 +17,11 @@ interface ProfileForm {
 interface PasswordForm {
   new_password: string;
   confirm_password: string;
+  otp: string;
 }
 
 function CompleteProfileContent() {
-  const { user, completeProfile, changePassword } = useAuth();
+  const { user, completeProfile, changePassword, requestChangePasswordOtp } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const startStep = searchParams.get('step') === 'password' ? 'password' : 'profile';
@@ -30,6 +31,8 @@ function CompleteProfileContent() {
   );
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileForm>({
     defaultValues: {
@@ -61,6 +64,30 @@ function CompleteProfileContent() {
 
   const passwordForm = useForm<PasswordForm>();
 
+  const handleRequestOTP = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const new_pwd = passwordForm.getValues('new_password');
+    const confirm_pwd = passwordForm.getValues('confirm_password');
+    if (!new_pwd || new_pwd !== confirm_pwd) {
+      toast.error('Please enter valid matching passwords first');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const res = await requestChangePasswordOtp();
+      toast.success('OTP sent to your mobile number!');
+      setOtpSent(true);
+      if (res.data?.demo_otp) {
+        setDemoOtp(res.data.demo_otp);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Failed to send OTP');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handlePasswordSubmit = async (data: PasswordForm) => {
     if (data.new_password !== data.confirm_password) {
       toast.error('Passwords do not match');
@@ -68,7 +95,7 @@ function CompleteProfileContent() {
     }
     setIsSubmitting(true);
     try {
-      await changePassword(data.new_password);
+      await changePassword(data.new_password, data.otp);
       toast.success('Password changed successfully!');
       if (!user?.is_profile_completed) {
         setStep('profile');
@@ -153,9 +180,10 @@ function CompleteProfileContent() {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       className="input-field pl-10 pr-10"
+                      disabled={otpSent}
                     />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400">
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400" disabled={otpSent}>
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -173,6 +201,7 @@ function CompleteProfileContent() {
                       type="password"
                       placeholder="••••••••"
                       className="input-field pl-10"
+                      disabled={otpSent}
                     />
                   </div>
                   {passwordForm.formState.errors.confirm_password && (
@@ -180,11 +209,37 @@ function CompleteProfileContent() {
                   )}
                 </div>
 
-                <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
-                    <span className="flex items-center justify-center gap-2">Set Password <ArrowRight className="w-4 h-4" /></span>
-                  )}
-                </button>
+                {otpSent && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5 mt-4">Enter OTP</label>
+                    <input
+                      {...passwordForm.register('otp', { required: 'OTP is required' })}
+                      type="text"
+                      placeholder="Enter 6-digit OTP"
+                      className="input-field"
+                    />
+                    {demoOtp && (
+                      <p className="text-xs text-blue-500 mt-1">Demo OTP: {demoOtp}</p>
+                    )}
+                    {passwordForm.formState.errors.otp && (
+                      <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.otp.message}</p>
+                    )}
+                  </motion.div>
+                )}
+
+                {!otpSent ? (
+                  <button type="button" onClick={handleRequestOTP} disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
+                      <span className="flex items-center justify-center gap-2">Send OTP <ArrowRight className="w-4 h-4" /></span>
+                    )}
+                  </button>
+                ) : (
+                  <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
+                      <span className="flex items-center justify-center gap-2">Verify & Change Password <ArrowRight className="w-4 h-4" /></span>
+                    )}
+                  </button>
+                )}
               </form>
             </div>
           )}

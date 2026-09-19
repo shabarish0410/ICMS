@@ -189,8 +189,9 @@ export const authAPI = {
   me: () => api.get('/auth/me'),
   completeProfile: (data: { full_name: string; email: string; mobile: string; avatar_url?: string }) =>
     api.put('/auth/complete-profile', data),
-  changePassword: (data: { new_password: string }) =>
+  changePassword: (data: { new_password: string; otp: string }) =>
     api.put('/auth/change-password', data),
+  requestChangePasswordOtp: () => api.post('/auth/change-password/request-otp'),
   refresh: (refresh_token: string) => api.post('/auth/refresh', { refresh_token }),
   forgotPassword: (data: { ic_number: string; method: string }) =>
     api.post('/auth/forgot-password', data),

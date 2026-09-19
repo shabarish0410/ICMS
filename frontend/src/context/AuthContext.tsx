@@ -21,7 +21,8 @@ interface AuthContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   completeProfile: (data: { full_name: string; email: string; mobile: string }) => Promise<void>;
-  changePassword: (newPassword: string) => Promise<void>;
+  changePassword: (newPassword: string, otp: string) => Promise<void>;
+  requestChangePasswordOtp: () => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,8 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshUser();
   };
 
-  const changePassword = async (newPassword: string) => {
-    await authAPI.changePassword({ new_password: newPassword });
+  const requestChangePasswordOtp = async () => {
+    return await authAPI.requestChangePasswordOtp();
+  };
+
+  const changePassword = async (newPassword: string, otp: string) => {
+    await authAPI.changePassword({ new_password: newPassword, otp });
     await refreshUser();
   };
 
@@ -109,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser,
         completeProfile,
         changePassword,
+        requestChangePasswordOtp,
       }}
     >
       {children}
