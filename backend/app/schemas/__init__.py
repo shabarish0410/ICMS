@@ -112,6 +112,9 @@ class VerifyOTPRequest(BaseModel):
         return validate_password(v)
 
 
+class VerifyOTPOnlyRequest(BaseModel):
+    otp: str
+
 class RequestOTPRequest(BaseModel):
     mobile: str
 

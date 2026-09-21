@@ -3,7 +3,7 @@ from app.core.security import get_current_user, oauth2_scheme, blacklist_token
 from app.schemas import (
     LoginRequest, TokenResponse, RefreshRequest, UserOut,
     CompleteProfileRequest, ChangePasswordRequest,
-    ForgotPasswordRequest, VerifyOTPRequest, RequestOTPRequest, RegisterRequest
+    ForgotPasswordRequest, VerifyOTPRequest, RequestOTPRequest, RegisterRequest, VerifyOTPOnlyRequest
 )
 from app.services import auth_service
 
@@ -58,6 +58,15 @@ def request_change_password_otp(
     """Request OTP for changing password."""
     return auth_service.request_change_password_otp(current_user["id"])
 
+
+@router.post("/change-password/verify-otp")
+def verify_change_password_otp(
+    req: VerifyOTPOnlyRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Verify OTP for changing password before submitting new password."""
+    auth_service.verify_change_password_otp_only(current_user["id"], req.otp)
+    return {"message": "OTP verified successfully"}
 
 @router.put("/change-password")
 def change_password(

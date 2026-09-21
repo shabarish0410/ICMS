@@ -23,6 +23,7 @@ interface AuthContextType {
   completeProfile: (data: { full_name: string; email: string; mobile: string }) => Promise<void>;
   changePassword: (newPassword: string, otp: string) => Promise<void>;
   requestChangePasswordOtp: () => Promise<any>;
+  verifyChangePasswordOtp: (otp: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -93,6 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await authAPI.requestChangePasswordOtp();
   };
 
+  const verifyChangePasswordOtp = async (otp: string) => {
+    return await authAPI.verifyChangePasswordOtp(otp);
+  };
+
   const changePassword = async (newPassword: string, otp: string) => {
     await authAPI.changePassword({ new_password: newPassword, otp });
     await refreshUser();
@@ -115,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         completeProfile,
         changePassword,
         requestChangePasswordOtp,
+        verifyChangePasswordOtp,
       }}
     >
       {children}

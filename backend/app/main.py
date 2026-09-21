@@ -45,7 +45,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — must be added BEFORE all routers
+from app.core.logging import LoggingMiddleware
+app.add_middleware(LoggingMiddleware)
+
+# CORS — must be added LAST (outermost) to ensure headers on all responses, including errors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,9 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-from app.core.logging import LoggingMiddleware
-app.add_middleware(LoggingMiddleware)
 
 # Static files for uploads
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -75,8 +75,6 @@ async def icms_exception_handler(request: Request, exc: ICMSException):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     import traceback
-    with open("error_log.txt", "a") as f:
-        f.write(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}\n")
     logger.error(f"GLOBAL EXCEPTION | URL: {request.url} | {traceback.format_exc()}")
     return JSONResponse(
         status_code=500,

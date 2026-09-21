@@ -14,34 +14,47 @@ interface PasswordForm {
 }
 
 export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { changePassword, requestChangePasswordOtp } = useAuth();
+  const { changePassword, requestChangePasswordOtp, verifyChangePasswordOtp } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
+  const [step, setStep] = useState<'request' | 'verify' | 'password'>('request');
   const [demoOtp, setDemoOtp] = useState<string | null>(null);
 
   const passwordForm = useForm<PasswordForm>();
 
   const handleRequestOTP = async (e: React.MouseEvent) => {
     e.preventDefault();
-    const new_pwd = passwordForm.getValues('new_password');
-    const confirm_pwd = passwordForm.getValues('confirm_password');
-    if (!new_pwd || new_pwd !== confirm_pwd) {
-      toast.error('Please enter valid matching passwords first');
-      return;
-    }
-    
     setIsSubmitting(true);
     try {
       const res = await requestChangePasswordOtp();
       toast.success('OTP sent to your mobile number!');
-      setOtpSent(true);
+      setStep('verify');
       if (res.data?.demo_otp) {
         setDemoOtp(res.data.demo_otp);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to send OTP');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const otp = passwordForm.getValues('otp');
+    if (!otp) {
+      toast.error('Please enter the OTP');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await verifyChangePasswordOtp(otp);
+      toast.success('OTP verified!');
+      setStep('password');
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Invalid or expired OTP');
     } finally {
       setIsSubmitting(false);
     }
@@ -58,7 +71,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
       toast.success('Password changed successfully!');
       onClose();
       passwordForm.reset();
-      setOtpSent(false);
+      setStep('request');
       setDemoOtp(null);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Failed to change password');
@@ -89,52 +102,54 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
 
             <div className="p-6">
               <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">New Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                    <input
-                      {...passwordForm.register('new_password', {
-                        required: 'Password is required',
-                        minLength: { value: 8, message: 'Min 8 characters' },
-                        pattern: {
-                          value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/,
-                          message: 'Must include uppercase, lowercase, number, special char',
-                        },
-                      })}
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      className="input-field pl-10 pr-10"
-                      disabled={otpSent}
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400" disabled={otpSent}>
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {passwordForm.formState.errors.new_password && (
-                    <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.new_password.message}</p>
-                  )}
-                </div>
+                {step === 'password' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">New Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+                        <input
+                          {...passwordForm.register('new_password', {
+                            required: 'Password is required',
+                            minLength: { value: 8, message: 'Min 8 characters' },
+                            pattern: {
+                              value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/,
+                              message: 'Must include uppercase, lowercase, number, special char',
+                            },
+                          })}
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          className="input-field pl-10 pr-10"
+                        />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-dark-400">
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {passwordForm.formState.errors.new_password && (
+                        <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.new_password.message}</p>
+                      )}
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">Confirm Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
-                    <input
-                      {...passwordForm.register('confirm_password', { required: 'Please confirm password' })}
-                      type="password"
-                      placeholder="••••••••"
-                      className="input-field pl-10"
-                      disabled={otpSent}
-                    />
-                  </div>
-                  {passwordForm.formState.errors.confirm_password && (
-                    <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.confirm_password.message}</p>
-                  )}
-                </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">Confirm Password</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
+                        <input
+                          {...passwordForm.register('confirm_password', { required: 'Please confirm password' })}
+                          type="password"
+                          placeholder="••••••••"
+                          className="input-field pl-10"
+                        />
+                      </div>
+                      {passwordForm.formState.errors.confirm_password && (
+                        <p className="text-xs text-red-500 mt-1">{passwordForm.formState.errors.confirm_password.message}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
 
-                {otpSent && (
+                {step === 'verify' && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                     <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5 mt-4">Enter OTP</label>
                     <input
@@ -152,16 +167,22 @@ export default function ChangePasswordModal({ isOpen, onClose }: { isOpen: boole
                   </motion.div>
                 )}
 
-                {!otpSent ? (
+                {step === 'request' ? (
                   <button type="button" onClick={handleRequestOTP} disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
                       <span className="flex items-center justify-center gap-2">Send OTP <ArrowRight className="w-4 h-4" /></span>
                     )}
                   </button>
+                ) : step === 'verify' ? (
+                  <button type="button" onClick={handleVerifyOTP} disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
+                      <span className="flex items-center justify-center gap-2">Verify OTP <ArrowRight className="w-4 h-4" /></span>
+                    )}
+                  </button>
                 ) : (
                   <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3 mt-2">
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
-                      <span className="flex items-center justify-center gap-2">Verify & Change Password <ArrowRight className="w-4 h-4" /></span>
+                      <span className="flex items-center justify-center gap-2">Change Password <ArrowRight className="w-4 h-4" /></span>
                     )}
                   </button>
                 )}

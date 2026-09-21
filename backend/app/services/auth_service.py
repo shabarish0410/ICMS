@@ -136,6 +136,32 @@ def request_change_password_otp(user_id: int) -> Dict[str, Any]:
     return response
 
 
+def verify_change_password_otp_only(user_id: int, otp: str) -> None:
+    """Verify the user's OTP without consuming it, to allow a multi-step UI flow."""
+    supabase = get_supabase()
+    
+    identifier = f"change_pwd_{user_id}"
+    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    if not otp_res.data:
+        raise ValidationError("No OTP requested for this action")
+        
+    otp_record = otp_res.data[0]
+    now = datetime.now(timezone.utc)
+    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    
+    if now > expires_at:
+        raise ValidationError("OTP has expired")
+        
+    if otp_record["attempts"] >= 3:
+        raise ValidationError("Maximum OTP verification attempts exceeded.")
+        
+    if not verify_password(otp, otp_record["otp_hash"]):
+        attempts = otp_record["attempts"] + 1
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", identifier).execute()
+        raise ValidationError(f"Invalid OTP. {3 - attempts} attempts remaining.")
+    
+    # Do not delete the OTP here; it will be deleted when the password is actually changed.
+
 def change_user_password(user_id: int, new_password: str, otp: str) -> None:
     """Change the user's password."""
     supabase = get_supabase()
