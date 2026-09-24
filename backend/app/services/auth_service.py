@@ -13,6 +13,12 @@ from app.core.exceptions import NotFoundError, PermissionDeniedError, Validation
 
 logger = logging.getLogger("icms.auth")
 
+def _parse_datetime(dt_str: str) -> datetime:
+    dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
 def authenticate_user(ic_number: str, password: str) -> Dict[str, Any]:
     """Authenticate user and return access tokens (2FA removed)."""
     supabase = get_supabase()
@@ -105,7 +111,7 @@ def request_change_password_otp(user_id: int) -> Dict[str, Any]:
     
     if otp_res.data:
         otp_record = otp_res.data[0]
-        created_at = datetime.fromisoformat(otp_record["created_at"].replace("Z", "+00:00"))
+        created_at = _parse_datetime(otp_record["created_at"])
         if now - created_at < timedelta(seconds=30):
             cooldown_left = 30 - int((now - created_at).total_seconds())
             raise BusinessLogicError(f"Please wait {cooldown_left} seconds before requesting a new OTP.", status_code=429)
@@ -147,7 +153,7 @@ def verify_change_password_otp_only(user_id: int, otp: str) -> None:
         
     otp_record = otp_res.data[0]
     now = datetime.now(timezone.utc)
-    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    expires_at = _parse_datetime(otp_record["expires_at"])
     
     if now > expires_at:
         raise ValidationError("OTP has expired")
@@ -173,7 +179,7 @@ def change_user_password(user_id: int, new_password: str, otp: str) -> None:
         
     otp_record = otp_res.data[0]
     now = datetime.now(timezone.utc)
-    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    expires_at = _parse_datetime(otp_record["expires_at"])
     
     if now > expires_at:
         supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
@@ -287,7 +293,7 @@ def verify_password_reset_otp(ic_number: str, otp: str, new_password: str) -> No
         raise ValidationError("No OTP requested for this user")
         
     otp_record = otp_res.data[0]
-    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace('Z', '+00:00'))
+    expires_at = _parse_datetime(otp_record["expires_at"])
     if datetime.now(timezone.utc) > expires_at:
         raise ValidationError("OTP has expired")
         
@@ -315,7 +321,7 @@ def request_registration_otp(mobile: str) -> Dict[str, Any]:
     
     if otp_res.data:
         otp_record = otp_res.data[0]
-        created_at = datetime.fromisoformat(otp_record["created_at"].replace("Z", "+00:00"))
+        created_at = _parse_datetime(otp_record["created_at"])
         time_elapsed = now - created_at
         if time_elapsed < timedelta(seconds=30):
             cooldown_left = 30 - int(time_elapsed.total_seconds())
@@ -364,7 +370,7 @@ def register_new_student(req: RegisterRequest) -> Dict[str, Any]:
         
     otp_record = otp_res.data[0]
     now = datetime.now(timezone.utc)
-    expires_at = datetime.fromisoformat(otp_record["expires_at"].replace("Z", "+00:00"))
+    expires_at = _parse_datetime(otp_record["expires_at"])
     
     if expires_at < now:
         supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
