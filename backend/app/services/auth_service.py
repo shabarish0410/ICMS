@@ -107,7 +107,7 @@ def request_change_password_otp(user_id: int) -> Dict[str, Any]:
     identifier = f"change_pwd_{user_id}"
     
     now = datetime.now(timezone.utc)
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", identifier).execute()
     
     if otp_res.data:
         otp_record = otp_res.data[0]
@@ -120,7 +120,7 @@ def request_change_password_otp(user_id: int) -> Dict[str, Any]:
     expires_at = (now + timedelta(minutes=5)).isoformat()
     
     otp_data = {
-        "identifier": identifier,
+        "mobile": identifier,
         "otp_hash": hash_password(otp),
         "attempts": 0,
         "expires_at": expires_at,
@@ -128,7 +128,7 @@ def request_change_password_otp(user_id: int) -> Dict[str, Any]:
     }
     
     if otp_res.data:
-        supabase.table("otp_verifications").update(otp_data).eq("identifier", identifier).execute()
+        supabase.table("otp_verifications").update(otp_data).eq("mobile", identifier).execute()
     else:
         supabase.table("otp_verifications").insert(otp_data).execute()
         
@@ -147,7 +147,7 @@ def verify_change_password_otp_only(user_id: int, otp: str) -> None:
     supabase = get_supabase()
     
     identifier = f"change_pwd_{user_id}"
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", identifier).execute()
     if not otp_res.data:
         raise ValidationError("No OTP requested for this action")
         
@@ -163,7 +163,7 @@ def verify_change_password_otp_only(user_id: int, otp: str) -> None:
         
     if not verify_password(otp, otp_record["otp_hash"]):
         attempts = otp_record["attempts"] + 1
-        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", identifier).execute()
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("mobile", identifier).execute()
         raise ValidationError(f"Invalid OTP. {3 - attempts} attempts remaining.")
     
     # Do not delete the OTP here; it will be deleted when the password is actually changed.
@@ -173,7 +173,7 @@ def change_user_password(user_id: int, new_password: str, otp: str) -> None:
     supabase = get_supabase()
     
     identifier = f"change_pwd_{user_id}"
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", identifier).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", identifier).execute()
     if not otp_res.data:
         raise ValidationError("No OTP requested for this action")
         
@@ -182,19 +182,19 @@ def change_user_password(user_id: int, new_password: str, otp: str) -> None:
     expires_at = _parse_datetime(otp_record["expires_at"])
     
     if now > expires_at:
-        supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+        supabase.table("otp_verifications").delete().eq("mobile", identifier).execute()
         raise ValidationError("OTP has expired")
         
     if otp_record["attempts"] >= 3:
-        supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+        supabase.table("otp_verifications").delete().eq("mobile", identifier).execute()
         raise ValidationError("Maximum OTP verification attempts exceeded.")
         
     if not verify_password(otp, otp_record["otp_hash"]):
         attempts = otp_record["attempts"] + 1
-        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", identifier).execute()
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("mobile", identifier).execute()
         raise ValidationError(f"Invalid OTP. {3 - attempts} attempts remaining.")
         
-    supabase.table("otp_verifications").delete().eq("identifier", identifier).execute()
+    supabase.table("otp_verifications").delete().eq("mobile", identifier).execute()
 
     supabase.table("users").update({
         "password_hash": hash_password(new_password),
@@ -317,7 +317,7 @@ def request_registration_otp(mobile: str) -> Dict[str, Any]:
         raise ValidationError("Mobile number is already registered")
 
     now = datetime.now(timezone.utc)
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", mobile).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", mobile).execute()
     
     if otp_res.data:
         otp_record = otp_res.data[0]
@@ -331,7 +331,7 @@ def request_registration_otp(mobile: str) -> Dict[str, Any]:
     expires_at = (now + timedelta(minutes=5)).isoformat()
     
     otp_data = {
-        "identifier": mobile,
+        "mobile": mobile,
         "otp_hash": hash_password(otp),
         "attempts": 0,
         "expires_at": expires_at,
@@ -339,7 +339,7 @@ def request_registration_otp(mobile: str) -> Dict[str, Any]:
     }
     
     if otp_res.data:
-        supabase.table("otp_verifications").update(otp_data).eq("identifier", mobile).execute()
+        supabase.table("otp_verifications").update(otp_data).eq("mobile", mobile).execute()
     else:
         supabase.table("otp_verifications").insert(otp_data).execute()
         
@@ -364,7 +364,7 @@ def register_new_student(req: RegisterRequest) -> Dict[str, Any]:
     if supabase.table("users").select("id").eq("mobile", req.mobile).execute().data:
         raise ValidationError("Mobile number is already registered")
 
-    otp_res = supabase.table("otp_verifications").select("*").eq("identifier", req.mobile).execute()
+    otp_res = supabase.table("otp_verifications").select("*").eq("mobile", req.mobile).execute()
     if not otp_res.data:
         raise ValidationError("No OTP requested for this mobile number")
         
@@ -373,16 +373,16 @@ def register_new_student(req: RegisterRequest) -> Dict[str, Any]:
     expires_at = _parse_datetime(otp_record["expires_at"])
     
     if expires_at < now:
-        supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
+        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
         raise ValidationError("OTP has expired. Please request a new one.")
 
     if otp_record["attempts"] >= 3:
-        supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
+        supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
         raise ValidationError("Maximum OTP verification attempts exceeded.")
 
     if not verify_password(req.otp, otp_record["otp_hash"]):
         attempts = otp_record["attempts"] + 1
-        supabase.table("otp_verifications").update({"attempts": attempts}).eq("identifier", req.mobile).execute()
+        supabase.table("otp_verifications").update({"attempts": attempts}).eq("mobile", req.mobile).execute()
         raise ValidationError(f"Invalid OTP. {3 - attempts} attempts remaining.")
 
     role_res = supabase.table("roles").select("id").eq("name", "student").execute()
@@ -422,7 +422,7 @@ def register_new_student(req: RegisterRequest) -> Dict[str, Any]:
         "details": {"method": "mobile_otp"}
     }).execute()
     
-    supabase.table("otp_verifications").delete().eq("identifier", req.mobile).execute()
+    supabase.table("otp_verifications").delete().eq("mobile", req.mobile).execute()
 
     access_token = create_access_token({"sub": str(user_id), "role": "student"})
     refresh_token = create_refresh_token({"sub": str(user_id)})
